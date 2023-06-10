@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.25
+# v0.19.26
 
 using Markdown
 using InteractiveUtils
@@ -14,7 +14,7 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ 9f90a18b-114f-4039-9aaf-f52c77205a49
+# ╔═╡ 9edaaf3c-2973-11ed-193f-d500cbe5d239
 begin
 	using LinearAlgebra
 	using PlutoUI
@@ -25,29 +25,22 @@ begin
 	using Statistics
 	using HypertextLiteral
 	using Plots; default(fontfamily="Computer Modern", framestyle=:box) # LaTex-style
-	
 end
 
-# ╔═╡ 959d3f6e-ad5b-444f-9000-825063598837
-using Zygote
-
-# ╔═╡ 81b26abe-c275-4f1e-96de-30d30651ae85
-using ForwardDiff
-
-# ╔═╡ 3e2e1ea8-3a7d-462f-ac38-43a087907a14
+# ╔═╡ f932c963-31d2-4e0f-ad40-2ca2447f4059
 TableOfContents()
 
-# ╔═╡ 7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
+# ╔═╡ 3d168eee-aa69-4bd0-b9d7-8a9808e59170
 ChooseDisplayMode()
 
-# ╔═╡ bc96a33d-9011-41ec-a19e-d472cbaafb70
+# ╔═╡ 457b21c1-6ea9-4983-b724-fb5cbb69739d
 md"""
 
 # CS5914 Machine Learning Algorithms
 
 
-#### Vector calculus 3
-##### Local approximation
+#### Projection, Pseudo inverse and Normal equation
+
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -60,439 +53,474 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 
 """
 
-# ╔═╡ 6ada36dd-885b-4c58-a67b-ffd87d044437
+# ╔═╡ 5e774ede-251e-4321-b241-9bba130526ce
 md"""
 
-# Local approximation 
-
-#### The essense of differential calculus
-
+# General projection
 """
 
-# ╔═╡ 6abbb3b7-e65c-460c-a85e-0737fe4fac3f
+# ╔═╡ b82902b8-75a2-484c-9e95-0aa85e7ffe43
 md"""
 
-## Linear approximation
+
+## Matrix vector product ``\mathbf{Av}``: linear combination view
 
 
-> If ``f: \mathbb R \rightarrow \mathbb R`` is differentiable at ``x_0``, then
-> 
-> ``f(x)`` can be locally approximated by a linear function
-> ```math
-> \Large
-> \begin{align}
-> f(x) &\approx f(x_0) + f'(x_0)(x-x_0) 
-> \end{align}
-> ```
+Note that ``\mathbf{A}`` is  a collection of ``\large m`` **column vectors**
 
-
-"""
-
-# ╔═╡ 028da25e-2568-49d7-8d3e-b0bfc8387841
-f(x) = x * sin(x^2) + 1; # you can change this function!
-
-# ╔═╡ 4ce6b9c6-4563-4e69-8929-29957ae377b4
-md" Move me ``x_0``:$(@bind x̂ Slider(-2:0.2:3, default=-1.5, show_value=true))"
-
-# ╔═╡ 2c74ae59-dfbf-43d1-b16a-0111cc025b8e
-begin
-    # Plot function
-    xs = range(-2, 3, 200)
-    ymin, ymax = extrema(f.(xs))
-    p = plot(
-        xs,
-        f;
-        label=L"$f(x)$",
-        xlabel=L"x",
-        legend=:topleft,
-        ylims = (ymin - .5, ymax + .5),
-        legendfontsize=10,
-		lw = 2,
-		ratio = .7,
-		framestyle=:zerolines
-    )
-
-    # Obtain the function 𝒟fₓ̃ᵀ
-    ŷ, 𝒟fₓ̂ᵀ = Zygote.pullback(f, x̂)
-
-    # Plot Dfₓ̃(x)
-    # plot!(p, xs, w -> 𝒟fₓ̂ᵀ(w)[1]; label=L"Derivative $\mathcal{D}f_\tilde{x}(x)$")
-    # Show point of linearization
-    vline!(p, [x̂]; style=:dash, c=:gray, label=L"x_0")
-    # Plot 1st order Taylor series approximation
-    taylor_approx(x) = f(x̂) + 𝒟fₓ̂ᵀ(x - x̂)[1] # f(x) ≈ f(x̃) + 𝒟f(x̃)(x-x̃)
-    plot!(p, xs, taylor_approx; label=L"Linear approx. at $x_0$", lc=2,  lw=2)
-end
-
-# ╔═╡ 741f95e7-1cef-42f8-b088-b12326380ee0
-
-md"""
-## 
-
-Multivariate calculus does the trick:
-
-> If ``f: \mathbb R^n \rightarrow \mathbb R`` is differentiable at ``\mathbf{x}_0``, then
-> 
-> ``f(\mathbf{x})`` can be approximated by a linear function (locally at ``\mathbf{x}_0``)
-> ```math
-> \Large
-> \begin{align}
-> f(\mathbf{x}) &\approx f(\mathbf{x}_0) + \nabla f(x_0)^\top(\mathbf{x}-\mathbf{x}_0) 
-> \end{align}
-> ```
-
-"""
-
-# ╔═╡ e0bed372-be6c-4b64-8430-f17de915ae22
-begin 
-	qform(x; A=A_, b=bv_, c=c_) = x' * A * x + b'* x + c
-end
-
-# ╔═╡ ff5e5acd-52ab-4b21-b2c3-4e0f85329036
-linear_approx(x; x₀, f) = f(x₀) + dot(ForwardDiff.gradient(f, x₀), x-x₀)
-
-# ╔═╡ d796aec6-7407-4b44-ba28-de71ed89f108
-let
-	plotly()
-	A_ = Matrix(I, 2, 2)
-	bv_ = [3.5, 3.5]
-	cv_= 0.5
-	xmin_0 = -0.5 * A_^(-1) * bv_
-	xs = range(xmin_0[1]-8, xmin_0[1]+8, 100)
-	ys = range(xmin_0[2]-8, xmin_0[2]+8, 100)
-	ff(x) = qform(x; A=A_, b= bv_, c= cv_)
-	plot(xs, -8:.5:8, (x1, x2) -> ff([x1, x2]), st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=1, framestyle=:zerolines, ratio=1, c=:jet, colorbar=false)
-	x0 = [2, -2]
-
-
-	plot!(xs, -8:1:8, (x1, x2) -> linear_approx([x1, x2]; x₀ = x0, f=ff), st=:surface, alpha=0.8,  c=:blue, colorbar=false)
-	# scatter!([xmin_0[1]],[xmin_0[2]], [qform(xmin_0)], label="x': min/max/station")
-end
-
-# ╔═╡ fb7ee765-3bed-454d-a19e-ca79bcef57ed
-md"""
-
-## Qudratic approximation
-
-
-> If ``f: \mathbb R \rightarrow \mathbb R`` is differentiable at ``x_0``, then
-> 
-> ``f(x)`` can be locally approximated by a quadratic function
-> ```math
-> \Large
-> \begin{align}
-> f(x) &\approx f(x_0) + f'(x_0)(x-x_0) + \frac{1}{2}\underbrace{\boxed{f^{''}(x_0)}}_{\text{\small second order derivative}}(x-x_0)^2
-> \end{align}
-> ```
-
-
-"""
-
-# ╔═╡ f601ef17-f0db-4af2-97aa-35f080a08763
-md"Add approx. $(@bind add_quadratic CheckBox()); Move me ``x_0``: $(@bind x̂_ Slider(-2:0.2:3, default=-1.5, show_value=true))"
-
-# ╔═╡ cafab381-5c85-4e2d-ba7f-7db2cb148bbf
-let
-	gr()
-	x̂ = x̂_
-    # Plot function
-    xs = range(-2, 3, 200)
-    ymin, ymax = extrema(f.(xs))
-    p = plot(
-        xs,
-        f;
-        label=L"$f(x)$",
-        xlabel=L"x",
-        legend=:outerbottom,
-        ylims = (ymin - .5, ymax + .5),
-        legendfontsize=10,
-		lw = 3,
-		ratio = .7,
-		framestyle=:zerolines,
-		size=(800,600)
-    )
-
-    # Obtain the function 𝒟fₓ̃ᵀ
-    # ŷ, 𝒟fₓ̂ᵀ = Zygote.pullback(f, x̂)
-	fprime = ForwardDiff.derivative(f, x̂)
-	fprimep = ForwardDiff.derivative(x -> ForwardDiff.derivative(f, x), x̂)
-    function taylor_approx(x; x̂, order = 1) 
-		fx = f(x̂) + fprime * (x - x̂)
-		if order > 1
-			fx += .5 * fprimep * (x-x̂)^2	
-		end# f(x) ≈ f(x̃) + 𝒟f(x̃)(x-x̃)
-		return fx
-	end
-    plot!(p, xs, (x) -> taylor_approx(x; x̂=x̂); label=L"linear approx. at $x_0$", lc=2,  lw=2, title="Linear approximation")
-	if add_quadratic
+```math
+\large
+\mathbf{A}  =\begin{bmatrix}
+	\vert & \vert &  & \vert\\
+	\mathbf{a}_1 & \mathbf{a}_2 & \ldots & \mathbf{a}_{m} \\
+	\vert & \vert & & \vert 
+	\end{bmatrix}\;  \text{and}\; \mathbf{v} =\begin{bmatrix}
+	v_1\\
+	v_2 \\
+	\vdots\\
 	
-		plot!(p, xs, (x) -> taylor_approx(x; x̂=x̂, order=2); label=L"quadratic approx. at $x_0$", lc=3,  lw=3, title="Quadratic approximation")
+	v_m
+	\end{bmatrix}
 
-	end
-
-	p
-
-	# xq = x̂ + 0.9
-	# annotate!([xq], [taylor_approx(xq; x̂=x̂, order=2)], text("Quadratic approx"))
-
-end
-
-# ╔═╡ af44a8d5-b44e-4b82-a65d-04743ef2d49d
-md"""
-## Hessian matrix -- second order gradient
-
-For a multivariate function ``f: \mathbb{R}^n \rightarrow \mathbb{R}``, the equivalence of ``f''`` is **Hessian** matrix
-
-> The **Hessian** matrix (the second order gradient) is defined as 
-> ```math
-> \Large
->
-> \mathbf{H} = \begin{bmatrix} \frac{\partial^2 f}{\partial x_1^2} &  \frac{\partial^2 f}{\partial x_1 x_2} & \ldots & \frac{\partial^2 f}{\partial  x_1x_n} \\
-> \frac{\partial^2 f}{\partial x_2x_1} & \frac{\partial^2 f}{\partial x_2^2} &  \ldots & \frac{\partial^2 f}{\partial x_2x_n}\\
-> \vdots & \vdots & \ddots & \vdots\\
-> \frac{\partial^2 f}{\partial x_nx_1} & \frac{\partial^2 f}{\partial x_n x_2} &  \ldots & \frac{\partial^2 f}{\partial x_n^2}
-> \end{bmatrix}
->
-> ```
-"""
-
-# ╔═╡ 2d8a9a78-ed85-49e4-a022-dc91cd15d31f
-md"""
-
-## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
-
-
-For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
-
-```math
-\large 
-f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
 ```
 
-The gradient is 
 
-$$
-\large
-\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
-
-
-The Hessian is
-
-$$
-\large
-\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} =$$
-
-
-"""
-
-# ╔═╡ 4b566c78-21df-44ab-a1eb-d303ad071adf
-md"""
-
-## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
-
-
-For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
 
 ```math
-\large 
-f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
+\large
+
 ```
 
-The gradient is 
 
-$$
-\large
-\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
+!!! important "Matrix vector: linear combo view"	
+	```math
+	\large
+	\begin{align}
+	\mathbf{A}\mathbf{v} &=  \begin{bmatrix}
+	\vert & \vert &  & \vert\\
+	\mathbf{a}_1 & \mathbf{a}_2 & \ldots & \mathbf{a}_{m} \\
+	\vert & \vert & & \vert 
+	\end{bmatrix}  \begin{bmatrix}
+	v_1\\
+	v_2 \\
+	\vdots\\
+	v_m
+	\end{bmatrix}  =  v_1\begin{bmatrix}
+           \vert\\
+           \mathbf{a}_{1}\\
+           \vert
+         \end{bmatrix} + v_2\begin{bmatrix}
+           \vert\\
+           \mathbf{a}_{2}\\
+           \vert
+         \end{bmatrix} + \ldots v_m\begin{bmatrix}
+           \vert\\
+           \mathbf{a}_{m}\\
+           \vert
+         \end{bmatrix}\\
+	& = \sum_{i=1}^m v_i \mathbf{a}_i
+	\end{align}
+	```
 
-
-The Hessian is
-
-$$
-\large
-\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} = \begin{bmatrix}\textcolor{red}{\frac{\partial(\partial (x_1^2+x_2^2))}{\partial x_1 \partial x_1}=\frac{\partial(2x_1)}{\partial x_1}} & \cdot \\ \cdot  & \cdot \end{bmatrix}$$
+> ``\mathbf{Av}`` is a linear combination of the column vectors of ``\mathbf{A}``
 
 
 """
 
-# ╔═╡ 0834df4c-49bf-43d9-9213-3ce5d18ee471
+# ╔═╡ 918813ef-46b3-48f0-a148-a2caa5dd3fc1
 md"""
 
-## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
-
-
-For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
-
-```math
-\large 
-f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
-```
-
-The gradient is 
-
-$$
-\large
-\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
-
-
-The Hessian is
-
-$$
-\large
-\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} = \begin{bmatrix}2 & \textcolor{red}{\frac{\partial(\partial (x_1^2+x_2^2))}{\partial x_1 \partial x_2}=\frac{\partial(2x_1)}{\partial x_2}} \\ \cdot  & \cdot \end{bmatrix}$$
-
-
+## Example
 """
 
-# ╔═╡ 9b3fbc5c-5a0d-47db-9cbf-86bc3c381038
-md"""
-
-## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
-
-
-For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
-
-```math
-\large 
-f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
-```
-
-The gradient is 
-
-$$
-\large
-\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
-
-
-The Hessian is
-
-$$
-\large
-\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} = \begin{bmatrix}2 & 0\\ 0  & 2 \end{bmatrix}$$
-
-
-"""
-
-# ╔═╡ 77da11a9-f7d0-49e6-8a8c-7f4cb70f369e
-md"""
-
-## Qudratic approximation
-
-
-> If ``f: \mathbb R \rightarrow \mathbb R`` is differentiable at ``x_0``, then
+# ╔═╡ bbe94dfe-63fb-4a94-801f-ecaa0829382b
+Foldable("The column space", md"
+> The column space ?
 > 
-> ``f(x)`` can be locally approximated by a **quadratic** function
-> ```math
-> \Large
-> \begin{align}
-> f(x) &\approx f(x_0) + f'(x_0)(x-x_0) + \frac{1}{2}\underbrace{f^{''}(x_0)(x-x_0)^2}_{(x-x_0)f^{''}(x_0)(x-x_0)}
-> \end{align}
-> ```
+>  ``\{v_1 \textcolor{red}{\mathbf{a}_1} + v_2 \textcolor{green}{\mathbf{a}_2}\}:`` the whole shaded **plane**
 
-The multivariate **generalisation**
+")
 
-> If ``f: \mathbb R^n \rightarrow \mathbb R`` is differentiable at ``\mathbf{x}_0``, then
-> 
-> ``f(\mathbf{x})`` can be locally approximated by a **quadratic** function
-> ```math
-> \Large
-> \begin{align}
-> f(\mathbf{x}) &\approx f(\mathbf{x}_0) + \nabla f(\mathbf{x}_0)^\top(\mathbf{x}- \mathbf{x}_0) + \\
-> &\;\;\;\;\;\;\frac{1}{2}(\mathbf{x}-\mathbf{x}_0)^\top \mathbf{H}(\mathbf{x}_0)(\mathbf{x}-\mathbf{x}_0)
-> \end{align}
-> ```
+# ╔═╡ ae0cf110-2f08-4f31-b4c5-8229d19812c8
+begin
+	a1 = [1.5, 3, 0]
+	a2 = [3, 0, 0]
+end;
+
+# ╔═╡ 87f1d70f-51bb-4a72-9b2f-44142f26d040
+md"
+Add ``\mathbf{u}`` $(begin @bind add_u CheckBox(default=false) end) ;
+Add column space $(begin @bind add_av CheckBox(default=false) end) 
+"
+
+# ╔═╡ ff4da64b-a12e-4e9a-93e0-77de49ab882e
+md"""
+
+ 
+``v_1`` = $(@bind v₁_ Slider(-2:0.1:3, default=.5, show_value=true)) 
+``v_2`` = $(@bind v₂_ Slider(-2:0.1:3, default=-.9, show_value=true))
+
 """
 
-# ╔═╡ 7983531e-b452-43d9-bf37-7feb5ae0ebab
+# ╔═╡ be9922ff-4493-4e17-8229-dfbfadf23842
+aside(tip(md"If ``\mathbf{A}`` is **invertible**, the solution is simple
+
+```math
+\large
+\mathbf{v} = \mathbf{A}^{-1}\mathbf{b}
+```
+"))
+
+# ╔═╡ 69f63143-4486-4389-a6cc-ddb6408a3414
+md"""
+## Solve ``\mathbf{Av}=\mathbf{b}``
+
+
+!!! warning "Question"
+	In ML applications, we often tasked to solve
+
+	$$\large \mathbf{Av}=\mathbf{b}$$ **for**  ``\mathbf{v} \in R^m``; What is the **geometric interpretation** ?
+
+
+
+**For example**
+
+```math
+\Large
+\underbrace{\begin{bmatrix}1 & 3 \\ 3 & 0\\ 0 &0\end{bmatrix}_{3\times 2}}_{\mathbf{A}}\underbrace{\begin{bmatrix}\columncolor{\lightsalmon}v_1 \\ v_2 \end{bmatrix}_{2\times 1}}_{\mathbf{v}} = \underbrace{\begin{bmatrix}3 \\ 1 \\ 1\end{bmatrix}_{3\times 1}}_{\mathbf{b}}
+```
+
+
+
+
+## Solve ``\mathbf{Av}=\mathbf{b}``
+
+
+!!! warning "Question"
+	In ML applications, we often tasked to solve
+
+	$$\large \mathbf{Av}=\mathbf{b}$$ **for**  ``\mathbf{v} \in R^m``; What is the **geometric interpretation** ?
+
+
+
+"""
+
+# ╔═╡ cb09c906-27c0-4e77-8941-b0043bf4edfe
+md"""
+!!! answer "Answer"
+	```math
+		v_1\begin{bmatrix}
+           \vert\\
+           \mathbf{a}_{1}\\
+           \vert
+         \end{bmatrix} + v_2\begin{bmatrix}
+           \vert\\
+           \mathbf{a}_{2}\\
+           \vert
+         \end{bmatrix} + \ldots v_m\begin{bmatrix}
+           \vert\\
+           \mathbf{a}_{m}\\
+           \vert
+         \end{bmatrix}  = \begin{bmatrix} \vert\\ \mathbf{b} \\ \vert\end{bmatrix}
+	```
+	> Does ``\mathbf{b}`` lives in the column space of ``\mathbf{A}``?
+	* if so, there is (are) solutions(s)
+	* otherwise, there is no **exact** solution
+
+
+
+"""
+
+# ╔═╡ 4a91da1c-fa3f-4926-a068-5b70a1c8e534
+Foldable("Example", md"""
+
+In our example,
+
+```math
+\Large
+\underbrace{\begin{bmatrix}1 & 3 \\ 3 & 0\\ 0 &0\end{bmatrix}}_{\mathbf{A}}\underbrace{\begin{bmatrix}v_1 \\ v_2 \end{bmatrix}}_{\mathbf{v}} = \underbrace{\begin{bmatrix}3 \\ 1 \\ 1\end{bmatrix}}_{\mathbf{b}}
+```
+
+
+```math
+\Large
+v_1 \begin{bmatrix}1  \\ 3 \\ 0 \end{bmatrix}_{\mathbf{a}_1} +v_2 \begin{bmatrix}3  \\ 0 \\ 0 \end{bmatrix}_{\mathbf{a}_2} = \begin{bmatrix}3 \\ 1 \\ 1\end{bmatrix}_{\mathbf{b}}
+```
+
+
+
+* does ``\mathbf{b}`` live in the column space of ``\mathbf{A}``
+""")
+
+# ╔═╡ 64b14177-03ec-4b28-933c-d2a224ae1daa
 md"""
 
 ## Demonstration
 
 
-As a concrete example, 
-
-
-```math
-\Large
-f(\mathbf{x})= \cos(x_1) \cos(x_2)
-```
-
-
-Its quadratic approximation is ?
 """
 
-# ╔═╡ 8627646b-90a6-4483-98ea-9326cc769e8c
-Foldable("Gradient, Hessian and the appoximation", md"
+# ╔═╡ 467b7150-63c1-4d66-8ff7-174b5b108b9c
+md"
+Add ``\mathbf{b}`` $(begin @bind add_b CheckBox(default=false) end) ,
+Add solution $(begin @bind add_sol CheckBox(default=false) end) 
+"
 
-The gradient is 
+# ╔═╡ e1212d95-be2f-401d-859e-9ef36896b3a3
+bv = [3.,1.5,0];
+
+# ╔═╡ 9c10528e-3738-4a19-a9c3-e8ec587c418d
+let
+
+ 	A = [a1 a2]
+
+	A * (A \ bv) ≈ bv
+
+end;
+
+# ╔═╡ 8ecbe257-f3c6-447c-b686-b8d3cf22c79c
+md"""
+
+## Demonstration
+
+
+"""
+
+# ╔═╡ 3416ed8b-3d4f-421c-8330-c4fbfbfeb02c
+Foldable("The approx. solution is actually:", md"
+* *i.e.* its **projection** 
+")
+
+# ╔═╡ 0fc1e8bf-8635-46cd-af49-827fd5e9769c
+md"
+Add projection $(begin @bind add_proj CheckBox(default=false) end) 
+"
+
+# ╔═╡ 8f6489bc-ac10-491c-acb2-aab36bd99d57
+md"""
+
+ 
+``v_1`` = $(@bind v₁ Slider(0:0.5:5, default=2)) 
+``v_2`` = $(@bind v₂ Slider(0:0.5:5, default=2))
+
+"""
+
+# ╔═╡ f0fbc7ac-81ba-4837-8a5e-9369a750a8f8
+bp = [v₁,v₂,0];
+
+# ╔═╡ 8407339b-d366-4062-8c72-600b0b398cdf
+md"""
+
+## General projection
+
+
+"""
+
+# ╔═╡ e136f6c3-9e1c-4a7c-ab55-77578602d97a
+md"""
+
+## General projection
+
+By the very definition of projection, 
+
+
+> The error vector should be ``\perp`` to the column space vectors
+"""
+
+# ╔═╡ a90f7143-5fa4-4799-87a8-0db93b166bd1
+md"""
+
+## General projection
+
+By the very definition of projection, 
+
+
+> The error vector should be ``\perp`` to the column space vectors
+
+In maths,
 
 ```math
-\nabla f(\mathbf{x}) = [-\cos(x_2) \sin(x_1), -\cos(x_1)\sin(x_2)]^\top
+\large
+(\mathbf{b} - \mathbf{Av}) \perp \{\mathbf{a}_1, \mathbf{a}_2, \ldots, \mathbf{a}_m\}
 ```
 
-The Hessian is 
+Or equivalently, by inner product
 
 ```math
-\mathbf{H}(\mathbf{x}) =\begin{bmatrix}-\cos(x_2) \cos(x_1) & \sin(x_1) \sin(x_2) \\ \sin(x_2) \sin(x_1)& -\cos(x_1) \cos(x_2)\end{bmatrix}
-```
-
-Then the approximation is 
-```math
-
+\large
 \begin{align}
-f(\mathbf{x}) \approx f(\mathbf{x}_0) + \nabla f(\mathbf{x}_0)^\top(\mathbf{x}- \mathbf{x}_0) + \frac{1}{2}(\mathbf{x}-\mathbf{x}_0)^\top \mathbf{H}(\mathbf{x}_0)(\mathbf{x}-\mathbf{x}_0)
+(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_1 &= 0\\
+(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_2 &= 0\\
+\vdots\\
+(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_m &= 0\\
+\end{align}
+```
+
+
+"""
+
+# ╔═╡ 257ebc69-2f01-4154-a7d4-a67ee42c63c1
+md"""
+
+## General projection
+
+By the very definition of projection, 
+
+
+> The error vector should be ``\perp`` to the column space vectors
+
+In maths,
+
+```math
+\large
+(\mathbf{b} - \mathbf{Av}) \perp \{\mathbf{a}_1, \mathbf{a}_2, \ldots, \mathbf{a}_m\}
+```
+
+Or equivalently,
+
+```math
+\large
+\begin{align}
+(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_1 &= 0\\
+(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_2 &= 0\\
+\vdots\\
+(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_m &= 0\\
+\end{align}
+```
+
+Finally, **in matrix** notations, 
+
+> ```math
+> \large
+> (\mathbf{b} - \mathbf{Av})^\top 
+>	 \begin{bmatrix}
+>	\vert & \vert &  & \vert\\
+>	\mathbf{a}_1 & \mathbf{a}_2 & \ldots & \mathbf{a}_{m} \\
+>	\vert & \vert & & \vert 
+>	\end{bmatrix} \Rightarrow (\mathbf{b} - \mathbf{Av})^\top \mathbf{A} = \mathbf{0} 
+> ```
+
+"""
+
+# ╔═╡ 60e79a25-ec65-452b-811d-9fbf4cfdbde7
+md"""
+
+## General projection
+
+
+> ```math
+> \large
+>  (\mathbf{b} - \mathbf{Av})^\top \mathbf{A} = \mathbf{0} 
+> ```
+
+
+
+* solve the linear equations for ``\mathbf{v}``, 
+
+```math
+\large
+\mathbf{v} = (\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top\mathbf{b}
+```
+
+
+* the projection (of ``\mathbf{b}`` to the columns of``\mathbf{A}``): 
+$\large
+{\mathbf{b}}_{\text{proj}}  = \underbrace{\mathbf{A}(\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top}_{\rm proj. matrix}\mathbf{b}$
+
+
+
+"""
+
+# ╔═╡ e1dbd92e-f10c-4bd1-85ff-79276074fd7f
+Foldable("Further details", md"Based on matrix operations,
+
+```math
+\begin{align}
+\Rightarrow & \mathbf{A}^\top (\mathbf{u} - \mathbf{Av}) = \mathbf{0}^\top \tag{apply ⊤ on both sides}\\
+\Rightarrow & \mathbf{A}^\top\mathbf{A}\mathbf{v} = \mathbf{A}^\top\mathbf{b} \tag{rearrange}\\
+\Rightarrow & \mathbf{v} = (\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top\mathbf{b}\tag{solve for v}
 \end{align}
 ```
 ")
 
-# ╔═╡ e4dcf373-c1d9-42f1-98dc-1bf74b51063d
-function f2(x)
-	# sin(prod(x))
-	prod(cos.(x))
-end;
+# ╔═╡ 2e51de20-c4f4-40be-9eca-28d2aa1ad04f
+md"""
 
-# ╔═╡ 3e29bf39-238c-460e-892e-f8651ffde277
-function taylorApprox(f, x0)
-	gx0 = ForwardDiff.gradient(f, x0)
-	hx0 = ForwardDiff.hessian(f, x0)
-	tf(x) = f(x0) + gx0' * (x-x0) + 0.5 * (x-x0)'* hx0 * (x-x0)
-end;
+Note that the *single projection matrix* is a specific case (where ``\mathbf{A}`` is single column vector ``\mathbf{a}``)
 
-# ╔═╡ e526e3ed-95b0-4bdd-9386-262ac951c000
-begin
-	gr()
-	gf2 = x -> ForwardDiff.gradient(f2, x)
-	xylim = 2.8
-	x1_ = range(-xylim, stop =xylim, length=100)
-	x2_ = range(-xylim, stop =xylim, length=100)
-	p1_ = plot(x1_, x2_, (a, b) -> f2([a, b]), st=:surface, xlabel ="x", ylabel="y", zlabel="f", colorbar=false, color=:jet)
-	# p2_= plot(contour(x1_, x2_, (a, b) -> f2([a, b])), colorbar=false)
-	# plot(p1_, p2_)
-	# plot(p1_,
+```math
+\large
+\mathbf{b}_{\text{proj}} = \frac{\mathbf{aa}^\top}{\mathbf{a}^\top\mathbf{a}} \mathbf{b} 
+```
 
-	p1_
-end
+"""
 
-# ╔═╡ d285e008-8c07-4695-80de-bc42e0a2aef8
-@bind location Select([[0., 0.], [1.5, 1.5], [-1.5, 1.5], [1.5, -1.5], [0, 3], [3, 3], [-3, -3], [-3, 3], [3, -3]])
+# ╔═╡ 11632119-7792-41b3-92f2-161aa6b35447
+md"""
 
-# ╔═╡ 5ed8c4d8-2f31-40f8-ae21-f4286c634983
-let
-	plotly()
-	tf2 = taylorApprox(f2, location)
-	xylim = 3.5
-	x1_ = range(-xylim, stop =xylim, length=100)
-	x2_ = range(-xylim, stop =xylim, length=100)
-	plot(x1_, x2_, (a, b) -> f2([a, b]), st=:surface, xlabel ="x", ylabel="y", zlim=[-1.2,1.5], zlabel="f", colorbar=false, color=:reds, alpha =0.9, ratio=1)
-	plot!(x1_, x2_, (x, y) -> tf2([x, y]),  st=:surface)
-end
+## Pseudo inverse *
 
-# ╔═╡ 0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
+Note that we were trying to solve
+
+```math
+\Large
+\mathbf{Av} = \mathbf{b}
+```
+
+
+* If ``\mathbf{A}`` **was inverible**, the solution is simple, i.e.
+
+```math
+\large
+\mathbf{v} = \mathbf{A}^{-1}\mathbf{b}
+```
+
+However, when ``\mathbf{A}`` is not invertible, here the general solution 
+
+
+> Apply **peusdo inverse** ``(\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top`` instead of ``\mathbf{A}^{-1}``: 
+> ```math
+> \large
+> \mathbf{v} = \underbrace{(\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top}_{\text{pseudo inverse}}\mathbf{b}
+> ```
+
+
+"""
+
+# ╔═╡ 84ccbf53-31d4-43c7-9da4-ac1e65fd2bf8
+Foldable("Why it is called pseudo inverse?", md"""
+
+```math
+\Large 
+\underbrace{(\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top}_{\text{pseudo inverse}}\mathbf{A} = \mathbf{I}
+```
+""")
+
+# ╔═╡ 00820112-c653-44a9-bad7-042d8ae24bde
+md"""
+
+## Summary: general projection 
+
+
+
+> To solve *generally*
+> ```math
+> \large
+> \mathbf{A}\textcolor{purple}{\mathbf{v}} =\textcolor{blue}{\mathbf{b}}
+> ```
+> for ``\textcolor{purple}{\mathbf{v}}``
+
+
+
+"""
+
+# ╔═╡ 77b40da6-4577-4968-a48d-f4ba7c6d1bca
 md"""
 
 ## Appendix
 """
 
-# ╔═╡ 8687dbd1-4857-40e4-b9cb-af469b8563e2
+# ╔═╡ 2cdfab17-49c0-4ac4-a199-3ba2e2d5d216
 function perp_square(origin, vx, vy; δ=0.1) 
 	x = δ * vx/sqrt(norm(vx))
 	y = δ * vy/sqrt(norm(vy))
@@ -502,7 +530,45 @@ function perp_square(origin, vx, vy; δ=0.1)
 	Shape([origin[1], xunit[1], xyunit[1], yunit[1]], [origin[2], xunit[2], xyunit[2], yunit[2]])
 end
 
-# ╔═╡ fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
+# ╔═╡ ddaaf4c3-2558-4b6f-aa7a-76d3cc4daea8
+plt_proj_to_a = let
+	gr()
+ 	plt = plot(xlim=[-1,3], ylim=[-1, 3], ratio=1, framestyle=:origin, size=(300, 300))
+	# quiver([0,0,0],[0,0,0],quiver=([1,1,1],[1,2,3]))
+	oo = [0,0]
+	a = [3,0]
+	b= [2,2]
+	bp = dot(a,b)/dot(a,a)*a
+	quiver!([0], [0], quiver=([a[1]], [a[2]]), lc=2, lw=2)
+	quiver!([0], [0],  quiver=([b[1]], [b[2]]), lc=1, lw=2)
+	annotate!(0+0.3, 0+0.3, text(L"\theta", :top))
+	annotate!(a[1],a[2], text(L"\mathbf{a}", :bottom))
+	annotate!(b[1],b[2], text(L"\mathbf{b}", :bottom))
+	plot!([b[1], bp[1]], [b[2],bp[2]], ls=:dash, lc=:gray, lw=2, label="")
+	annotate!(bp[1],bp[2]-0.1, text(L"\mathbf{b}_{\texttt{proj}}", :top))
+	quiver!([0], [0],  quiver=([bp[1]], [bp[2]]), lc=4, lw=2)
+	plot!(perp_square([bp[1],bp[2]], a, b -bp; δ=0.1), lw=1, fillcolor=false, label="")
+	plt
+end;
+
+# ╔═╡ 5b57849e-0491-4e94-9c77-d2481e643f2f
+TwoColumn(md"""Recall that we have studied the **simple** "_single projection_"
+\
+\
+\
+
+> Project ``\mathbf{b}`` to a **single vector** ``\mathbf{a}``
+
+Now, the problem is to project to a space of **multiple** vectors
+
+
+```math
+\{\mathbf{a}_1, \mathbf{a}_2, \ldots \}
+```
+
+""", plt_proj_to_a)
+
+# ╔═╡ be040c96-da49-44e6-9a73-7e26a1960261
 # as: arrow head size 0-1 (fraction of arrow length)
 # la: arrow alpha transparency 0-1
 function arrow3d!(x, y, z,  u, v, w; as=0.1, lc=:black, la=1, lw=0.4, scale=:identity)
@@ -520,10 +586,239 @@ function arrow3d!(x, y, z,  u, v, w; as=0.1, lc=:black, la=1, lw=0.4, scale=:ide
     end
 end
 
+# ╔═╡ 7043fade-e50d-409c-b042-fdce489c5b2f
+plt_av = let
+	gr()
+	a1 = a1
+	a2 = a2
+	A= hcat([a1, a2]...)
+ 	plt = plot(xlim=[-4,5], ylim=[-4, 5], zlim =[-1,1.5], framestyle=:zerolines, camera=(20,15), size=(400,400))
+	arrow3d!([0], [0], [0], [a1[1]], [a1[2]], [a1[3]]; as=0.1, lc=3, la=1, lw=2, scale=:identity)
+	arrow3d!([0], [0], [0], [a2[1]], [a2[2]], [a2[3]]; as=0.1, lc=2, la=1, lw=2, scale=:identity)
+	scatter!([0], [0], [0], mc=:black, ms =1, label="")
+	normv = cross(a1, a2)
+	bv = v₁_ * a1 + v₂_ * a2 
+	if add_u
+		arrow3d!([0], [0], [0], [bv[1]], [bv[2]], [bv[3]]; as=0.1, lc=1, la=1, lw=3, scale=:identity)
+		if add_av
+			surface!(-4:.2:5, -4:.2:5, (x,y) -> - x * normv[1]/normv[3]- y * normv[2]/normv[3], colorbar=false, alpha=0.25)
+		end
+	end
+	plt
+end;
+
+# ╔═╡ 82156c81-a9cd-498f-8f68-cddbf532c187
+TwoColumn(md"""Let's consider the case ``m=2``, 
+
+```math 
+\mathbf{A} = \begin{bmatrix} \columncolor{lightsalmon}\textcolor{red}{\vert} &\columncolor{lightgreen} \textcolor{green}{ \vert} \\
+\textcolor{red}{\mathbf{a}_1} & \textcolor{green}{\mathbf{a}_2}\\
+\textcolor{red}{\vert} & \vert
+ \end{bmatrix},\;\; \mathbf{v} = \begin{bmatrix} v_1 \\ v_2\end{bmatrix}
+```
+
+For example, then ``\mathbf{Av}=\mathbf{u}`` is
+
+```math
+\large
+	v_1\textcolor{red}{\begin{bmatrix}
+	   1.5\\
+	   3\\
+	   0
+	 \end{bmatrix}} + v_2 \textcolor{green}{\begin{bmatrix}
+	  2\\
+	  0\\
+	  0
+	 \end{bmatrix}} =\textcolor{purple}{\mathbf{u}}
+```
+
+* ``\textcolor{red}{\mathbf{a}_1}, \textcolor{green}{\mathbf{a}_2}``: the ``\textcolor{red}{\rm red}`` and ``\textcolor{green}{\rm green}`` vectors
+> The column space 
+> 
+>  ``\{v_1 \textcolor{red}{\mathbf{a}_1} + v_2 \textcolor{green}{\mathbf{a}_2}\}:`` is ?
+
+""", plt_av)
+
+# ╔═╡ 5f77775d-23cc-48e8-ad72-0d2d80f3fb40
+plt_bv = let
+	gr()
+	a1 = [1.5,3,0]
+	a2 = [3,0,0]
+	A= hcat([a1, a2]...)
+ 	plt = plot(xlim=[-1,5], ylim=[-1, 4], zlim =[-2,4], framestyle=:zerolines, camera=(20,15), size=(400,400))
+	arrow3d!([0], [0], [0], [a1[1]], [a1[2]], [a1[3]]; as=0.1, lc=3, la=1, lw=2, scale=:identity)
+	arrow3d!([0], [0], [0], [a2[1]], [a2[2]], [a2[3]]; as=0.1, lc=2, la=1, lw=2, scale=:identity)
+	scatter!([0], [0], [0], mc=:black, ms =1, label="")
+	normv = cross(a1, a2)
+	surface!(-1:0.1:5, -1:0.1:5, (x,y) -> - x * normv[1]/normv[3]- y * normv[2]/normv[3], colorbar=false, alpha=0.25)
+	if add_b
+
+		arrow3d!([0], [0], [0], [bv[1]], [bv[2]], [bv[3]]; as=0.1, lc=1, la=1, lw=3, scale=:identity)
+		if add_sol
+			A = [a1 a2]
+			v = A \ bv 
+			va1 = v[1] * a1
+			arrow3d!([0], [0], [0], [va1[1]], [va1[2]], [va1[3]]; as=0.1, lc=3, la=1, lw=3, scale=:identity)
+			plot!([bv[1], va1[1]], [bv[2], va1[2]], [bv[3], va1[3]], lw=2, lc=:gray, ls=:dash, label="")
+			va2 = v[2] * a2
+			arrow3d!([0], [0], [0], [va2[1]], [va2[2]], [va2[3]]; as=0.1, lc=2, la=1, lw=3, scale=:identity)
+			plot!([bv[1], va2[1]], [bv[2], va2[2]], [bv[3], va2[3]], lw=2, lc=:gray, ls=:dash, label="")
+		end
+	end
+	plt
+end;
+
+# ╔═╡ a497aaf1-cce1-4a05-86d4-4eaa9d600d81
+TwoColumn(md"""
+\
+\
+\
+\
+\
+\
+When ``\color{blue}\mathbf{b}``: the ``\textcolor{blue}{\rm blue}`` vector ``\in \{\mathbf{Av}\}``
+* **there is (are) solution(s)**
+
+""", plt_bv)
+
+# ╔═╡ 87d57c33-c85b-4564-9ea7-aced87cbafa1
+plt_av_nosol = let
+	gr()
+	a1 = [2,4,0]
+	a2 = [3,0,0]
+	b = [1,1,4]
+	# c = [1,1,4]
+	A= hcat([a1, a2]...)
+	# bp= A*inv(A'*A)*A'*b
+ 	plt=plot(xlim=[-1,5], ylim=[-1, 5], zlim =[-2,5], framestyle=:zerolines, camera=(20,15), size=(400,400))
+	arrow3d!([0], [0], [0], [b[1]], [b[2]], [b[3]]; as=0.1, lc=1, la=1, lw=2, scale=:identity)
+	# annotate!(c[1], c[2], c[3], text("c"))
+	arrow3d!([0], [0], [0], [a1[1]], [a1[2]], [a1[3]]; as=0.1, lc=3, la=1, lw=2, scale=:identity)
+	arrow3d!([0], [0], [0], [a2[1]], [a2[2]], [a2[3]]; as=0.1, lc=2, la=1, lw=2, scale=:identity)
+	scatter!([0], [0], [0], mc=:black, label="")
+
+	if add_proj
+		arrow3d!([0], [0], [0], [bp[1]], [bp[2]], [bp[3]]; as=0.1, lc=4, la=0.9, lw=2, scale=:identity)
+		plot!([b[1], bp[1]], [b[2], bp[2]], [b[3], bp[3]], lw=2, lc=:gray, ls=:dash, label="")
+	end
+
+	surface!(-1:0.1:5, -1:0.1:5, (x,y) -> 0, colorbar=false, alpha=0.35)
+	plt
+end;
+
+# ╔═╡ c60204cb-4172-4c2a-a9a2-886092b4b790
+TwoColumn(md"""
+\
+\
+\
+\
+
+When ``\color{blue}\mathbf{b}``: the ``\textcolor{blue}{\rm blue}`` vector **_sticks out_**
+
+or 
+
+```math
+\mathbf{b} \notin \{\mathbf{Av}, \mathbf{v}\in R^m\}
+```
+* **NO solution**
+* nevertheless, we can find an **approximated solution**
+""", plt_av_nosol)
+
+# ╔═╡ 66728d7f-3eb6-45d7-8677-ed28894244cd
+TwoColumn(md"""
+\
+\
+\
+\
+
+In maths,
+\
+\
+\
+\
+
+```math
+\large
+(\textcolor{blue}{\mathbf{b}} - \textcolor{purple}{\mathbf{Av}}) \perp \{\textcolor{red}{\mathbf{a}_1}, \textcolor{green}{\mathbf{a}_2}, \ldots\}
+```
+
+
+
+""", let
+	gr()
+	a1 = [2,4,0]
+	a2 = [3,0,0]
+	b = [1,1,4]
+	# c = [1,1,4]
+	A= hcat([a1, a2]...)
+	bp= A*inv(A'*A)*A'*b
+ 	plt=plot(xlim=[-1,5], ylim=[-1, 5], zlim =[-2,5], framestyle=:zerolines, camera=(20,15), size=(400,400))
+	arrow3d!([0], [0], [0], [b[1]], [b[2]], [b[3]]; as=0.1, lc=1, la=1, lw=2, scale=:identity)
+	# annotate!(c[1], c[2], c[3], text("c"))
+	arrow3d!([0], [0], [0], [a1[1]], [a1[2]], [a1[3]]; as=0.1, lc=3, la=1, lw=2, scale=:identity)
+	arrow3d!([0], [0], [0], [a2[1]], [a2[2]], [a2[3]]; as=0.1, lc=2, la=1, lw=2, scale=:identity)
+	scatter!([0], [0], [0], mc=:black, label="")
+	arrow3d!([0], [0], [0], [bp[1]], [bp[2]], [bp[3]]; as=0.1, lc=4, la=0.9, lw=2, scale=:identity)
+	plot!([b[1], bp[1]], [b[2], bp[2]], [b[3], bp[3]], lw=2, lc=:gray, ls=:dash, label="")
+	surface!(-1:0.1:5, -1:0.1:5, (x,y) -> 0, colorbar=false, alpha=0.35)
+	plt
+end)
+
+# ╔═╡ aca9b735-fd85-47b9-8a6b-5bb5785025dc
+TwoColumn(md"""
+\
+\
+\
+\
+
+
+
+The solution is 
+
+```math
+\large
+{\mathbf{v}}  = (\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top\mathbf{b}
+```
+The projection is
+\
+\
+
+```math
+\large
+{\mathbf{b}}_{\text{proj}}  = \mathbf{A}\underbrace{(\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top\mathbf{b}}_{\mathbf{v}}
+```
+
+""", let
+	gr()
+	a1 = [2,4,0]
+	a2 = [3,0,0]
+	b = [2.5,2.5, 4.]
+	A= hcat([a1, a2]...)
+	bp= A * (A\b)
+ 	plt=plot(xlim=[-1,5], ylim=[-1, 4], zlim =[-2,4], framestyle=:zerolines, camera=(20,15), size=(400,400))
+	arrow3d!([0], [0], [0], [b[1]], [b[2]], [b[3]]; as=0.1, lc=1, la=1, lw=2, scale=:identity)
+	# annotate!(c[1], c[2], c[3], text("c"))
+	arrow3d!([0], [0], [0], [a1[1]], [a1[2]], [a1[3]]; as=0.1, lc=3, la=1, lw=2, scale=:identity)
+	arrow3d!([0], [0], [0], [a2[1]], [a2[2]], [a2[3]]; as=0.1, lc=2, la=1, lw=2, scale=:identity)
+	scatter!([0], [0], [0], mc=:black, label="")
+	arrow3d!([0], [0], [0], [bp[1]], [bp[2]], [bp[3]]; as=0.1, lc=4, la=0.9, lw=2, scale=:identity)
+	plot!([b[1], bp[1]], [b[2], bp[2]], [b[3], bp[3]], lw=2, lc=:gray, ls=:dash, label="")
+	surface!(-1:0.1:5, -1:0.1:5, (x,y) -> 0, colorbar=false, alpha=0.35)
+
+			A = [a1 a2]
+			v = A \ b 
+			va1 = v[1] * a1
+			arrow3d!([0], [0], [0], [va1[1]], [va1[2]], [va1[3]]; as=0.1, lc=3, la=1, lw=3, scale=:identity)
+			plot!([bp[1], va1[1]], [bp[2], va1[2]], [bp[3], va1[3]], lw=2, lc=:gray, ls=:dash, label="")
+			va2 = v[2] * a2
+			arrow3d!([0], [0], [0], [va2[1]], [va2[2]], [va2[3]]; as=0.1, lc=2, la=1, lw=3, scale=:identity)
+			plot!([bp[1], va2[1]], [bp[2], va2[2]], [bp[3], va2[3]], lw=2, lc=:gray, ls=:dash, label="")
+	plt
+end)
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
@@ -533,54 +828,29 @@ PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-ForwardDiff = "~0.10.35"
 HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.15.21"
-Plots = "~1.38.15"
+Plots = "~1.38.12"
 PlutoTeachingTools = "~0.2.11"
 PlutoUI = "~0.7.51"
-Zygote = "~0.6.62"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.0"
+julia_version = "1.9.1"
 manifest_format = "2.0"
-project_hash = "949daca3ed7ba8a924d7d6a3343f17e9d87b083c"
-
-[[deps.AbstractFFTs]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "16b6dbc4cf7caee4e1e75c49485ec67b667098a0"
-uuid = "621f4979-c628-5d54-868e-fcf4e3e8185c"
-version = "1.3.1"
-weakdeps = ["ChainRulesCore"]
-
-    [deps.AbstractFFTs.extensions]
-    AbstractFFTsChainRulesCoreExt = "ChainRulesCore"
+project_hash = "d649aec61bf4587fa0ef74e74a7071b4a5d165b3"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
 git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
 uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.1.4"
-
-[[deps.Adapt]]
-deps = ["LinearAlgebra", "Requires"]
-git-tree-sha1 = "76289dc51920fdc6e0013c872ba9551d54961c24"
-uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "3.6.2"
-
-    [deps.Adapt.extensions]
-    AdaptStaticArraysExt = "StaticArrays"
-
-    [deps.Adapt.weakdeps]
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -603,28 +873,11 @@ git-tree-sha1 = "19a35467a82e236ff51bc17a3a44b69ef35185a2"
 uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
 version = "1.0.8+0"
 
-[[deps.CEnum]]
-git-tree-sha1 = "eb4cb44a499229b3b8426dcfb5dd85333951ff90"
-uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
-version = "0.4.2"
-
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
-
-[[deps.ChainRules]]
-deps = ["Adapt", "ChainRulesCore", "Compat", "Distributed", "GPUArraysCore", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "Statistics", "StructArrays"]
-git-tree-sha1 = "0266ee4ffeeac8405ab07c49252c144616fe825d"
-uuid = "082447d4-558c-5d27-93f4-14fc19e9eca2"
-version = "1.49.1"
-
-[[deps.ChainRulesCore]]
-deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
-uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.16.0"
 
 [[deps.CodeTracking]]
 deps = ["InteractiveUtils", "UUIDs"]
@@ -662,12 +915,6 @@ git-tree-sha1 = "fc08e5930ee9a4e03f84bfb5211cb54e7769758a"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.10"
 
-[[deps.CommonSubexpressions]]
-deps = ["MacroTools", "Test"]
-git-tree-sha1 = "7b8a93dba8af7e3b42fecabf646260105ac373f7"
-uuid = "bbf7d656-a473-5ed7-a52c-81e309532950"
-version = "0.3.0"
-
 [[deps.Compat]]
 deps = ["UUIDs"]
 git-tree-sha1 = "7a60c856b9fa189eb34f5f8a6f6b5529b7942957"
@@ -689,20 +936,6 @@ git-tree-sha1 = "96d823b94ba8d187a6d8f0826e731195a74b90e9"
 uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
 version = "2.2.0"
 
-[[deps.ConstructionBase]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "738fec4d684a9a6ee9598a8bfee305b26831f28c"
-uuid = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
-version = "1.5.2"
-
-    [deps.ConstructionBase.extensions]
-    ConstructionBaseIntervalSetsExt = "IntervalSets"
-    ConstructionBaseStaticArraysExt = "StaticArrays"
-
-    [deps.ConstructionBase.weakdeps]
-    IntervalSets = "8197267c-284f-5f27-9208-e0e47529a953"
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
@@ -719,11 +952,6 @@ git-tree-sha1 = "d1fff3a548102f48987a52a2e0d114fa97d730f0"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 version = "0.18.13"
 
-[[deps.DataValueInterfaces]]
-git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
-uuid = "e2d170a0-9d28-54be-80f0-106bbe20a464"
-version = "1.0.0"
-
 [[deps.Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -733,18 +961,6 @@ deps = ["Mmap"]
 git-tree-sha1 = "9e2f36d3c96a820c678f2f1f1782582fcf685bae"
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 version = "1.9.1"
-
-[[deps.DiffResults]]
-deps = ["StaticArraysCore"]
-git-tree-sha1 = "782dd5f4561f5d267313f23853baaaa4c52ea621"
-uuid = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
-version = "1.1.0"
-
-[[deps.DiffRules]]
-deps = ["IrrationalConstants", "LogExpFunctions", "NaNMath", "Random", "SpecialFunctions"]
-git-tree-sha1 = "158232a81d43d108837639d3fd4c66cc3988c255"
-uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
-version = "1.14.0"
 
 [[deps.Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -782,12 +998,6 @@ version = "4.4.2+2"
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
-[[deps.FillArrays]]
-deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "ed569cb9e7e3590d5ba884da7edc50216aac5811"
-uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "1.1.0"
-
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
 git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
@@ -805,18 +1015,6 @@ deps = ["Printf"]
 git-tree-sha1 = "8339d61043228fdd3eb658d86c926cb282ae72a8"
 uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
 version = "0.4.2"
-
-[[deps.ForwardDiff]]
-deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions"]
-git-tree-sha1 = "00e252f4d706b3d55a8863432e742bf5717b498d"
-uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.35"
-
-    [deps.ForwardDiff.extensions]
-    ForwardDiffStaticArraysExt = "StaticArrays"
-
-    [deps.ForwardDiff.weakdeps]
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [[deps.FreeType2_jll]]
 deps = ["Artifacts", "Bzip2_jll", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll"]
@@ -836,29 +1034,17 @@ git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.3.8+0"
 
-[[deps.GPUArrays]]
-deps = ["Adapt", "GPUArraysCore", "LLVM", "LinearAlgebra", "Printf", "Random", "Reexport", "Serialization", "Statistics"]
-git-tree-sha1 = "0dbc906e66a5e337598dda85f1bfaa81a88251fd"
-uuid = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
-version = "8.7.0"
-
-[[deps.GPUArraysCore]]
-deps = ["Adapt"]
-git-tree-sha1 = "2d6ca471a6c7b536127afccfa7564b5b39227fe0"
-uuid = "46192b85-c4d5-4398-a991-12ede77f4527"
-version = "0.1.5"
-
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
-git-tree-sha1 = "8b8a2fd4536ece6e554168c21860b6820a8a83db"
+git-tree-sha1 = "d014972cd6f5afb1f8cd7adf000b7a966d62c304"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.72.7"
+version = "0.72.5"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "19fad9cd9ae44847fe842558a744748084a722d1"
+git-tree-sha1 = "f670f269909a9114df1380cc0fcaa316fff655fb"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.72.7+0"
+version = "0.72.5+0"
 
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
@@ -885,9 +1071,9 @@ version = "1.0.2"
 
 [[deps.HTTP]]
 deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
-git-tree-sha1 = "5e77dbf117412d4f164a464d610ee6050cc75272"
+git-tree-sha1 = "41f7dfb2b20e7e8bf64f6b6fae98f4d2df027b06"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "1.9.6"
+version = "1.9.4"
 
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
@@ -913,12 +1099,6 @@ git-tree-sha1 = "d75853a0bdbfb1ac815478bacd89cd27b550ace6"
 uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
 version = "0.2.3"
 
-[[deps.IRTools]]
-deps = ["InteractiveUtils", "MacroTools", "Test"]
-git-tree-sha1 = "eac00994ce3229a464c2847e956d77a2c64ad3a5"
-uuid = "7869d1d1-7146-5819-86e3-90919afe41df"
-version = "0.4.10"
-
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
@@ -927,11 +1107,6 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
 uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
 version = "0.2.2"
-
-[[deps.IteratorInterfaceExtensions]]
-git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
-uuid = "82899510-4779-5014-852e-03e436cf321d"
-version = "1.0.0"
 
 [[deps.JLFzf]]
 deps = ["Pipe", "REPL", "Random", "fzf_jll"]
@@ -975,18 +1150,6 @@ git-tree-sha1 = "bf36f528eec6634efc60d7ec062008f171071434"
 uuid = "88015f11-f218-50d7-93a8-a6af411a945d"
 version = "3.0.0+1"
 
-[[deps.LLVM]]
-deps = ["CEnum", "LLVMExtra_jll", "Libdl", "Printf", "Unicode"]
-git-tree-sha1 = "26a31cdd9f1f4ea74f649a7bf249703c687a953d"
-uuid = "929cbde3-209d-540e-8aea-75f648917ca0"
-version = "5.1.0"
-
-[[deps.LLVMExtra_jll]]
-deps = ["Artifacts", "JLLWrappers", "LazyArtifacts", "Libdl", "TOML"]
-git-tree-sha1 = "09b7505cc0b1cee87e5d4a26eea61d2e1b0dcd35"
-uuid = "dad2f222-ce93-54a1-a47d-0025e8a3acab"
-version = "0.0.21+0"
-
 [[deps.LZO_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "e5b909bcf985c5e2605737d2ce278ed791b89be6"
@@ -1015,10 +1178,6 @@ version = "0.15.21"
     DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
     DiffEqBiological = "eb300fae-53e8-50a0-950c-e21f52c2b7e0"
     SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
-
-[[deps.LazyArtifacts]]
-deps = ["Artifacts", "Pkg"]
-uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -1096,9 +1255,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "c3ce8e7420b3a6e071e0fe4745f5d4300e37b13f"
+git-tree-sha1 = "0a1b7c2863e44523180fdb3146534e265a91870b"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.24"
+version = "0.3.23"
 
     [deps.LogExpFunctions.extensions]
     LogExpFunctionsChainRulesCoreExt = "ChainRulesCore"
@@ -1202,10 +1361,10 @@ uuid = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
 version = "1.4.1"
 
 [[deps.OpenSSL_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "1aa4b74f80b01c6bc2b89992b861b5f210e665b5"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "9ff31d101d987eb9d66bd8b176ac7c277beccd09"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "1.1.21+0"
+version = "1.1.20+0"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
@@ -1264,10 +1423,10 @@ uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.3.5"
 
 [[deps.Plots]]
-deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "UnitfulLatexify", "Unzip"]
-git-tree-sha1 = "ceb1ec8d4fbeb02f8817004837d924583707951b"
+deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
+git-tree-sha1 = "d03ef538114b38f89d66776f2d8fdc0280f90621"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.38.15"
+version = "1.38.12"
 
     [deps.Plots.extensions]
     FileIOExt = "FileIO"
@@ -1336,12 +1495,6 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 [[deps.Random]]
 deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-
-[[deps.RealDot]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "9f0a1b71baaf7650f4fa8a1d168c7fb6ee41f0c9"
-uuid = "c1ae055f-0cd5-4b69-90a6-9a35b1a98df9"
-version = "0.1.0"
 
 [[deps.RecipesBase]]
 deps = ["PrecompileTools"]
@@ -1420,15 +1573,12 @@ deps = ["IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_j
 git-tree-sha1 = "ef28127915f4229c971eb43f3fc075dd3fe91880"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
 version = "2.2.0"
-weakdeps = ["ChainRulesCore"]
 
     [deps.SpecialFunctions.extensions]
     SpecialFunctionsChainRulesCoreExt = "ChainRulesCore"
 
-[[deps.StaticArraysCore]]
-git-tree-sha1 = "6b7ba252635a5eff6a0b0664a41ee140a1c9e72a"
-uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
-version = "1.4.0"
+    [deps.SpecialFunctions.weakdeps]
+    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -1443,15 +1593,9 @@ version = "1.6.0"
 
 [[deps.StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "75ebe04c5bed70b91614d684259b661c9e6274a4"
+git-tree-sha1 = "d1bf48bfcc554a3761a133fe3a9bb01488e06916"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.34.0"
-
-[[deps.StructArrays]]
-deps = ["Adapt", "DataAPI", "GPUArraysCore", "StaticArraysCore", "Tables"]
-git-tree-sha1 = "521a0e828e98bb69042fec1809c1b5a680eb7389"
-uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
-version = "0.6.15"
+version = "0.33.21"
 
 [[deps.SuiteSparse_jll]]
 deps = ["Artifacts", "Libdl", "Pkg", "libblastrampoline_jll"]
@@ -1462,18 +1606,6 @@ version = "5.10.1+6"
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 version = "1.0.3"
-
-[[deps.TableTraits]]
-deps = ["IteratorInterfaceExtensions"]
-git-tree-sha1 = "c06b2f539df1c6efa794486abfb6ed2022561a39"
-uuid = "3783bdb8-4a98-5b6b-af9a-565f29a5fe9c"
-version = "1.0.1"
-
-[[deps.Tables]]
-deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "OrderedCollections", "TableTraits", "Test"]
-git-tree-sha1 = "1544b926975372da01227b382066ab70e574a3ec"
-uuid = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
-version = "1.10.1"
 
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
@@ -1518,24 +1650,6 @@ deps = ["REPL"]
 git-tree-sha1 = "53915e50200959667e78a92a418594b428dffddf"
 uuid = "1cfade01-22cf-5700-b092-accc4b62d6e1"
 version = "0.4.1"
-
-[[deps.Unitful]]
-deps = ["ConstructionBase", "Dates", "LinearAlgebra", "Random"]
-git-tree-sha1 = "ba4aa36b2d5c98d6ed1f149da916b3ba46527b2b"
-uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
-version = "1.14.0"
-
-    [deps.Unitful.extensions]
-    InverseFunctionsUnitfulExt = "InverseFunctions"
-
-    [deps.Unitful.weakdeps]
-    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
-
-[[deps.UnitfulLatexify]]
-deps = ["LaTeXStrings", "Latexify", "Unitful"]
-git-tree-sha1 = "e2d817cc500e960fdbafcf988ac8436ba3208bfd"
-uuid = "45397f5d-5981-4c77-b2b3-fc36d6e9b728"
-version = "1.6.3"
 
 [[deps.Unzip]]
 git-tree-sha1 = "ca0969166a028236229f63514992fc073799bb78"
@@ -1703,28 +1817,6 @@ git-tree-sha1 = "49ce682769cd5de6c72dcf1b94ed7790cd08974c"
 uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
 version = "1.5.5+0"
 
-[[deps.Zygote]]
-deps = ["AbstractFFTs", "ChainRules", "ChainRulesCore", "DiffRules", "Distributed", "FillArrays", "ForwardDiff", "GPUArrays", "GPUArraysCore", "IRTools", "InteractiveUtils", "LinearAlgebra", "LogExpFunctions", "MacroTools", "NaNMath", "PrecompileTools", "Random", "Requires", "SparseArrays", "SpecialFunctions", "Statistics", "ZygoteRules"]
-git-tree-sha1 = "5be3ddb88fc992a7d8ea96c3f10a49a7e98ebc7b"
-uuid = "e88e6eb3-aa80-5325-afca-941959d7151f"
-version = "0.6.62"
-
-    [deps.Zygote.extensions]
-    ZygoteColorsExt = "Colors"
-    ZygoteDistancesExt = "Distances"
-    ZygoteTrackerExt = "Tracker"
-
-    [deps.Zygote.weakdeps]
-    Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
-    Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-    Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
-
-[[deps.ZygoteRules]]
-deps = ["ChainRulesCore", "MacroTools"]
-git-tree-sha1 = "977aed5d006b840e2e40c0b48984f7463109046d"
-uuid = "700de1a5-db45-46bc-99cf-38207098b444"
-version = "0.2.3"
-
 [[deps.fzf_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "868e669ccb12ba16eaf50cb2957ee2ff61261c56"
@@ -1746,7 +1838,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.7.0+0"
+version = "5.8.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1796,39 +1888,52 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
-# ╟─9f90a18b-114f-4039-9aaf-f52c77205a49
-# ╟─959d3f6e-ad5b-444f-9000-825063598837
-# ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
-# ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
-# ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
-# ╟─6ada36dd-885b-4c58-a67b-ffd87d044437
-# ╟─6abbb3b7-e65c-460c-a85e-0737fe4fac3f
-# ╠═028da25e-2568-49d7-8d3e-b0bfc8387841
-# ╟─4ce6b9c6-4563-4e69-8929-29957ae377b4
-# ╟─2c74ae59-dfbf-43d1-b16a-0111cc025b8e
-# ╟─741f95e7-1cef-42f8-b088-b12326380ee0
-# ╟─e0bed372-be6c-4b64-8430-f17de915ae22
-# ╟─d796aec6-7407-4b44-ba28-de71ed89f108
-# ╟─81b26abe-c275-4f1e-96de-30d30651ae85
-# ╟─ff5e5acd-52ab-4b21-b2c3-4e0f85329036
-# ╟─fb7ee765-3bed-454d-a19e-ca79bcef57ed
-# ╟─f601ef17-f0db-4af2-97aa-35f080a08763
-# ╟─cafab381-5c85-4e2d-ba7f-7db2cb148bbf
-# ╟─af44a8d5-b44e-4b82-a65d-04743ef2d49d
-# ╟─2d8a9a78-ed85-49e4-a022-dc91cd15d31f
-# ╟─4b566c78-21df-44ab-a1eb-d303ad071adf
-# ╟─0834df4c-49bf-43d9-9213-3ce5d18ee471
-# ╟─9b3fbc5c-5a0d-47db-9cbf-86bc3c381038
-# ╟─77da11a9-f7d0-49e6-8a8c-7f4cb70f369e
-# ╟─7983531e-b452-43d9-bf37-7feb5ae0ebab
-# ╟─e4dcf373-c1d9-42f1-98dc-1bf74b51063d
-# ╟─3e29bf39-238c-460e-892e-f8651ffde277
-# ╟─e526e3ed-95b0-4bdd-9386-262ac951c000
-# ╟─8627646b-90a6-4483-98ea-9326cc769e8c
-# ╟─d285e008-8c07-4695-80de-bc42e0a2aef8
-# ╟─5ed8c4d8-2f31-40f8-ae21-f4286c634983
-# ╟─0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
-# ╟─8687dbd1-4857-40e4-b9cb-af469b8563e2
-# ╟─fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
+# ╟─9edaaf3c-2973-11ed-193f-d500cbe5d239
+# ╟─f932c963-31d2-4e0f-ad40-2ca2447f4059
+# ╟─3d168eee-aa69-4bd0-b9d7-8a9808e59170
+# ╟─457b21c1-6ea9-4983-b724-fb5cbb69739d
+# ╟─5e774ede-251e-4321-b241-9bba130526ce
+# ╟─b82902b8-75a2-484c-9e95-0aa85e7ffe43
+# ╟─918813ef-46b3-48f0-a148-a2caa5dd3fc1
+# ╟─82156c81-a9cd-498f-8f68-cddbf532c187
+# ╟─bbe94dfe-63fb-4a94-801f-ecaa0829382b
+# ╟─ae0cf110-2f08-4f31-b4c5-8229d19812c8
+# ╟─87f1d70f-51bb-4a72-9b2f-44142f26d040
+# ╟─ff4da64b-a12e-4e9a-93e0-77de49ab882e
+# ╟─7043fade-e50d-409c-b042-fdce489c5b2f
+# ╟─be9922ff-4493-4e17-8229-dfbfadf23842
+# ╟─69f63143-4486-4389-a6cc-ddb6408a3414
+# ╟─cb09c906-27c0-4e77-8941-b0043bf4edfe
+# ╟─4a91da1c-fa3f-4926-a068-5b70a1c8e534
+# ╟─5f77775d-23cc-48e8-ad72-0d2d80f3fb40
+# ╟─9c10528e-3738-4a19-a9c3-e8ec587c418d
+# ╟─64b14177-03ec-4b28-933c-d2a224ae1daa
+# ╟─a497aaf1-cce1-4a05-86d4-4eaa9d600d81
+# ╟─467b7150-63c1-4d66-8ff7-174b5b108b9c
+# ╟─e1212d95-be2f-401d-859e-9ef36896b3a3
+# ╟─8ecbe257-f3c6-447c-b686-b8d3cf22c79c
+# ╟─c60204cb-4172-4c2a-a9a2-886092b4b790
+# ╟─3416ed8b-3d4f-421c-8330-c4fbfbfeb02c
+# ╟─0fc1e8bf-8635-46cd-af49-827fd5e9769c
+# ╟─8f6489bc-ac10-491c-acb2-aab36bd99d57
+# ╟─f0fbc7ac-81ba-4837-8a5e-9369a750a8f8
+# ╟─87d57c33-c85b-4564-9ea7-aced87cbafa1
+# ╟─8407339b-d366-4062-8c72-600b0b398cdf
+# ╟─5b57849e-0491-4e94-9c77-d2481e643f2f
+# ╟─ddaaf4c3-2558-4b6f-aa7a-76d3cc4daea8
+# ╟─e136f6c3-9e1c-4a7c-ab55-77578602d97a
+# ╟─66728d7f-3eb6-45d7-8677-ed28894244cd
+# ╟─a90f7143-5fa4-4799-87a8-0db93b166bd1
+# ╟─257ebc69-2f01-4154-a7d4-a67ee42c63c1
+# ╟─60e79a25-ec65-452b-811d-9fbf4cfdbde7
+# ╟─e1dbd92e-f10c-4bd1-85ff-79276074fd7f
+# ╟─2e51de20-c4f4-40be-9eca-28d2aa1ad04f
+# ╟─11632119-7792-41b3-92f2-161aa6b35447
+# ╟─84ccbf53-31d4-43c7-9da4-ac1e65fd2bf8
+# ╟─00820112-c653-44a9-bad7-042d8ae24bde
+# ╟─aca9b735-fd85-47b9-8a6b-5bb5785025dc
+# ╟─77b40da6-4577-4968-a48d-f4ba7c6d1bca
+# ╟─2cdfab17-49c0-4ac4-a199-3ba2e2d5d216
+# ╟─be040c96-da49-44e6-9a73-7e26a1960261
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.25
+# v0.19.26
 
 using Markdown
 using InteractiveUtils
@@ -313,6 +313,11 @@ The length of a vector:
 
 """
 
+# ╔═╡ 985bcc5a-a829-47ee-adfb-982547d259a4
+md"""
+## 
+"""
+
 # ╔═╡ 6ecfac7c-1b2e-46ad-bbd6-a61d3b3833b5
 md""" Add third vector: $(@bind add_c CheckBox(default=false))"""
 
@@ -490,13 +495,46 @@ md"""
 ## Example
 
 
-Parallelogram rule or **tip-to-tail**
+**Scalar** addition only moves a point left or right 
+
+* **tip-to-tail** rule
+"""
+
+# ╔═╡ 7cb9a28f-b457-4857-aba0-219e06ad6e82
+let
+	gr()
+	ylocations = 0.1 
+	plt = plot(ylim = [0., 0.15], xminorticks =1, yticks=false, showaxis=:x, size=(650,150), framestyle=:origin, xticks=([-3:1:4;], ["-3", "-2", "-1", "0", "1", "2", "3", "4"]), xlim = [-2, 4], title="Scalar addition of 1+2")
+	δ = 0.1
+
+	sample_data = [1, 2, 3]
+	for idx in 1:3
+		if idx == 2
+			plot!([sample_data[1], sample_data[idx]+ sample_data[1]], 0.2 * (3-idx+1) * [ylocations, ylocations], lc=:gray, arrow= :arrow,  st=:path, label="")
+			annotate!([sample_data[idx]], 0.2 * (3-idx+1) *[ylocations], text(L"%$(sample_data[idx])", 10, :bottom))
+			scatter!([sample_data[1]], [ 0.2 * (3-idx+1) *[ylocations]], label="", c=:gray)
+		else
+			plot!([0, sample_data[idx]], 0.2 * (3-idx+1) * [ylocations, ylocations], lc=:gray, arrow= :arrow,  st=:path, label="")
+			annotate!([sample_data[idx]], 0.2 * (3-idx+1) *[ylocations], text(L"%$(sample_data[idx])", 10, :bottom))
+			scatter!([0], [ 0.2 * idx *[ylocations]], label="", c=:gray)
+		end
+		
+	end
+
+	plt
+end
+
+# ╔═╡ 77a18b6d-fcb4-4e1b-ae9b-c57b16c5e6c0
+md"""
+##
+
+**Vector** addition is the same idea
+* parallelogram rule or **tip-to-tail**
 
 ```math
 \large
 \textcolor{blue}{\mathbf{a} = \begin{bmatrix} 2 \\ 1\end{bmatrix}},\; \textcolor{red}{\mathbf{b} =\begin{bmatrix} -1\\2 \end{bmatrix}},\; \textcolor{purple}{\mathbf{a}+\mathbf{b} = \begin{bmatrix} 1 \\ 3\end{bmatrix}}
 ```
-
 
 """
 
@@ -571,8 +609,68 @@ k\cdot \mathbf{a} = \underbrace{\begin{bmatrix}
 
 
 * *arithmetically*, **adding** ``k`` copies of ``\mathbf{a}`` together
+"""
+
+# ╔═╡ 7a1d2d83-9820-4b61-91fc-20fa7781e992
+
+md"""
+
+## Vector operations -- scaling
+
+```math
+\large
+k\cdot \mathbf{a} = \underbrace{\begin{bmatrix}
+           a_1 \\
+           a_2 \\
+           \vdots\\
+           a_d
+         \end{bmatrix} + \begin{bmatrix}
+           a_1 \\
+           a_2 \\
+           \vdots\\
+         a_d
+         \end{bmatrix} + \ldots + \begin{bmatrix}
+           a_1 \\
+           a_2 \\
+           \vdots\\
+         a_d
+         \end{bmatrix}}_{k}= \begin{bmatrix}
+           k\times a_1 \\
+           k\times a_2 \\
+           \vdots\\
+           k\times a_d
+         \end{bmatrix}
+```
+
+
+
+* *arithmetically*, **adding** ``k`` copies of ``\mathbf{a}`` together
+* **generalisation** of _scalar scaling_ (or multiplication): *e.g* ``3\times 1 = 1+ 1+ 1``
+* note that ``k\cdot \mathbf{a} = \mathbf{a}\cdot k``
 
 """
+
+# ╔═╡ b5465dc2-5c9b-448d-9f82-bcbb8dbfe64b
+let
+	gr()
+	ylocations = 0.1 
+	plt = plot(ylim = [0., 0.15], xminorticks =1, yticks=false, showaxis=:x, size=(650,150), framestyle=:origin, xticks=([-3:1:4;], ["-3", "-2", "-1", "0", "1", "2", "3", "4"]), xlim = [-1, 4], title="Scalar scaling: "*L"3 \times 1")
+	δ = 0.1
+
+	sample_data = [1, 2, 3]
+	for idx in 1:3
+		plot!([idx-1, idx], 0.2 * (4-idx+1) * [ylocations, ylocations], lc=:gray, arrow= :arrow,  st=:path, label="")
+		annotate!([sample_data[idx]], 0.2 * (4-idx+1) *[ylocations], text(L"1", 10, :bottom))
+		scatter!([idx-1], [ 0.2 * (4-idx+1) *[ylocations]], label="", c=:gray)		
+	end
+
+	idx = 4
+	plot!([0, 3], 0.2 * (4-idx+1) * [ylocations, ylocations], lc=:gray, arrow= :arrow,  st=:path, label="")
+	annotate!([3], 0.2 * (4-idx+1) *[ylocations], text(L"3", 13, :left))
+	scatter!([0], [ 0.2 * (4-idx+1) *[ylocations]], label="", c=:gray)
+
+	plt
+end
 
 # ╔═╡ a54dbf58-d082-440f-bc3d-ceebdfabbda6
 md"""
@@ -1496,41 +1594,51 @@ md"""
 
 Matrices of **conforming orders** can be multiplied together, *i.e.* ``\mathbf{A}\in \mathbb{R}^{n\times m}`` and ``\mathbf{B}\in \mathbb{R}^{m\times l}``
 
-* the middle dimension ``m`` **must match**
-
-```math
-
-\mathbf{A}_{n \times m} = \begin{pmatrix}
-  \rule[.5ex]{2.5ex}{0.5pt} & \boldsymbol{\alpha}_{1}^\top & \rule[.5ex]{2.5ex}{0.5pt} \\
- & \vdots &  \\
- \rowcolor{lightgreen}\rule[.5ex]{2.5ex}{0.5pt} & \boldsymbol{\alpha}_{i}^\top  &  \rule[.5ex]{2.5ex}{0.5pt} \\
- & \vdots &  \\
-\rule[.5ex]{2.5ex}{0.5pt} & \boldsymbol{\alpha}_{n}^\top  &  \rule[.5ex]{2.5ex}{0.5pt} \\
-\end{pmatrix} ,\;\; 
-
-\mathbf{B}_{m \times l} = \begin{pmatrix}
-\vert &  & \columncolor{lightsalmon} \vert &  & \vert\\
-\mathbf{b}_1& \ldots & \mathbf{b}_j & \ldots & \mathbf{b}_{l} \\
-\vert&  & \vert & & \vert 
-\end{pmatrix} 
-```
-```math
-
-(\mathbf{AB})_{n \times l} =\begin{pmatrix}\boldsymbol{\alpha}_1^{\top} \mathbf{b}_1 &  \boldsymbol{\alpha}_1^{\top} \mathbf{b}_2 & \ldots & \boldsymbol{\alpha}_1^{\top} \mathbf{b}_l \\
-
-\boldsymbol{\alpha}_2^{\top} \mathbf{b}_1 &  \boldsymbol{\alpha}_2^{\top} \mathbf{b}_2 & \ldots & \boldsymbol{\alpha}_2^{\top} \mathbf{b}_l \\
-\vdots & \vdots & \ddots & \vdots\\
-\boldsymbol{\alpha}_n^{\top} \mathbf{b}_1 &  \boldsymbol{\alpha}_n^{\top} \mathbf{b}_2 & \ldots & \boldsymbol{\alpha}_n^{\top} \mathbf{b}_l 
-\end{pmatrix}
-```
-
-In summary,
 
 > ```math
 > \Large
 > \mathbf{C}_{n \times l} = \mathbf{A}_{n\times m} \mathbf{B}_{m \times l}
 > ```
 """
+
+# ╔═╡ 716129ad-b329-4107-9922-9786d2c67504
+html"""<center><img src="https://upload.wikimedia.org/wikipedia/commons/e/eb/Matrix_multiplication_diagram_2.svg" width = "400"/></center>""" 
+
+# ╔═╡ 17312d0a-c01a-429f-ac49-7d9753dc79d7
+md"[source](https://commons.wikimedia.org/wiki/File:Matrix_multiplication_diagram_2.svg)"
+
+# ╔═╡ 632dffd8-4f69-48ab-bd51-978f5d3eb21f
+# md"""
+
+# * the middle dimension ``m`` **must match**
+
+# ```math
+
+# \mathbf{A}_{n \times m} = \begin{pmatrix}
+#   \rule[.5ex]{2.5ex}{0.5pt} & \boldsymbol{\alpha}_{1}^\top & \rule[.5ex]{2.5ex}{0.5pt} \\
+#  & \vdots &  \\
+#  \rowcolor{lightgreen}\rule[.5ex]{2.5ex}{0.5pt} & \boldsymbol{\alpha}_{i}^\top  &  \rule[.5ex]{2.5ex}{0.5pt} \\
+#  & \vdots &  \\
+# \rule[.5ex]{2.5ex}{0.5pt} & \boldsymbol{\alpha}_{n}^\top  &  \rule[.5ex]{2.5ex}{0.5pt} \\
+# \end{pmatrix} ,\;\; 
+
+# \mathbf{B}_{m \times l} = \begin{pmatrix}
+# \vert &  & \columncolor{lightsalmon} \vert &  & \vert\\
+# \mathbf{b}_1& \ldots & \mathbf{b}_j & \ldots & \mathbf{b}_{l} \\
+# \vert&  & \vert & & \vert 
+# \end{pmatrix} 
+# ```
+
+# ```math
+
+# (\mathbf{AB})_{n \times l} =\begin{pmatrix}\boldsymbol{\alpha}_1^{\top} \mathbf{b}_1 &  \boldsymbol{\alpha}_1^{\top} \mathbf{b}_2 & \ldots & \boldsymbol{\alpha}_1^{\top} \mathbf{b}_l \\
+
+# \boldsymbol{\alpha}_2^{\top} \mathbf{b}_1 &  \boldsymbol{\alpha}_2^{\top} \mathbf{b}_2 & \ldots & \boldsymbol{\alpha}_2^{\top} \mathbf{b}_l \\
+# \vdots & \vdots & \ddots & \vdots\\
+# \boldsymbol{\alpha}_n^{\top} \mathbf{b}_1 &  \boldsymbol{\alpha}_n^{\top} \mathbf{b}_2 & \ldots & \boldsymbol{\alpha}_n^{\top} \mathbf{b}_l 
+# \end{pmatrix}
+# ```
+# """
 
 # ╔═╡ 0e75dff7-3763-453e-a984-0623942fe7f4
 md"""
@@ -2647,9 +2755,7 @@ v_1 \\
 v_2
 \end{bmatrix} =\begin{bmatrix} v_1 - \delta v_2 \\ v_2\end{bmatrix}
 ```
-
-* if ``v_2 > 0``, ``x`` coordinate shifts to the right
-* ``v_2 <0``, ``x`` coordinate shifts to the left")
+")
 
 # ╔═╡ 6bffd6b7-5a99-40d5-8dfb-c54d70b954e6
 A_sheering = let
@@ -3453,466 +3559,6 @@ md"""
 
 """
 
-# ╔═╡ 5e774ede-251e-4321-b241-9bba130526ce
-md"""
-
-# General projection
-"""
-
-# ╔═╡ b82902b8-75a2-484c-9e95-0aa85e7ffe43
-md"""
-
-
-## Matrix vector product ``\mathbf{Av}``: linear combination view
-
-
-Note that ``\mathbf{A}`` is  a collection of ``\large m`` **column vectors**
-
-```math
-\large
-\mathbf{A}  =\begin{bmatrix}
-	\vert & \vert &  & \vert\\
-	\mathbf{a}_1 & \mathbf{a}_2 & \ldots & \mathbf{a}_{m} \\
-	\vert & \vert & & \vert 
-	\end{bmatrix}\;  \text{and}\; \mathbf{v} =\begin{bmatrix}
-	v_1\\
-	v_2 \\
-	\vdots\\
-	
-	v_m
-	\end{bmatrix}
-
-```
-
-
-
-```math
-\large
-
-```
-
-
-!!! important "Matrix vector: linear combo view"	
-	```math
-	\large
-	\begin{align}
-	\mathbf{A}\mathbf{v} &=  \begin{bmatrix}
-	\vert & \vert &  & \vert\\
-	\mathbf{a}_1 & \mathbf{a}_2 & \ldots & \mathbf{a}_{m} \\
-	\vert & \vert & & \vert 
-	\end{bmatrix}  \begin{bmatrix}
-	v_1\\
-	v_2 \\
-	\vdots\\
-	v_m
-	\end{bmatrix}  =  v_1\begin{bmatrix}
-           \vert\\
-           \mathbf{a}_{1}\\
-           \vert
-         \end{bmatrix} + v_2\begin{bmatrix}
-           \vert\\
-           \mathbf{a}_{2}\\
-           \vert
-         \end{bmatrix} + \ldots v_m\begin{bmatrix}
-           \vert\\
-           \mathbf{a}_{m}\\
-           \vert
-         \end{bmatrix}\\
-	& = \sum_{i=1}^m v_i \mathbf{a}_i
-	\end{align}
-	```
-
-> ``\mathbf{Av}`` is a linear combination of the column vectors of ``\mathbf{A}``
-
-
-"""
-
-# ╔═╡ 918813ef-46b3-48f0-a148-a2caa5dd3fc1
-md"""
-
-## Example
-"""
-
-# ╔═╡ bbe94dfe-63fb-4a94-801f-ecaa0829382b
-Foldable("The column space", md"
-> The column space ?
-> 
->  ``\{v_1 \textcolor{red}{\mathbf{a}_1} + v_2 \textcolor{green}{\mathbf{a}_2}\}:`` the whole shaded **plane**
-
-")
-
-# ╔═╡ ae0cf110-2f08-4f31-b4c5-8229d19812c8
-begin
-	a1 = [1.5, 3, 0]
-	a2 = [3, 0, 0]
-end;
-
-# ╔═╡ 87f1d70f-51bb-4a72-9b2f-44142f26d040
-md"
-Add ``\mathbf{u}`` $(begin @bind add_u CheckBox(default=false) end) ;
-Add column space $(begin @bind add_av CheckBox(default=false) end) 
-"
-
-# ╔═╡ ff4da64b-a12e-4e9a-93e0-77de49ab882e
-md"""
-
- 
-``v_1`` = $(@bind v₁_ Slider(-2:0.1:2, default=.5, show_value=true)) 
-``v_2`` = $(@bind v₂_ Slider(-2:0.1:2, default=-.9, show_value=true))
-
-"""
-
-# ╔═╡ be9922ff-4493-4e17-8229-dfbfadf23842
-aside(tip(md"If ``\mathbf{A}`` is **invertible**, the solution is simple
-
-```math
-\large
-\mathbf{v} = \mathbf{A}^{-1}\mathbf{b}
-```
-"))
-
-# ╔═╡ 69f63143-4486-4389-a6cc-ddb6408a3414
-md"""
-## Solve ``\mathbf{Av}=\mathbf{b}``
-
-
-!!! warning "Question"
-	In ML applications, we often tasked to solve
-
-	$$\large \mathbf{Av}=\mathbf{b}$$ **for**  ``\mathbf{v} \in R^m``; What is the **geometric interpretation** ?
-
-
-
-**For example**
-
-```math
-\Large
-\underbrace{\begin{bmatrix}1 & 3 \\ 3 & 0\\ 0 &0\end{bmatrix}_{3\times 2}}_{\mathbf{A}}\underbrace{\begin{bmatrix}\columncolor{\lightsalmon}v_1 \\ v_2 \end{bmatrix}_{2\times 1}}_{\mathbf{v}} = \underbrace{\begin{bmatrix}3 \\ 1 \\ 1\end{bmatrix}_{3\times 1}}_{\mathbf{b}}
-```
-
-
-
-
-## Solve ``\mathbf{Av}=\mathbf{b}``
-
-
-!!! warning "Question"
-	In ML applications, we often tasked to solve
-
-	$$\large \mathbf{Av}=\mathbf{b}$$ **for**  ``\mathbf{v} \in R^m``; What is the **geometric interpretation** ?
-
-
-
-"""
-
-# ╔═╡ cb09c906-27c0-4e77-8941-b0043bf4edfe
-md"""
-!!! answer "Answer"
-	```math
-		v_1\begin{bmatrix}
-           \vert\\
-           \mathbf{a}_{1}\\
-           \vert
-         \end{bmatrix} + v_2\begin{bmatrix}
-           \vert\\
-           \mathbf{a}_{2}\\
-           \vert
-         \end{bmatrix} + \ldots v_m\begin{bmatrix}
-           \vert\\
-           \mathbf{a}_{m}\\
-           \vert
-         \end{bmatrix}  = \begin{bmatrix} \vert\\ \mathbf{b} \\ \vert\end{bmatrix}
-	```
-	> Does ``\mathbf{b}`` lives in the column space of ``\mathbf{A}``?
-	* if so, there is (are) solutions(s)
-	* otherwise, there is no **exact** solution
-
-
-
-"""
-
-# ╔═╡ 4a91da1c-fa3f-4926-a068-5b70a1c8e534
-Foldable("Example", md"""
-
-In our example,
-
-```math
-\Large
-\underbrace{\begin{bmatrix}1 & 3 \\ 3 & 0\\ 0 &0\end{bmatrix}}_{\mathbf{A}}\underbrace{\begin{bmatrix}v_1 \\ v_2 \end{bmatrix}}_{\mathbf{v}} = \underbrace{\begin{bmatrix}3 \\ 1 \\ 1\end{bmatrix}}_{\mathbf{b}}
-```
-
-
-```math
-\Large
-v_1 \begin{bmatrix}1  \\ 3 \\ 0 \end{bmatrix}_{\mathbf{a}_1} +v_2 \begin{bmatrix}3  \\ 0 \\ 0 \end{bmatrix}_{\mathbf{a}_2} = \begin{bmatrix}3 \\ 1 \\ 1\end{bmatrix}_{\mathbf{b}}
-```
-
-
-
-* does ``\mathbf{b}`` live in the column space of ``\mathbf{A}``
-""")
-
-# ╔═╡ 64b14177-03ec-4b28-933c-d2a224ae1daa
-md"""
-
-## Demonstration
-
-
-"""
-
-# ╔═╡ 467b7150-63c1-4d66-8ff7-174b5b108b9c
-md"
-Add ``\mathbf{b}`` $(begin @bind add_b CheckBox(default=false) end) ,
-Add solution $(begin @bind add_sol CheckBox(default=false) end) 
-"
-
-# ╔═╡ e1212d95-be2f-401d-859e-9ef36896b3a3
-bv = [3.,1.5,0];
-
-# ╔═╡ 9c10528e-3738-4a19-a9c3-e8ec587c418d
-let
-
- 	A = [a1 a2]
-
-	A * (A \ bv) ≈ bv
-
-end;
-
-# ╔═╡ 8ecbe257-f3c6-447c-b686-b8d3cf22c79c
-md"""
-
-## Demonstration
-
-
-"""
-
-# ╔═╡ 3416ed8b-3d4f-421c-8330-c4fbfbfeb02c
-Foldable("The approx. solution is actually:", md"
-* *i.e.* its **projection** 
-")
-
-# ╔═╡ 0fc1e8bf-8635-46cd-af49-827fd5e9769c
-md"
-Add projection $(begin @bind add_proj CheckBox(default=false) end) 
-"
-
-# ╔═╡ 8f6489bc-ac10-491c-acb2-aab36bd99d57
-md"""
-
- 
-``v_1`` = $(@bind v₁ Slider(0:0.5:5, default=2)) 
-``v_2`` = $(@bind v₂ Slider(0:0.5:5, default=2))
-
-"""
-
-# ╔═╡ f0fbc7ac-81ba-4837-8a5e-9369a750a8f8
-bp = [v₁,v₂,0];
-
-# ╔═╡ 8407339b-d366-4062-8c72-600b0b398cdf
-md"""
-
-## General projection
-
-
-"""
-
-# ╔═╡ e136f6c3-9e1c-4a7c-ab55-77578602d97a
-md"""
-
-## General projection
-
-By the very definition of projection, 
-
-
-> The error vector should be ``\perp`` to the column space vectors
-"""
-
-# ╔═╡ a90f7143-5fa4-4799-87a8-0db93b166bd1
-md"""
-
-## General projection
-
-By the very definition of projection, 
-
-
-> The error vector should be ``\perp`` to the column space vectors
-
-In maths,
-
-```math
-\large
-(\mathbf{b} - \mathbf{Av}) \perp \{\mathbf{a}_1, \mathbf{a}_2, \ldots, \mathbf{a}_m\}
-```
-
-Or equivalently, by inner product
-
-```math
-\large
-\begin{align}
-(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_1 &= 0\\
-(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_2 &= 0\\
-\vdots\\
-(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_m &= 0\\
-\end{align}
-```
-
-
-"""
-
-# ╔═╡ 257ebc69-2f01-4154-a7d4-a67ee42c63c1
-md"""
-
-## General projection
-
-By the very definition of projection, 
-
-
-> The error vector should be ``\perp`` to the column space vectors
-
-In maths,
-
-```math
-\large
-(\mathbf{b} - \mathbf{Av}) \perp \{\mathbf{a}_1, \mathbf{a}_2, \ldots, \mathbf{a}_m\}
-```
-
-Or equivalently,
-
-```math
-\large
-\begin{align}
-(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_1 &= 0\\
-(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_2 &= 0\\
-\vdots\\
-(\mathbf{b} - \mathbf{Av})^\top \mathbf{a}_m &= 0\\
-\end{align}
-```
-
-Finally, **in matrix** notations, 
-
-> ```math
-> \large
-> (\mathbf{b} - \mathbf{Av})^\top 
->	 \begin{bmatrix}
->	\vert & \vert &  & \vert\\
->	\mathbf{a}_1 & \mathbf{a}_2 & \ldots & \mathbf{a}_{m} \\
->	\vert & \vert & & \vert 
->	\end{bmatrix} \Rightarrow (\mathbf{b} - \mathbf{Av})^\top \mathbf{A} = \mathbf{0} 
-> ```
-
-"""
-
-# ╔═╡ 60e79a25-ec65-452b-811d-9fbf4cfdbde7
-md"""
-
-## General projection
-
-
-> ```math
-> \large
->  (\mathbf{b} - \mathbf{Av})^\top \mathbf{A} = \mathbf{0} 
-> ```
-
-
-
-* solve the linear equations for ``\mathbf{v}``, 
-
-```math
-\large
-\mathbf{v} = (\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top\mathbf{b}
-```
-
-
-* the projection (of ``\mathbf{b}`` to the columns of``\mathbf{A}``): 
-$\large
-{\mathbf{b}}_{\text{proj}}  = \underbrace{\mathbf{A}(\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top}_{\rm proj. matrix}\mathbf{b}$
-
-
-
-"""
-
-# ╔═╡ e1dbd92e-f10c-4bd1-85ff-79276074fd7f
-Foldable("Further details", md"Based on matrix operations,
-
-```math
-\begin{align}
-\Rightarrow & \mathbf{A}^\top (\mathbf{u} - \mathbf{Av}) = \mathbf{0}^\top \tag{apply ⊤ on both sides}\\
-\Rightarrow & \mathbf{A}^\top\mathbf{A}\mathbf{v} = \mathbf{A}^\top\mathbf{b} \tag{rearrange}\\
-\Rightarrow & \mathbf{v} = (\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top\mathbf{b}\tag{solve for v}
-\end{align}
-```
-")
-
-# ╔═╡ 2e51de20-c4f4-40be-9eca-28d2aa1ad04f
-md"""
-
-Note that the *single projection matrix* is a specific case (where ``\mathbf{A}`` is single column vector ``\mathbf{a}``)
-
-```math
-\large
-\mathbf{b}_{\text{proj}} = \frac{\mathbf{aa}^\top}{\mathbf{a}^\top\mathbf{a}} \mathbf{b} 
-```
-
-"""
-
-# ╔═╡ 11632119-7792-41b3-92f2-161aa6b35447
-md"""
-
-## Pseudo inverse *
-
-Note that we were trying to solve
-
-```math
-\Large
-\mathbf{Av} = \mathbf{b}
-```
-
-
-* If ``\mathbf{A}`` **was inverible**, the solution is simple, i.e.
-
-```math
-\large
-\mathbf{v} = \mathbf{A}^{-1}\mathbf{b}
-```
-
-However, when ``\mathbf{A}`` is not invertible, here the general solution 
-
-
-> Apply **peusdo inverse** ``(\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top`` instead of ``\mathbf{A}^{-1}``: 
-> ```math
-> \large
-> \mathbf{v} = \underbrace{(\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top}_{\text{pseudo inverse}}\mathbf{b}
-> ```
-
-
-"""
-
-# ╔═╡ 84ccbf53-31d4-43c7-9da4-ac1e65fd2bf8
-Foldable("Why it is called pseudo inverse?", md"""
-
-```math
-\underbrace{(\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top}_{\text{pseudo inverse}}\mathbf{A} = \mathbf{I}
-```
-""")
-
-# ╔═╡ 00820112-c653-44a9-bad7-042d8ae24bde
-md"""
-
-## Summary: general projection 
-
-
-
-> To solve *generally*
-> ```math
-> \large
-> \mathbf{A}\textcolor{purple}{\mathbf{v}} =\textcolor{blue}{\mathbf{b}}
-> ```
-> for ``\textcolor{purple}{\mathbf{v}}``
-
-
-
-"""
-
 # ╔═╡ 77b40da6-4577-4968-a48d-f4ba7c6d1bca
 md"""
 
@@ -3997,23 +3643,6 @@ The projection of ``\mathbf{b}`` on ``\mathbf{a}`` is
 
 """, plt_proj_to_a)
 
-# ╔═╡ 5b57849e-0491-4e94-9c77-d2481e643f2f
-TwoColumn(md"""Recall that we have studied the **simple** "_single projection_"
-\
-\
-\
-
-> Project ``\mathbf{b}`` to a **single vector** ``\mathbf{a}``
-
-Now, the problem is to project to a space of **multiple** vectors
-
-
-```math
-\{\mathbf{a}_1, \mathbf{a}_2, \ldots \}
-```
-
-""", plt_proj_to_a)
-
 # ╔═╡ 909974f6-4aa5-482e-934e-64f380314a65
 let
 	gr()
@@ -4088,7 +3717,7 @@ let
 	arrow3d!([0], [0], [0], [a2[1]], [a2[2]], [a2[3]]; as=0.1, lc=2, la=1, lw=2, scale=:identity)
 	scatter!([0], [0], [0], mc=:black, ms =1, label="")
 	normv = cross(a1, a2)
-	bv = v₁_ * a1 + v₂_ * a2 
+	# bv = v₁_ * a1 + v₂_ * a2 
 	if add_span
 		
 			surface!(-4:.2:5, -4:.2:5, (x,y) -> - x * normv[1]/normv[3]- y * normv[2]/normv[3], colorbar=false, alpha=0.5)
@@ -4096,234 +3725,6 @@ let
 	end
 	plt
 end
-
-# ╔═╡ 7043fade-e50d-409c-b042-fdce489c5b2f
-plt_av = let
-	gr()
-	a1 = a1
-	a2 = a2
-	A= hcat([a1, a2]...)
- 	plt = plot(xlim=[-4,5], ylim=[-4, 5], zlim =[-1,1.5], framestyle=:zerolines, camera=(20,15), size=(400,400))
-	arrow3d!([0], [0], [0], [a1[1]], [a1[2]], [a1[3]]; as=0.1, lc=3, la=1, lw=2, scale=:identity)
-	arrow3d!([0], [0], [0], [a2[1]], [a2[2]], [a2[3]]; as=0.1, lc=2, la=1, lw=2, scale=:identity)
-	scatter!([0], [0], [0], mc=:black, ms =1, label="")
-	normv = cross(a1, a2)
-	bv = v₁_ * a1 + v₂_ * a2 
-	if add_u
-		arrow3d!([0], [0], [0], [bv[1]], [bv[2]], [bv[3]]; as=0.1, lc=1, la=1, lw=3, scale=:identity)
-		if add_av
-			surface!(-4:.2:5, -4:.2:5, (x,y) -> - x * normv[1]/normv[3]- y * normv[2]/normv[3], colorbar=false, alpha=0.25)
-		end
-	end
-	plt
-end;
-
-# ╔═╡ 82156c81-a9cd-498f-8f68-cddbf532c187
-TwoColumn(md"""Let's consider the case ``m=2``, 
-
-```math 
-\mathbf{A} = \begin{bmatrix} \columncolor{lightsalmon}\textcolor{red}{\vert} &\columncolor{lightgreen} \textcolor{green}{ \vert} \\
-\textcolor{red}{\mathbf{a}_1} & \textcolor{green}{\mathbf{a}_2}\\
-\textcolor{red}{\vert} & \vert
- \end{bmatrix},\;\; \mathbf{v} = \begin{bmatrix} v_1 \\ v_2\end{bmatrix}
-```
-
-For example, then ``\mathbf{Av}=\mathbf{u}`` is
-
-```math
-\large
-	v_1\textcolor{red}{\begin{bmatrix}
-	   1.5\\
-	   3\\
-	   0
-	 \end{bmatrix}} + v_2 \textcolor{green}{\begin{bmatrix}
-	  2\\
-	  0\\
-	  0
-	 \end{bmatrix}} =\textcolor{purple}{\mathbf{u}}
-```
-
-* ``\textcolor{red}{\mathbf{a}_1}, \textcolor{green}{\mathbf{a}_2}``: the ``\textcolor{red}{\rm red}`` and ``\textcolor{green}{\rm green}`` vectors
-> The column space 
-> 
->  ``\{v_1 \textcolor{red}{\mathbf{a}_1} + v_2 \textcolor{green}{\mathbf{a}_2}\}:`` is ?
-
-""", plt_av)
-
-# ╔═╡ 5f77775d-23cc-48e8-ad72-0d2d80f3fb40
-plt_bv = let
-	gr()
-	a1 = [1.5,3,0]
-	a2 = [3,0,0]
-	A= hcat([a1, a2]...)
- 	plt = plot(xlim=[-1,5], ylim=[-1, 4], zlim =[-2,4], framestyle=:zerolines, camera=(20,15), size=(400,400))
-	arrow3d!([0], [0], [0], [a1[1]], [a1[2]], [a1[3]]; as=0.1, lc=3, la=1, lw=2, scale=:identity)
-	arrow3d!([0], [0], [0], [a2[1]], [a2[2]], [a2[3]]; as=0.1, lc=2, la=1, lw=2, scale=:identity)
-	scatter!([0], [0], [0], mc=:black, ms =1, label="")
-	normv = cross(a1, a2)
-	surface!(-1:0.1:5, -1:0.1:5, (x,y) -> - x * normv[1]/normv[3]- y * normv[2]/normv[3], colorbar=false, alpha=0.25)
-	if add_b
-
-		arrow3d!([0], [0], [0], [bv[1]], [bv[2]], [bv[3]]; as=0.1, lc=1, la=1, lw=3, scale=:identity)
-		if add_sol
-			A = [a1 a2]
-			v = A \ bv 
-			va1 = v[1] * a1
-			arrow3d!([0], [0], [0], [va1[1]], [va1[2]], [va1[3]]; as=0.1, lc=3, la=1, lw=3, scale=:identity)
-			plot!([bv[1], va1[1]], [bv[2], va1[2]], [bv[3], va1[3]], lw=2, lc=:gray, ls=:dash, label="")
-			va2 = v[2] * a2
-			arrow3d!([0], [0], [0], [va2[1]], [va2[2]], [va2[3]]; as=0.1, lc=2, la=1, lw=3, scale=:identity)
-			plot!([bv[1], va2[1]], [bv[2], va2[2]], [bv[3], va2[3]], lw=2, lc=:gray, ls=:dash, label="")
-		end
-	end
-	plt
-end;
-
-# ╔═╡ a497aaf1-cce1-4a05-86d4-4eaa9d600d81
-TwoColumn(md"""
-\
-\
-\
-\
-\
-\
-When ``\color{blue}\mathbf{b}``: the ``\textcolor{blue}{\rm blue}`` vector ``\in \{\mathbf{Av}\}``
-* **there is (are) solution(s)**
-
-""", plt_bv)
-
-# ╔═╡ 87d57c33-c85b-4564-9ea7-aced87cbafa1
-plt_av_nosol=let
-	gr()
-	a1 = [2,4,0]
-	a2 = [3,0,0]
-	b = [1,1,4]
-	A= hcat([a1, a2]...)
-	# bp= A*inv(A'*A)*A'*b
- 	plt=plot(xlim=[-1,5], ylim=[-1, 5], zlim =[-2,5], framestyle=:zerolines, camera=(20,15), size=(400,400))
-	arrow3d!([0], [0], [0], [c[1]], [c[2]], [c[3]]; as=0.1, lc=1, la=1, lw=2, scale=:identity)
-	# annotate!(c[1], c[2], c[3], text("c"))
-	arrow3d!([0], [0], [0], [a1[1]], [a1[2]], [a1[3]]; as=0.1, lc=3, la=1, lw=2, scale=:identity)
-	arrow3d!([0], [0], [0], [a2[1]], [a2[2]], [a2[3]]; as=0.1, lc=2, la=1, lw=2, scale=:identity)
-	scatter!([0], [0], [0], mc=:black, label="")
-
-	if add_proj
-		arrow3d!([0], [0], [0], [bp[1]], [bp[2]], [bp[3]]; as=0.1, lc=4, la=0.9, lw=2, scale=:identity)
-		plot!([b[1], bp[1]], [b[2], bp[2]], [b[3], bp[3]], lw=2, lc=:gray, ls=:dash, label="")
-	end
-
-	surface!(-1:0.1:5, -1:0.1:5, (x,y) -> 0, colorbar=false, alpha=0.35)
-	plt
-end;
-
-# ╔═╡ c60204cb-4172-4c2a-a9a2-886092b4b790
-TwoColumn(md"""
-\
-\
-\
-\
-
-When ``\color{blue}\mathbf{b}``: the ``\textcolor{blue}{\rm blue}`` vector **_sticks out_**
-
-or 
-
-```math
-\mathbf{b} \notin \{\mathbf{Av}, \mathbf{v}\in R^m\}
-```
-* **NO solution**
-* nevertheless, we can find an **approximated solution**
-""", plt_av_nosol)
-
-# ╔═╡ 66728d7f-3eb6-45d7-8677-ed28894244cd
-TwoColumn(md"""
-\
-\
-\
-\
-
-In maths,
-\
-\
-\
-\
-
-```math
-\large
-(\textcolor{blue}{\mathbf{b}} - \textcolor{purple}{\mathbf{Av}}) \perp \{\textcolor{red}{\mathbf{a}_1}, \textcolor{green}{\mathbf{a}_2}, \ldots\}
-```
-
-
-
-""", let
-	gr()
-	a1 = [2,4,0]
-	a2 = [3,0,0]
-	b = [1,1,4]
-	A= hcat([a1, a2]...)
-	bp= A*inv(A'*A)*A'*b
- 	plt=plot(xlim=[-1,5], ylim=[-1, 5], zlim =[-2,5], framestyle=:zerolines, camera=(20,15), size=(400,400))
-	arrow3d!([0], [0], [0], [c[1]], [c[2]], [c[3]]; as=0.1, lc=1, la=1, lw=2, scale=:identity)
-	# annotate!(c[1], c[2], c[3], text("c"))
-	arrow3d!([0], [0], [0], [a1[1]], [a1[2]], [a1[3]]; as=0.1, lc=3, la=1, lw=2, scale=:identity)
-	arrow3d!([0], [0], [0], [a2[1]], [a2[2]], [a2[3]]; as=0.1, lc=2, la=1, lw=2, scale=:identity)
-	scatter!([0], [0], [0], mc=:black, label="")
-	arrow3d!([0], [0], [0], [bp[1]], [bp[2]], [bp[3]]; as=0.1, lc=4, la=0.9, lw=2, scale=:identity)
-	plot!([b[1], bp[1]], [b[2], bp[2]], [b[3], bp[3]], lw=2, lc=:gray, ls=:dash, label="")
-	surface!(-1:0.1:5, -1:0.1:5, (x,y) -> 0, colorbar=false, alpha=0.35)
-	plt
-end)
-
-# ╔═╡ aca9b735-fd85-47b9-8a6b-5bb5785025dc
-TwoColumn(md"""
-\
-\
-\
-\
-
-
-
-The solution is 
-
-```math
-\large
-{\mathbf{v}}  = (\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top\mathbf{b}
-```
-The projection is
-\
-\
-
-```math
-\large
-{\mathbf{b}}_{\text{proj}}  = \mathbf{A}\underbrace{(\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top\mathbf{b}}_{\mathbf{v}}
-```
-
-""", let
-	gr()
-	a1 = [2,4,0]
-	a2 = [3,0,0]
-	b = [2.5,2.5, 4.]
-	A= hcat([a1, a2]...)
-	bp= A * (A\b)
- 	plt=plot(xlim=[-1,5], ylim=[-1, 4], zlim =[-2,4], framestyle=:zerolines, camera=(20,15), size=(400,400))
-	arrow3d!([0], [0], [0], [b[1]], [b[2]], [b[3]]; as=0.1, lc=1, la=1, lw=2, scale=:identity)
-	# annotate!(c[1], c[2], c[3], text("c"))
-	arrow3d!([0], [0], [0], [a1[1]], [a1[2]], [a1[3]]; as=0.1, lc=3, la=1, lw=2, scale=:identity)
-	arrow3d!([0], [0], [0], [a2[1]], [a2[2]], [a2[3]]; as=0.1, lc=2, la=1, lw=2, scale=:identity)
-	scatter!([0], [0], [0], mc=:black, label="")
-	arrow3d!([0], [0], [0], [bp[1]], [bp[2]], [bp[3]]; as=0.1, lc=4, la=0.9, lw=2, scale=:identity)
-	plot!([b[1], bp[1]], [b[2], bp[2]], [b[3], bp[3]], lw=2, lc=:gray, ls=:dash, label="")
-	surface!(-1:0.1:5, -1:0.1:5, (x,y) -> 0, colorbar=false, alpha=0.35)
-
-			A = [a1 a2]
-			v = A \ b 
-			va1 = v[1] * a1
-			arrow3d!([0], [0], [0], [va1[1]], [va1[2]], [va1[3]]; as=0.1, lc=3, la=1, lw=3, scale=:identity)
-			plot!([bp[1], va1[1]], [bp[2], va1[2]], [bp[3], va1[3]], lw=2, lc=:gray, ls=:dash, label="")
-			va2 = v[2] * a2
-			arrow3d!([0], [0], [0], [va2[1]], [va2[2]], [va2[3]]; as=0.1, lc=2, la=1, lw=3, scale=:identity)
-			plot!([bp[1], va2[1]], [bp[2], va2[2]], [bp[3], va2[3]], lw=2, lc=:gray, ls=:dash, label="")
-	plt
-end)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -4351,7 +3752,7 @@ PlutoUI = "~0.7.51"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.0"
+julia_version = "1.9.1"
 manifest_format = "2.0"
 project_hash = "d649aec61bf4587fa0ef74e74a7071b4a5d165b3"
 
@@ -5347,7 +4748,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.7.0+0"
+version = "5.8.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -5424,6 +4825,7 @@ version = "1.4.1+0"
 # ╟─4c1e7871-a931-4781-a200-304a2ef253e1
 # ╟─85843ba6-f480-4c0e-a80b-2d5742c0cd72
 # ╟─55325e63-06d0-452d-968e-0554a5ba3050
+# ╟─985bcc5a-a829-47ee-adfb-982547d259a4
 # ╟─6ecfac7c-1b2e-46ad-bbd6-a61d3b3833b5
 # ╟─995c0421-888a-43d8-aa8a-f5c713fbff5b
 # ╟─bd2498df-069b-4ea0-9e44-738142a3080e
@@ -5434,8 +4836,12 @@ version = "1.4.1+0"
 # ╟─4a4924fe-dd07-4f71-b532-471639871938
 # ╟─c56ec750-0514-4796-a594-325b930bf4d2
 # ╟─1dd53149-6749-4c86-b63a-eb801a827808
+# ╟─7cb9a28f-b457-4857-aba0-219e06ad6e82
+# ╟─77a18b6d-fcb4-4e1b-ae9b-c57b16c5e6c0
 # ╟─057908d5-7f6b-4976-84f4-eabe8ff88c33
 # ╟─94027fb4-cbb0-46d3-abd2-795af9019cd7
+# ╟─7a1d2d83-9820-4b61-91fc-20fa7781e992
+# ╟─b5465dc2-5c9b-448d-9f82-bcbb8dbfe64b
 # ╟─a54dbf58-d082-440f-bc3d-ceebdfabbda6
 # ╟─261ca719-e1e3-4ca8-a685-1bc04e2a3e01
 # ╟─d4d8448c-1148-4c56-a460-acc6279013ba
@@ -5453,7 +4859,7 @@ version = "1.4.1+0"
 # ╟─97b60054-0848-4285-95ff-e16692baf801
 # ╟─ed21efbc-6553-4be4-8555-021cd009fb96
 # ╟─a859cd16-b36f-4201-9f3a-8f37c28e9edc
-# ╟─c57214b9-2bf6-4129-9ac1-fe03bd507304
+# ╠═c57214b9-2bf6-4129-9ac1-fe03bd507304
 # ╟─b912076e-311a-49c3-b324-80d30b7f1baa
 # ╟─5d3d7bfd-3d6e-4e5c-932f-d0f5e7326737
 # ╟─2940d90e-3bf3-41b2-8c2c-3b484b9897ee
@@ -5499,6 +4905,9 @@ version = "1.4.1+0"
 # ╟─409f36c6-a7c7-4ed0-9bc9-f24edd2a3ea0
 # ╟─b20cfa48-6af6-4225-9864-869061cbb0d7
 # ╟─2f4ad113-fa7b-4bf9-be29-20c52ecc0043
+# ╟─716129ad-b329-4107-9922-9786d2c67504
+# ╟─17312d0a-c01a-429f-ac49-7d9753dc79d7
+# ╟─632dffd8-4f69-48ab-bd51-978f5d3eb21f
 # ╟─0e75dff7-3763-453e-a984-0623942fe7f4
 # ╟─8214e966-32c9-4c44-aaf2-25bbacbfb84d
 # ╟─585f721f-47f0-427f-84e1-3f1072c849f1
@@ -5533,7 +4942,7 @@ version = "1.4.1+0"
 # ╟─4eaadc80-a8c1-4d35-8240-aabf9bf5f760
 # ╟─27e28f79-6a46-43db-a9b0-18a2932ff3af
 # ╟─3fd23a96-0c7e-444b-87d3-9ea1adc04f9c
-# ╟─6acf5707-ba94-41ce-9723-9d49121a0478
+# ╠═6acf5707-ba94-41ce-9723-9d49121a0478
 # ╟─32834e62-f068-4467-867a-62f9e4b5f3ab
 # ╟─fe9f4332-4609-4f7a-8fb1-d7f55eb2d055
 # ╟─6c8f329f-f52f-4dc6-9a4b-d59469d6879a
@@ -5600,45 +5009,6 @@ version = "1.4.1+0"
 # ╟─67031a69-f8b4-4aae-9c6e-9f6ccd7c11ad
 # ╟─aa5c1733-2975-4eea-aba4-7d45905fe64e
 # ╟─3d00b8d6-7a40-4f51-b8a9-c4da151dadcd
-# ╟─5e774ede-251e-4321-b241-9bba130526ce
-# ╟─b82902b8-75a2-484c-9e95-0aa85e7ffe43
-# ╟─918813ef-46b3-48f0-a148-a2caa5dd3fc1
-# ╟─82156c81-a9cd-498f-8f68-cddbf532c187
-# ╟─bbe94dfe-63fb-4a94-801f-ecaa0829382b
-# ╟─ae0cf110-2f08-4f31-b4c5-8229d19812c8
-# ╟─87f1d70f-51bb-4a72-9b2f-44142f26d040
-# ╟─ff4da64b-a12e-4e9a-93e0-77de49ab882e
-# ╟─7043fade-e50d-409c-b042-fdce489c5b2f
-# ╟─be9922ff-4493-4e17-8229-dfbfadf23842
-# ╟─69f63143-4486-4389-a6cc-ddb6408a3414
-# ╟─cb09c906-27c0-4e77-8941-b0043bf4edfe
-# ╟─4a91da1c-fa3f-4926-a068-5b70a1c8e534
-# ╟─5f77775d-23cc-48e8-ad72-0d2d80f3fb40
-# ╟─9c10528e-3738-4a19-a9c3-e8ec587c418d
-# ╟─64b14177-03ec-4b28-933c-d2a224ae1daa
-# ╟─a497aaf1-cce1-4a05-86d4-4eaa9d600d81
-# ╟─467b7150-63c1-4d66-8ff7-174b5b108b9c
-# ╟─e1212d95-be2f-401d-859e-9ef36896b3a3
-# ╟─8ecbe257-f3c6-447c-b686-b8d3cf22c79c
-# ╟─c60204cb-4172-4c2a-a9a2-886092b4b790
-# ╟─3416ed8b-3d4f-421c-8330-c4fbfbfeb02c
-# ╟─0fc1e8bf-8635-46cd-af49-827fd5e9769c
-# ╟─8f6489bc-ac10-491c-acb2-aab36bd99d57
-# ╟─f0fbc7ac-81ba-4837-8a5e-9369a750a8f8
-# ╟─87d57c33-c85b-4564-9ea7-aced87cbafa1
-# ╟─8407339b-d366-4062-8c72-600b0b398cdf
-# ╟─5b57849e-0491-4e94-9c77-d2481e643f2f
-# ╟─e136f6c3-9e1c-4a7c-ab55-77578602d97a
-# ╟─66728d7f-3eb6-45d7-8677-ed28894244cd
-# ╟─a90f7143-5fa4-4799-87a8-0db93b166bd1
-# ╟─257ebc69-2f01-4154-a7d4-a67ee42c63c1
-# ╟─60e79a25-ec65-452b-811d-9fbf4cfdbde7
-# ╟─e1dbd92e-f10c-4bd1-85ff-79276074fd7f
-# ╟─2e51de20-c4f4-40be-9eca-28d2aa1ad04f
-# ╟─11632119-7792-41b3-92f2-161aa6b35447
-# ╟─84ccbf53-31d4-43c7-9da4-ac1e65fd2bf8
-# ╟─00820112-c653-44a9-bad7-042d8ae24bde
-# ╟─aca9b735-fd85-47b9-8a6b-5bb5785025dc
 # ╟─77b40da6-4577-4968-a48d-f4ba7c6d1bca
 # ╟─2cdfab17-49c0-4ac4-a199-3ba2e2d5d216
 # ╟─be040c96-da49-44e6-9a73-7e26a1960261

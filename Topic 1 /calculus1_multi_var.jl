@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.25
+# v0.19.26
 
 using Markdown
 using InteractiveUtils
@@ -31,6 +31,9 @@ end
 # ╔═╡ 959d3f6e-ad5b-444f-9000-825063598837
 using Zygote
 
+# ╔═╡ 81b26abe-c275-4f1e-96de-30d30651ae85
+using ForwardDiff
+
 # ╔═╡ 3e2e1ea8-3a7d-462f-ac38-43a087907a14
 TableOfContents()
 
@@ -56,6 +59,27 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 
 """
 
+# ╔═╡ 7f70d752-ba03-4378-9bc6-c8869a4f56ca
+md"""
+
+## Today
+
+\
+\
+
+A quick revision on **Vector calculus**
+* used in all aspect of science and engineering
+* particularly useful for optimisation in ML models
+
+
+
+\
+
+Agains, we focus on more **intuition** 
+* we will start from something nice and simple
+* then move to more general multivariate examples
+"""
+
 # ╔═╡ 7091d2cf-9237-45b2-b609-f442cd1cdba5
 md"""
 
@@ -77,7 +101,7 @@ end;
 # ╔═╡ a696c014-2070-4041-ada3-da79f50c9140
 begin
 	next1
-	topics = ["Single variate calculus: linear & quadratic function, derivative, optimisation", "Multivariate vector calculus: level set, contour, gradient, Hessian", "Local approximation: the essence of differential calculus"]
+	topics = ["Univariate functions: linear & quadratic function", "Multivariate extensions: level set, contour", "Gradient and differentiation rules", "Optimisation"]
 	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
 end
 
@@ -668,245 +692,1446 @@ let
 	# xticks!(merged_xticks)
 end
 
-# ╔═╡ 9b94af8d-b5d2-4c57-84ca-9406fa9e2d7b
+# ╔═╡ 653ab1b9-0839-4217-8301-f326efa2a2ad
 md"""
-## Recap: sample mean as _Projection_
-
-The sample mean of ``\mathbf{d} = \{d_1, d_2\ldots, d_n\}`` is
 
 
-```math
-\large
-\bar{d} = \frac{1}{n} \sum_i d_i
-```
-* it *compresses* a bunch of number into one scalar
+# Multivariate calculus
 
 """
 
-# ╔═╡ 404d8f96-c76d-48e8-ae2f-28160fc5c549
+# ╔═╡ 333094ef-f309-4816-9651-df44d51f9d95
+md"""
+## Multivariate function ``\mathbb{R}^n \rightarrow \mathbb{R}``
+
+"""
+
+# ╔═╡ 056186fb-4db5-46c5-a2df-fdb19684ffcc
 begin
-	Random.seed!(2345)
-	sample_data = sort(randn(8) * 2)
-	μ̄ = mean(sample_data)
+	f_demo(w₁, w₂) = 1/4 * (w₁^4 + w₂^4) - 1/3 *(w₁^3 + w₂^3) - w₁^2 - w₂^2 + 4
+	f_demo(w::Vector{T}) where T <: Real = f_demo(w...)
+	∇f_demo(w₁, w₂) = [w₁^3 - w₁^2 - 2 * w₁, w₂^3 - w₂^2 - 2 * w₂]
+	∇f_demo(w::Vector{T}) where T <: Real = ∇f_demo(w...)
 end;
 
-# ╔═╡ 47b5c1dd-52c9-4670-8203-32cf0c3a0bfb
-let
+# ╔═╡ bbf4a250-96f3-457c-9bb1-f4147bff8056
+more_ex_surface = let
 	gr()
-	ylocations = 0.05 * ones(length(sample_data))
-	plt = plot(ylim = [0., 0.07], xminorticks =5, yticks=false, showaxis=:x, size=(650,120), framestyle=:origin)
-	δ = 0.1
-	for i in 1:length(sample_data)
-		plot!([sample_data[i]], [ylocations[i]], label="", markershape =:circle, markersize=5, markerstrokewidth=1, st=:sticks, c=1, annotations = (sample_data[i], ylocations[i] + 0.01, Plots.text(L"d_{%$i}", :bottom, 13)))
-		# annotate!([sample_data[i]].+7*(-1)^i * δ, [ylocations[i]].+ δ, "", 8)
-	end
-	# vline!([μ̄], lw=2, ls=:dash, label="sample mean", legend=:topleft)
-	plot!([μ̄], [ylocations[1]], label="", markershape =:star5, markersize=5, markerstrokewidth=1, st=:sticks, c=2, annotations = (μ̄, ylocations[1] + 0.01, Plots.text(L"\bar{d}", :bottom, 15)))
-	# density!(scientist_data, label="")
-	plt
-end
+	plot(-2:0.1:3, -2:0.1:3, f_demo, st=:surface, color=:jet, colorbar=false, aspect_ratio=1.0, xlabel=L"x_1", ylabel=L"x_2", zlabel=L"f(x)", title="A "*L"\mathbb{R}^2\rightarrow \mathbb{R}"*" function", size=(300,300))
+end;
 
-# ╔═╡ 62efcc68-e897-480b-9f54-1cec0255d35b
+# ╔═╡ 8af85d4c-9759-4549-8827-b6e54868aa38
+TwoColumn(
 md"""
-## Sample mean as _Projection_
-
-> **_Sample mean_** is actually a **_projection_**
-> * data vector ``\mathbf{d}`` projected to the one vector ``\mathbf{1}``
-
-Because
 
 
+\
+\
+\
+	
+Machine learning models are multivariate functions
+
+
+ 
 ```math
-\large
-\frac{\mathbf{1}^\top \mathbf{d}}{\mathbf{1}^\top\mathbf{1}} = \frac{\sum_i d_i}{n} = \bar{{d}}
+\large 
+f(\mathbf{x}): \mathbb R^n \rightarrow \mathbb R
 ```
 
-
-$(aside(tip(md"Recall the definition of projection:
-
-> ```math
-> \large
-> \mathbf{b}_{\text{proj}}  = \frac{\mathbf{a}^\top\mathbf{b}}
-> {\mathbf{a}^\top\mathbf{a}} \mathbf{a}
->```
-> * it projects ``\mathbf{b}`` to ``\mathbf{a}``
+* ``n``: the number of inputs
 
 
-")))
+""",
+more_ex_surface
+	
+)
 
-Multiply ``\mathbf{1}`` on both side, we have
+# ╔═╡ 58d10219-b1b5-4063-b645-8690470b98f8
+aside(tip(md"
+Recall ``\mathbf{b}^\top \mathbf{x}  = b_1 x_1 + b_2 x_2 + \ldots  b_n x_n``
+"))
+
+# ╔═╡ a56baf6a-cd46-4eb0-9d98-97b22cbdebee
+md"""
+## Linear function: ``\mathbb R^n \rightarrow \mathbb R``
+
+
 
 ```math
 \large 
-\frac{\mathbf{1}^\top \mathbf{d}}{\mathbf{1}^\top\mathbf{1}}\mathbf{1} =\bar{{d}}\mathbf{1} =\begin{bmatrix} \bar{d} \\\bar{d} \\ \vdots\\\bar{d}\end{bmatrix}
+
+\begin{align}
+f(\mathbf{x}) &=   c + b_1 x_1 + b_2 x_2 + \ldots  b_n x_n\\
+	&= w_0 + \mathbf{b}^\top \mathbf{x} 
+\end{align}
 ```
 
-* ``\mathbf{d}``'s **projection** on ``\mathbf{1}``! 
+* where ``\mathbf{x} = [x_1, x_2, \ldots, x_n]^\top`` 
+* ``\mathbf{b} = [w_1, w_2, \ldots, w_n]^\top``
 
 
 """
 
-# ╔═╡ 14503fd1-8a66-45d1-b72c-155995aa885e
+# ╔═╡ 1619883b-fccc-4e39-a18f-2868bf3d05e5
+md"""
+##
+
+```math
+\large 
+
+\begin{align}
+f(\mathbf{x})
+	&= w_0 + \mathbf{b}^\top \mathbf{x} 
+\end{align}
+```
+* direct generalisation of the linear function
+
+$\large f(x) = c + b\cdot x$
+
+* from a line to (hyper-)plane
+"""
+
+# ╔═╡ 716bbad1-873c-4623-9874-35d5812755b2
 md"""
 
-## Sample mean as optimisation
+## 
 
 
-We can solve the problem by using **calculus** as well, *i.e.* optimisation
+**Example:**
+The most boring function a flat plane: when ``\mathbf{b} =\mathbf{0}, c=1``
 
-
-Consider the sum of squared error loss function:
 
 ```math
 \large
-\ell(\mu) = \sum_{i=1}^n (d_i - \mu)^2
+f(\mathbf{x}) = 1
+```
 
+* generalisation of horizontal line ``f(x)=1``
+
+"""
+
+# ╔═╡ 1577f3b9-d4e4-4f90-a2d8-c24a582e3842
+let
+	gr()
+	plot(-10:0.1:10, -10:0.1:10, (x1, x2) -> 1, st=:surface, zlim=[-0.1, 2], xlabel=L"x_1", ylabel=L"x_2", zlabel=L"f", alpha=0.8, c=:jet)
+end
+
+# ╔═╡ c418d004-90ad-4fdb-b830-cfca116ef89c
+md"""
+
+##
+
+**Example**: a less boring function: (hyper-)plane
+
+```math
+\large 
+f(\mathbf{x}) = 10 + \begin{bmatrix}1\\ 0\end{bmatrix} \begin{bmatrix}x_1& x_2\end{bmatrix}
+```
+
+
+* *i.e.* ``\mathbf{b} = [1,0]^\top``
+
+* the change of ``x_2`` has no impact on ``f`` (as ``b_2=0``)
+"""
+
+# ╔═╡ e878821e-23a1-4de2-b751-f23da4e31023
+b = [1, 0]
+
+# ╔═╡ 1e3f91ae-df75-446d-9d10-c08b3174d0e9
+let
+	plotly()
+	b = b
+	w₀ = 10
+	plot(-15:2:15, -15:2:15, (x1, x2) -> dot(b, [x1, x2])+w₀, st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=0.8, framestyle=:zerolines, c=:jet, colorbar=false)
+	# plot!(-15:2:15, -10:2:10, (x1, x2) -> 10.0, st=:surface, alpha=0.8, title="Level set")
+end
+
+# ╔═╡ efe4a943-c1b5-4ebf-b412-d995b8259335
+md"""
+
+## Aside: quadratic form
+
+
+For **vector** ``\mathbf{x} \in \mathbb{R}^n``, and square matrix ``\mathbf{A} \in \mathbb R^{n\times n}``, the quadratic form
+
+
+```math
+\large
+\mathbf{x}^\top \mathbf{A}\mathbf{x}
+```
+
+* the end result a **scalar** or **vector** or **matrix** ?
+* generalisation of ``x \cdot a \cdot x`` or ``ax^2``
+
+
+"""
+
+# ╔═╡ 0d635d0c-6b9b-4909-a3bf-96bc51658f40
+md"""
+
+## Aside: quadratic form
+
+
+
+
+
+For **vector** ``\mathbf{x} \in \mathbb{R}^n``, and square matrix ``\mathbf{A} \in \mathbb R^{n\times n}``, the quadratic form
+
+
+```math
+\large
+\mathbf{x}^\top \mathbf{A}\mathbf{x}
+```
+
+* the end result a **scalar** or **vector** or **matrix** ?
+* generalisation of ``x \cdot a \cdot x`` or ``ax^2``
+
+
+"""
+
+# ╔═╡ d6c13bea-4102-4d21-9cd1-4f04ea3bc110
+md"""
+
+## Aside: quadratic form
+
+
+
+The quadratic form
+
+
+```math
+\large
+\mathbf{x}^\top \mathbf{A}\mathbf{x} = \begin{bmatrix} x_1& x_2& \ldots& x_n\end{bmatrix} \begin{bmatrix}
+a_{11} & a_{12} & \ldots & a_{1n}\\
+a_{21} & a_{22} & \ldots & a_{2n} \\
+\vdots & \vdots &\ddots & \vdots \\
+a_{n1} & a_{n2} & \ldots & a_{nn}
+\end{bmatrix}  \begin{bmatrix}x_1 \\ x_2 \\ \vdots \\ x_n \end{bmatrix} = \sum_{i=1}^n\sum_{j=1}^n a_{ij} x_i  x_j
+```
+
+
+* the end result is a **scalar**!
+"""
+
+# ╔═╡ 7709b758-a81a-4244-8b67-1eb0ec4f178e
+Foldable("Why?", md"""
+
+```math
+
+\begin{align}
+\mathbf{x}^\top \mathbf{A}\mathbf{x} &=\begin{bmatrix} x_1& x_2& \ldots& x_n\end{bmatrix} \underbrace{\begin{bmatrix}
+a_{11} & a_{12} & \ldots & a_{1n}\\
+a_{21} & a_{22} & \ldots & a_{2n} \\
+\vdots & \vdots &\ddots & \vdots \\
+a_{n1} & a_{n2} & \ldots & a_{nn}
+\end{bmatrix}  \begin{bmatrix}x_1 \\ x_2 \\ \vdots \\ x_n \end{bmatrix}}_{\begin{bmatrix}\sum_{j} a_{1j} x_j & \sum_{j} a_{2j} x_j & \ldots & \sum_{j} a_{nj} x_j \end{bmatrix}^\top}\\
+
+&=\begin{bmatrix} x_1& x_2& \ldots& x_n\end{bmatrix}\begin{bmatrix}\sum_{j} a_{1j} x_j \\ \sum_{j} a_{2j} x_j \\ \vdots \\ \sum_{j} a_{nj} x_j \end{bmatrix}\\
+&= \sum_i x_i \left (\sum_j a_{ij} x_j \right ) \\
+&= \sum_i \sum_j  a_{ij} x_i x_j 
+\end{align} 
+```
+
+
+""")
+
+# ╔═╡ 18435e02-7911-4971-a9b1-adda47a96b04
+md"""
+
+## Example
+
+For ``\mathbf{A} = \mathbf{I}``
+
+```math
+\large
+\mathbf{x}^\top \mathbf{I}\mathbf{x} = \begin{bmatrix} x_1& x_2\end{bmatrix} \begin{bmatrix}
+1 & 0\\
+0 & 1 \\
+\end{bmatrix}  \begin{bmatrix}x_1 \\ x_2  \end{bmatrix} = x_1^2 + x_2^2
+```
+* the sum of squares (of all entries): therefore always positive
+
+Generalisation to ``n > 2``, for an error vector ``\mathbf{e} \in \mathbb{R}^n``
+
+```math
+\large
+\mathbf{e}^\top \mathbf{I}\mathbf{e} = \mathbf{e}^\top\mathbf{e} = \sum_{i=1}^n e_i^2
+```
+
+* again, the sum of squares
+* squared distance between ``\mathbf{e}`` and ``\mathbf{0}``
+"""
+
+# ╔═╡ 8aef8b0f-2c00-4cb2-877a-d11ce8ca3cbc
+
+md"""
+
+## Multi-var. _quadratic_ function: ``\mathbb{R}^n \rightarrow \mathbb{R}``
+
+Recall a single-variate quadratic function
+
+```math
+\large
+f(x) = x^2
 ```
 """
 
-# ╔═╡ d760db9b-5c5e-4e0b-8e37-a680240f351d
-md"``\mu``= $(@bind μ Slider(range(extrema(sample_data)..., 50), default=μ̄))"
+# ╔═╡ 560bc22a-d907-4acc-8bd9-6dd45a53a01a
+md"""
 
-# ╔═╡ b324f27a-ccce-4ba4-8c04-6bd03ab11267
+
+* it returns the _squared distance_ between ``x`` and ``0``
+
+```math
+x^2 = |x-0|^2
+```
+
+* ``|x-0|``: error between ``x`` and ``0``
+
+"""
+
+# ╔═╡ 1a93d491-79f9-4bd5-ae9b-37b08f5a0348
+@bind x0 Slider(-5:0.5:5; default=0, show_value=true)
+
+# ╔═╡ 8a5f30ad-f686-42d3-b634-32342a16c299
 let
 	gr()
-	ylocations = 0.1 * ones(length(sample_data))
-	μ̄ = μ
-	plt = plot(ylim = [0., 0.15], xminorticks =5, yticks=false, showaxis=:x, size=(650,200), framestyle=:origin)
-	δ = 0.1
-	for i in 1:length(sample_data)
-		plot!([sample_data[i]], [ylocations[i]], label="", markershape =:circle, markersize=5, markerstrokewidth=1, st=:sticks, c=1, annotations = (sample_data[i], ylocations[i] + 0.01, Plots.text(L"d_{%$i}", :bottom, 13)))
-		# annotate!([sample_data[i]].+7*(-1)^i * δ, [ylocations[i]].+ δ, "", 8)
-	end
-	# vline!([μ̄], lw=2, ls=:dash, label="sample mean", legend=:topleft)
-	plot!([μ̄], [ylocations[1]], label="", markershape =:star5, markersize=5, markerstrokewidth=1, st=:sticks, c=2, annotations = (μ̄, ylocations[1] + 0.01, Plots.text(L"\mu", :bottom, 15)))
-	# density!(scientist_data, label="")
+	# a, b, c = qa_, qb_, qc_
+	# x₀ = (a ==0) ? 0 : -b/(2*a)
+	# plt = plot((x₀-1.5*abs(2a)):0.1:(x₀+1.5*abs(2a)), (x) -> a*x^2+b*x + c, framestyle=:origin, label=L"f(x) = %$(a)x^2 + %$(b)x + %$(c)", legend=:outerright, lw=2)
 
-	for idx = 1:8
-		plot!([μ̄, sample_data[idx]], 0.1 * idx * [ylocations[1], ylocations[1]], lc=:gray, arrow=Plots.Arrow(:close, :both, 1, 1),  st=:path, label="")
-		if isodd(idx)
-			annotate!(.5 * [μ̄ + sample_data[idx]], 0.1 * idx *[ylocations[1]], text(L"d_%$(idx) -\mu", 10, :bottom))
-		end
+	# # abcs = [(-2, 0, -2), (-2, 3, 1)]
+	# for (a, b, c) in abcs
+	# 	plot!(-4:0.1:4, (x) -> a*x^2+b*x+c, framestyle=:origin, lw =2, label=L"f(x) = %$(a)x^2 + %$(b)x + %$(c)", legend=:outerright)
+	# end
 
-		if iseven(idx)
-			annotate!(.5 * [μ̄ + sample_data[idx]], 0.1 * idx *[ylocations[1]], text(L"d_%$(idx) -\mu", 10, :bottom))
-		end
-		# idx = 7
-		# plot!([μ̄, sample_data[idx]], .5*[ylocations[1], ylocations[1]], lc=:gray, arrow=Plots.Arrow(:close, :both, 1, 1), st=:path, label="")
+
+	plot((x)->x^2, label=L"f(x) = x^2", lw=2, framestyle=:origin, title=L"f(x)=x^2")
+	x_ = x0
+	plot!([x_, x_], [0, x_^2], ls=:dash, lc=:gray, lw=2, label="")
+
+	annotate!([x_], [x_^2/2], L"x^2= %$(x_^2)", :right)
+	# plt
+end
+
+# ╔═╡ a26408c3-1d2c-48af-b373-c87098c364de
+
+md"""
+
+## Multi-var. _quadratic_ function: ``\mathbb{R}^n \rightarrow \mathbb{R}``
+
+Its two variate counter part for ``\mathbf{x} =[x_1, x_2]^\top``
+
+```math
+\large
+f(x) = x^2 \textcolor{blue}{\xRightarrow{\rm generalisation}} f(\mathbf{x}) = x_1^2 + x_2^2 
+```
+"""
+
+# ╔═╡ 1bdd7aec-3bcf-4130-8a81-2acf45437e3f
+md"""
+
+## Multi-var. _quadratic_ function: ``\mathbb{R}^n \rightarrow \mathbb{R}``
+
+Its multi-variate counter part for ``\mathbf{x}\in \mathbb{R}^n``
+
+```math
+\large
+f(x) = x^2 \textcolor{blue}{\xRightarrow{\rm generalisation}} f(\mathbf{x})= \mathbf{x}^\top\mathbf{x}
+```
+"""
+
+# ╔═╡ ba90e665-7f2b-44a5-9a8c-587249481272
+md"""
+
+* it still returns the _squared distance_ between ``\mathbf{x}`` and ``\mathbf{0}``
+
+```math
+\mathbf{x}^\top \mathbf{x} = (\mathbf{x} -\mathbf{0})^\top (\mathbf{x} -\mathbf{0})
+```
+
+
+"""
+
+# ╔═╡ f253f70e-4fe4-489d-ab40-4fd222eaa413
+md"move me: $(@bind x0_ Slider(-6:0.1:6, default=0.8))"
+
+# ╔═╡ b96382d6-1837-4db7-aeb6-0d0bc868205b
+v0 = [1, 1]
+
+# ╔═╡ c4b26533-1fd8-4a5a-88ed-f767cc0b765b
+let
+	plotly()
+	x0 = [0, 0]
+	A = Matrix(I,2,2)
+	μ = [0,0]
+	f(x1, x2) = dot([x1, x2]- μ, A, [x1, x2]-μ)
+	plot(μ[1]-5:1:μ[1]+5, μ[2]-5:1:μ[2]+5, f, st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=0.5, color=:jet, framestyle=:zerolines, ratio=1, colorbar=false, xlim=[-6, 6], ylim = [-6, 6], title="Qudratic function xᵀx")
+	scatter!([x0[1]], [x0[2]], [0], ms=1, markershape=:cross, label="")
+	scatter!([x0[1]], [x0[2]], [f(x0...)], ms=1, label="")
+	vs = 0:0.1:f(x0...)
+	plot!(2 * ones(length(vs)), 2 * ones(length(vs)), vs, lw=3, ls=:dash, lc=:gray, label="")
 	
-		# annotate!(.5 * [μ̄ + sample_data[idx]], .5*[ylocations[1]], text(L"d_%$(idx) -\mu", :bottom))
-	end
+	ys = -5:.5:5
+	xs = x0[1] * ones(length(ys))
+	zs = [dot([xs[i], ys[i]]- μ, A, [xs[i], ys[i]]-μ) for i in 1:length(ys)]
+	zs2 = [dot([ys[i], xs[i]]- μ, A, [ys[i], xs[i]]-μ) for i in 1:length(ys)]
+	path3d!(xs, ys,zs, lw=3, label="", c=1)
+	path3d!(ys, xs,zs2, lw=3, label="", c=2)
+
+	x_ = x0_ * v0 / (norm(v0))
+	plot!([x_[1], x_[1]], [x_[2], x_[2]], [f(x_...), 0], lw=3, lc=:black, ls=:dashdot,label="")
+
+	scatter!([x_[1]], [x_[2]], [0], ms=2, markershape=:cross, label="x")
+	scatter!([x_[1]], [x_[2]], [f(x_...)], ms=1, markershape=:circle, label="")
+end
+
+# ╔═╡ 156378ef-d2f6-452a-8d76-59f697f03c17
+md"""
+
+## Multi-var quadratic function: ``\mathbb{R}^n \rightarrow \mathbb{R}``
 
 
-	loss = sum((μ .- sample_data).^2)
+More generally, the multi-variate quadratic function for ``\mathbf{x}\in \mathbb{R}^n``
 
-	plot!(title=L"\ell = %$(round(loss; digits=2))")
+```math
+\Large
+f(x) = a x^2 + bx + c \textcolor{blue}{\xRightarrow{\rm generalisation}} f(\mathbf{x})= \mathbf{x}^\top\mathbf{A}\mathbf{x} + \mathbf{b}^\top\mathbf{x} + c
+```
+
+
+
+* ``\mathbf{x}^\top \mathbf{A}\mathbf{x}``: is called quadratic form
+"""
+
+# ╔═╡ d99bce21-59ca-491e-a7a2-57ad4abe73ed
+md"""
+
+## Recall the max/min test
+
+
+The quadratic coefficient ``a`` determines: maximum, minimum
+"""
+
+# ╔═╡ af66f43d-27be-4a8c-bd4b-60e25e113214
+TwoColumn(md"
+
+#### when `` a > 0``
+
+
+The function has a **minimum**
+
+$(pltapos)
+", 
+	
+	
+md" #### when `` a<0``
+
+
+The function has a **maximum**
+
+
+$(pltaneg)
+")
+
+# ╔═╡ 92a4d83a-7637-4201-9c5e-c36b379210a0
+md"""
+
+## Max/min test
+```math
+\Large
+f(\mathbf{x})= \mathbf{x}^\top\mathbf{A}\mathbf{x} + \mathbf{b}^\top\mathbf{x} + c
+```
+
+* cross reference single variate case
+
+$a>0, ax^2 > 0\; \text{for all } {x\in \mathbb{R}}$
+* when ``\mathbf{A}`` is _positive definite_, *i.e.* when 
+$\text{positive definite: }\large \mathbf{x}^\top\mathbf{A}\mathbf{x} > 0\; \text{for all } \mathbf{x\in \mathbb{R}^n}$
+
+> **Interpretation**:  _for all directions ``\mathbf{x}\in \mathbb{R}^n``, ``f`` **faces UP**_
+* then ``f`` has a **minimum**
+
+* *e.g.*
+```math
+\mathbf{A} = \begin{bmatrix}1 & 0 \\0 & 1\end{bmatrix}
+```
+
+
+
+"""
+
+# ╔═╡ 602e6920-54bd-4579-9b5d-63e477d1431e
+md"""
+
+## Max/min test
+```math
+\Large
+f(\mathbf{x})= \mathbf{x}^\top\mathbf{A}\mathbf{x} + \mathbf{b}^\top\mathbf{x} + c
+```
+
+* cross reference for singular variate case 
+
+$a<0, ax^2 < 0\; \text{for all } {x\in \mathbb{R}}$
+* when ``\mathbf{A}`` is _**negative definite**_, *i.e.* when 
+
+$\text{negative definite: }\large \mathbf{x}^\top\mathbf{A}\mathbf{x} < 0\; \text{for all } \mathbf{x\in \mathbb{R}^n}$
+
+> **Interpretation**:  _for all directions ``\mathbf{x}\in \mathbb{R}^n``, ``f`` **faces DOWN**_
+
+* then ``f`` has a **maximum**
+* *e.g.*
+```math
+\mathbf{A} = \begin{bmatrix}-1 & 0 \\0 & -1\end{bmatrix}
+```
+
+
+"""
+
+# ╔═╡ 3e6030a0-81e6-43a7-8bc6-beb6ef9aab87
+md"""
+
+## Max/min test
+```math
+\Large
+f(\mathbf{x})= \mathbf{x}^\top\mathbf{A}\mathbf{x} + \mathbf{b}^\top\mathbf{x} + c
+```
+
+* when ``\mathbf{A}`` is _**NOT definite**_, *i.e.* when 
+
+$\large \mathbf{x}^\top\mathbf{A}\mathbf{x} > 0\;\; \text{or} \;\;\mathbf{x}^\top\mathbf{A}\mathbf{x} < 0$
+
+* *e.g.*
+```math
+\mathbf{A} = \begin{bmatrix}1 & 0 \\0 & -1\end{bmatrix}
+```
+
+* ``f`` is neither maximum or minimum: not determined
+
+* this is known as a saddle point
+  * it has a maximum in one direction but minimum in the other 
+"""
+
+# ╔═╡ ac006f54-7108-459c-a800-6832b2de254d
+md"""
+
+## Level set and contour plot
+
+
+> **Level set**:  a curve in the input space of the same height ``h``: 
+> 
+> $\large \{\mathbf{x} \in \mathbb R^m| f(\mathbf{x}) = h\}$
+
+
+
+* intuitively, we intersect the surface with a _horizontal_ plane of height ``h``
+* the **intersected curve** is a level set
+
+
+**Contour plot**: the plot of different level sets in the input plane
+"""
+
+# ╔═╡ 22ca5cae-7ea7-47a4-b551-dcef2158f4ea
+html"""<center><img src="https://i.stack.imgur.com/tHSPs.gif" width = "350"/></center>""" 
+
+# ╔═╡ 80a793f7-9c8c-493c-afcc-4beba2f0bf21
+md"""
+
+## Contour plot of linear function
+"""
+
+# ╔═╡ 25f5ce83-c520-415d-9537-3a483a20e178
+md""" Height ``h``: $(@bind height Slider(-5:1.0:23, default =5, show_value=true))"""
+
+# ╔═╡ b2e5c268-8dfa-425e-9abf-b3ec50e9c0c5
+bv = [1, 0];
+
+# ╔═╡ ae351013-0928-4544-b043-54091f17565f
+begin 
+	c₀ = 10
+end;
+
+# ╔═╡ 355d7e19-8e92-4ce0-afbd-854ea3a3f33e
+let
+	plotly()
+	b = bv
+	b₀ = c₀
+	plt = plot(-15:1:15, -10:1:10, (x1, x2) -> dot(b, [x1, x2])+b₀, st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=0.8, framestyle=:zerolines, c=:jet, colorbar=false)
+
+	plot!(-15:2:15, -10:2:10, (x1, x2) -> height, st=:surface, alpha=0.8, c=:gray, title="Level set")
 	plt
 end
 
-# ╔═╡ 10212f8f-158e-40c8-9b84-5319de464e90
+# ╔═╡ 64834d5f-cb72-4ab4-81ba-7a3d7eb8d8c0
+linear_f(x; b = bv, c= c₀) = dot(b, x) + c;
+
+# ╔═╡ 7cebb1ad-bddf-41b0-8d50-c8a2dc2bd202
+let
+	gr()
+	f(x) = linear_f(x)
+	# b = b
+	# ∇f(x₁, x₂) = b * 3
+	xs = -15:0.5:15
+	ys= -15:0.5:15
+	cont = contour(xs, ys, (x, y)->f([x,y]), c=:jet, xlabel=L"x_1", ylabel=L"x_2", title="Contour plot of hyperplane")
+	# for better visualisation
+	# meshgrid(x, y) = (repeat(x, outer=length(y)), repeat(y, inner=length(x))) # helper function to create a quiver grid.
+	# xs_, ys_ = meshgrid(range(-15, 15, length=4), range(-15, 15, length=4))
+	# quiver!(xs_, ys_, quiver = ∇f, c=:green)
+end
+
+# ╔═╡ 087d8ccb-0207-4dad-ac44-d25a4835de4f
+md"""
+## Contour plot of quadratic function
+
+
+**Example**: quadratic function
+
+```math
+\large 
+f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2 
+```
+
+
+* generalisation of ``f(x) = x \cdot x = x^2``
+"""
+
+# ╔═╡ 4b899664-f5b9-4932-a3bb-38f818efb60d
+md""" Height: $(@bind height_ Slider(0:1.0:30, default =5, show_value=true))"""
+
+# ╔═╡ 01c290ac-d448-47bd-ae74-545c6c4d2c00
+let
+	plotly()
+	x0 = [0, 0]
+	A = Matrix(I,2,2)
+	μ = [0,0]
+	f(x1, x2) = dot([x1, x2]- μ, A, [x1, x2]-μ)
+	plot(μ[1]-5:1:μ[1]+5, μ[2]-5:1:μ[2]+5, f, st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=0.5, color=:jet, framestyle=:zerolines, ratio=1, colorbar=false, xlim=[-6, 6], ylim = [-6, 6])
+	scatter!([x0[1]], [x0[2]], [0], ms=1, markershape=:cross, label="")
+	scatter!([x0[1]], [x0[2]], [f(x0...)], ms=1, label="")
+	vs = 0:0.1:f(x0...)
+	plot!(2 * ones(length(vs)), 2 * ones(length(vs)), vs, lw=3, ls=:dash, lc=:gray, label="")
+	
+	plot!(-15:2:15, -10:2:10, (x1, x2) -> height_, st=:surface, alpha=0.8, c=:gray, title="Level set and contour")
+
+	t = range(0, stop=2π, length=1000)
+	height = height_
+	x = cos.(t) * sqrt(height)
+	y = sin.(t) * sqrt(height)
+	z = ones(length(t)) * height
+	plot!(x, y, z, lw=4, lc=2, label="")
+	
+	# ys = -5:.5:5
+	# xs = x0[1] * ones(length(ys))
+	# zs = [dot([xs[i], ys[i]]- μ, A, [xs[i], ys[i]]-μ) for i in 1:length(ys)]
+	# zs2 = [dot([ys[i], xs[i]]- μ, A, [ys[i], xs[i]]-μ) for i in 1:length(ys)]
+	# path3d!(xs,ys,zs, lw=3, label="", c=1)
+	# path3d!(ys,xs,zs2, lw=3, label="", c=2)
+
+	# x_ = x0_ * v0 / (norm(v0))
+	# plot!([x_[1], x_[1]], [x_[2], x_[2]], [f(x_...), 0], lw=3, lc=:black, ls=:dashdot,label="")
+
+	# scatter!([x_[1]], [x_[2]], [0], ms=2, markershape=:cross, label="x")
+	# scatter!([x_[1]], [x_[2]], [f(x_...)], ms=1, markershape=:circle, label="")
+end
+
+# ╔═╡ 788e7c1b-d58d-4553-bce6-eaa4cc3085ae
 md"""
 
-## Alternative: projection view
+##
+"""
+
+# ╔═╡ 1a8ac980-8a88-47f3-ac23-3333945c5720
+let
+	gr()
+	A = Matrix(I, 2, 2)
+	f(x₁, x₂) = dot([x₁, x₂], A, [x₁, x₂])
+	# ∇f(x₁, x₂) = 2 * A* [x₁, x₂] / 5
+	xs = -20:0.5:20
+	ys= -20:0.5:20
+	contour(xs, ys, (x, y)->f(x,y), c=:jet, xlabel=L"x_1", ylabel=L"x_2", title="Contour plot of " * L"f(\mathbf{x})=\mathbf{x}^\top\mathbf{x}", ratio=1, xlim=[-20,20])
+	# for better visualisation
+	# meshgrid(x, y) = (repeat(x, outer=length(y)), repeat(y, inner=length(x))) # helper function to create a quiver grid.
+	# xs_, ys_ = meshgrid(range(-15, 15, length=8), range(-15, 15, length=6))
+	# quiver!(xs_, ys_, quiver = ∇f, c=:green)
+end
+
+# ╔═╡ 313cc81a-3568-40f5-8b3f-76d0ee36abfa
+md"""
+## Partial derivative
+
+Multivariate function $f(\mathbf{x}): R^n\rightarrow R$, **partial derivative** w.r.t. $x_i$ is
+
+$$
+\large \frac{\partial f}{\partial x_i}(\mathbf{x}) = \lim_{h \rightarrow 0} \frac{f(x_1, \ldots, \textcolor{red}{x_i+h}, \ldots, x_n) - f(x_1, \ldots, \textcolor{red}{x_i}, \ldots, x_n)}{h}$$
+
+* _change_ one dimension (``i-`` th dimension) each time **while keeing** all ``x_j`` constant, ``j\neq x``
+
 
 """
 
-# ╔═╡ 6f6fa322-2724-4cf6-8301-229308623cfd
-data = [-1, 2.0];
-
-# ╔═╡ e04e96d3-85d6-47b0-be5c-37d3b34c1fec
-md"``\mu``= $(@bind μ_ Slider(-2:0.1:3, default=mean(data)))"
-
-# ╔═╡ e1bf8a58-4046-41e8-a0a0-dd45cbd81d75
-proj(x::Vector{T}, a::Vector{T}) where T <: Real = dot(a,x)/dot(a,a) * a ; # project vector x to vector a in Julia
-
-# ╔═╡ 02386433-a1d1-4001-8d6c-e16c00ce114a
+# ╔═╡ c2efcc3d-b5be-4047-ad7d-e80e9186f7f9
 md"""
 
-**Projection** implies ``\Rightarrow`` **shortest length** of the error vector
+## Partial derivative
 
+Multivariate function $f(\mathbf{x}): R^n\rightarrow R$, **partial derivative** w.r.t. $x_i$ is
+
+$$
+\large \frac{\partial f}{\partial x_i}(\mathbf{x}) = \lim_{h \rightarrow 0} \frac{f(x_1, \ldots, \textcolor{red}{x_i+h}, \ldots, x_n) - f(x_1, \ldots, \textcolor{red}{x_i}, \ldots, x_n)}{h}$$
+
+* _change_ one dimension (``i-`` th dimension) each time **while keeing** all ``x_j`` constant, ``j\neq x``
+
+This is the same as
 ```math
-\Large
-\vec{\text{error} }= \mathbf{d} - \mu \mathbf{1} = \begin{bmatrix}d_1  \\ d_2  \\\vdots \\d_n \end{bmatrix} - \mu \begin{bmatrix}1  \\ 1  \\\vdots \\1 \end{bmatrix} = \begin{bmatrix}d_1-\mu  \\ d_2 -\mu \\\vdots \\d_n -\mu\end{bmatrix}
+\large
+\frac{\partial f}{\partial x_i}(\mathbf{x}) = \lim_{h \rightarrow 0} \frac{f(\mathbf{x}+ h \cdot \textcolor{red}{\mathbf{e}_i}) - f(\mathbf{x})}{h}
+
 ```
 
-and its length is
-
-
+* ``\mathbf{e}_i`` is the i-th standard basis vector, as an example, for ``i=1``
 ```math
-\Large
-||\mathbf{d} - \mu\mathbf{1}||^2= (\mathbf{d} - \mu\mathbf{1})^\top (\mathbf{d} - \mu\mathbf{1})
+\mathbf{x} + h\cdot  \mathbf{e}_1 =\begin{bmatrix}x_1  \\ x_2 \\\vdots \\ x_n \end{bmatrix} + h \begin{bmatrix}1  \\ 0 \\\vdots \\ 0 \end{bmatrix}= \begin{bmatrix}x_1 + h \\ x_2 \\\vdots \\ x_n \end{bmatrix}
 ```
+
+
+
+- change rate (slope) along the ``i``-th standard basis (``\textcolor{red}{\mathbf{e}_i}``) direction 
+
 
 """
 
-# ╔═╡ de98855b-b75c-4c72-ae8e-c2716ad08998
+# ╔═╡ 3d1c6668-9d2b-46a4-82bf-0dae728dfe8b
+md"""
+
+## Example
+
+
+As a concrete example, for two-variate input, and ``i=1``
+```math
+\large
+\begin{align}
+\frac{\partial f}{\partial x_1}(\mathbf{x})& = \lim_{h \rightarrow 0} \frac{f(x_1+h, x_2) - f(x_1, x_2)}{h}\\
+&= \lim_{h \rightarrow 0} \frac{f(\mathbf{x} + h\cdot \textcolor{red}{\mathbf{e}_1}) - f(\mathbf{x})}{h}
+\end{align}
+```
+
+* *say* ``\mathbf{x}= [2,2]^\top`` and ``x_2=2`` is fixed (the ``\textcolor{red}{\rm red\; curve}``)
+* the partial is red curve's derivative along the **curve**
+
+"""
+
+# ╔═╡ 547e2772-5a5f-4cc9-bec2-a9c67fed8b5a
+@bind add_theother CheckBox(default=false)
+
+# ╔═╡ 5b363889-b66e-4e10-8e51-78791510de48
+xx = [2,2]
+
+# ╔═╡ 8a781eb7-e0db-4286-98e8-70a3beb49952
+md"""
+## Gradient
+
+
+**Gradient** is the collection of the partial derivatives:
+
+$$\large \nabla f(\mathbf{x})=\text{grad} f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\\ \vdots \\ \frac{\partial f(\mathbf{x})}{\partial x_n}\end{bmatrix}$$
+
+
+- **gradient** itself is a (vector to vector) function! 
+  - **input**:  a vector ``\mathbf{x} \in R^n`` (interpreted as an input **location**) 
+  - **output**: a vector ``\nabla f(\mathbf{x})`` (interpreted as a **direction**)
+
+
+"""
+
+# ╔═╡ 6422fa63-d113-45f5-aee7-8df4836138d5
+html"""<center><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/3d-gradient-cos.svg/2560px-3d-gradient-cos.svg.png" width = "350"/></center>""" 
+
+# ╔═╡ 9279bed6-cade-4ae7-9441-81facec7ee1c
+md"""
+## Gradient direction
+
+
+A key fact of **gradient**:
+
+!!! infor "Gradient direction"
+	Gradient vector ``\nabla f(\mathbf{x}_0)`` points to 
+	* the **greatest ascent direction** locally at location ``\mathbf{x}_0``.
+"""
+
+# ╔═╡ 17a01f79-4791-4c09-82d9-369e5bd58b10
+html"""<center><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/3d-gradient-cos.svg/2560px-3d-gradient-cos.svg.png" width = "350"/></center>""" 
+
+# ╔═╡ 7bdccd4e-b9e4-4571-b086-b98619022bf1
+md"[source](https://en.wikipedia.org/wiki/Gradient)"
+
+# ╔═╡ 159948ef-588d-4ecd-80e4-dcd335d5d4e7
+md"""
+
+## Examples: ``f(\mathbf{x}) = \mathbf{b}^\top \mathbf{x} + c``
+
+
+For linear function, ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
+
+```math
+\large
+f(\mathbf{x}) =\mathbf{b}^\top \mathbf{x} + c = b_1 x_1 + b_2 x_2 + c
+```
+
+The gradient is 
+
+$$\large
+
+\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} b_1\\ b_2\end{bmatrix} = \mathbf{b}$$
+
+
+
+The gradient function outputs _**constant**_ direction ``\mathbf{b}`` for all locations ``\mathbf{x} \in \mathbb R^2``
+* similar to uni-variate linear function: the slope is also a constant
+*  ``\mathbf{b}``: the greatest ascend direction
+"""
+
+# ╔═╡ 6490d76d-0b7b-4720-91b2-7e05fbfae0f9
+bvec = [1,0]
+
+# ╔═╡ 3432bede-1139-4ae8-a292-9fe3bffdf9b3
+let
+	plotly()
+	b = bvec
+	b₀ = c₀
+	plot(-15:1:15, -10:1:10, (x1, x2) -> dot(b, [x1, x2])+b₀, st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=0.8, framestyle=:zerolines, c=:jet, colorbar=false)
+end
+
+# ╔═╡ 2b2f840a-95a5-4882-a2b6-79e12e02d805
+let
+	gr()
+	f(x) = linear_f(x; b=bvec)
+	∇f(x₁, x₂) = bvec * 3
+	xs = -15:0.5:15
+	ys= -15:0.5:15
+	cont = contour(xs, ys, (x, y) -> f([x,y]), c=:jet, xlabel=L"x_1", ylabel=L"x_2", title="Contour and gradient field plot", framestyle=:origin)
+	# for better visualisation
+	meshgrid(x, y) = (repeat(x, outer=length(y)), repeat(y, inner=length(x))) # helper function to create a quiver grid.
+	xs_, ys_ = meshgrid(range(-15, 15, length=4), range(-15, 15, length=4))
+	quiver!(xs_, ys_, quiver = ∇f, c=:green)
+end
+
+# ╔═╡ 9da5feca-40f5-49c7-939f-49c6266970e6
+md"""
+
+## Examples: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
+
+
+For quadratic function, ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
+
+```math
+\large 
+f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
+```
+
+The gradient is 
+
+$$
+\large
+\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
+
+
+
+The gradient function outputs: ``2\mathbf{x}``
+
+* the gradient vanishes when ``\mathbf{x} = \mathbf{0}``
+* pointing outwardly (the greatest ascend direction)
+"""
+
+# ╔═╡ 58c7aabe-b3ae-4bc8-ba61-356f7e0fa31d
+TwoColumn(let
+	x0 = [0, 0]
+	plotly()
+	A = Matrix(I,2,2)
+	μ = [0,0]
+	f(x1, x2) = dot([x1, x2]- μ, A, [x1, x2]-μ)
+	plot(μ[1]-5:1:μ[1]+5, μ[2]-5:1:μ[2]+5, f, st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=0.5, color=:jet, framestyle=:zerolines, ratio=1, colorbar=false, xlim=[-6, 6], ylim = [-6, 6], size=(300,300))
+	scatter!([x0[1]], [x0[2]], [0], ms=1, markershape=:cross, label="")
+	scatter!([x0[1]], [x0[2]], [f(x0...)], ms=1, label="")
+	vs = 0:0.1:f(x0...)
+	plot!(2 * ones(length(vs)), 2 * ones(length(vs)), vs, lw=3, ls=:dash, lc=:gray, label="")
+
+end, let
+	gr()
+	A = Matrix(I, 2, 2)
+	f(x₁, x₂) = dot([x₁, x₂], A, [x₁, x₂])
+	∇f(x₁, x₂) = 2 * A* [x₁, x₂] / 5
+	xs = -20:0.5:20
+	ys= -20:0.5:20
+	cont = contour(xs, ys, (x, y)->f(x,y), c=:jet, xlabel=L"x_1", ylabel=L"x_2", framestyle=:origin, title="Gradient field plot", ratio=1, size=(300,300))
+	# for better visualisation
+	meshgrid(x, y) = (repeat(x, outer=length(y)), repeat(y, inner=length(x))) # helper function to create a quiver grid.
+	xs_, ys_ = meshgrid(range(-15, 15, length=8), range(-15, 15, length=6))
+	quiver!(xs_, ys_, quiver = ∇f, c=:green)
+end)
+
+# ╔═╡ 9e9c6830-7544-4d81-95c6-34dca751f75f
+md"""
+
+!!! note "Observation"
+	Note the gradients "vanish" (smaller arrows mean smaller scale) near the centre (*i.e.* stationary points)
+    * no surprise $$\nabla f(\mathbf{x}) =  \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix}$$, the output vector gets smaller when ``\mathbf{x}\rightarrow \mathbf{0}``
+
+
+"""
+
+# ╔═╡ 4a5b5744-701e-4051-ac88-b2c3d9715413
+md"""
+
+## How about ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{Ax} + \mathbf{b}^\top \mathbf{x} + c``
+
+
+!!! question "Question"
+
+	What's the gradient of the full (multivariate) quadratic function?
+
+	```math
+	f(\mathbf{x}) = \mathbf{x}^\top \mathbf{Ax} + \mathbf{b}^\top \mathbf{x} + c
+	```
+
+
+!!! note "Hint"
+	Recall univariate quadratic function and its derivative:
+	
+	```math
+	f(x) = ax^2+bx+c,\;\; f'(x) = 2ax + b
+	```
+
+#### Just guess?
+
+"""
+
+# ╔═╡ 1c5210c8-7f50-4a6f-a37b-5a6b19b25fc7
+Foldable("Answer", md"
+
+```math
+\large
+\nabla f(\mathbf{x}) = (\mathbf{A} +\mathbf{A}^\top)\mathbf{x} + \mathbf{b}
+```
+
+
+For symmetric ``\mathbf{A}``, the result is
+
+```math
+\large
+\boxed{\nabla f(\mathbf{x}) = 2 \mathbf{A}\mathbf{x} + \mathbf{b}}
+```
+
+Check appendix for full justification. 
+")
+
+# ╔═╡ 749ee0b8-7cf5-4c44-9029-08732d959958
+md"""
+
+## Summary of some gradients
+
+
+
+Multivariate generalisations:
+
+* constant function: ``f(\mathbf{x}) =c``
+* linear hyperplane function: ``f(\mathbf x) = \mathbf{b}^\top \mathbf x+ c``
+* quadratic function: ``f(\mathbf x) = \mathbf x^\top \mathbf{A}\mathbf{x} + \mathbf{b}^\top \mathbf x+ c``
+
+
+**Gradient** of the above three: 
+
+
+```math
+\large
+\begin{align}
+f(\mathbf{x}) =c &,\;\; \nabla f(\mathbf{x}) = \mathbf{0}\\
+f(\mathbf{x}) =\mathbf{b}^\top \mathbf x+ c &,\;\; \nabla f(\mathbf{x}) =\mathbf{b}\\
+f(\mathbf{x}) =\mathbf x^\top \mathbf{A}\mathbf{x} + \mathbf{b}^\top \mathbf x+ c &,\;\; \nabla f(\mathbf{x}) = 2\mathbf{Ax} + \mathbf{b}
+\end{align}
+```
+
+* assume ``\mathbf{A}`` is symmetric
+"""
+
+# ╔═╡ 2f816b4e-ce78-4bc9-9a57-75961e944c78
+md"""
+## Optimise multivariate functions
+
+
+
+Often, we want to optimise a ``\mathbb R^n \rightarrow \mathbb R`` function ``f(\mathbf{x})``
+
+
+```math
+\large
+\hat{\mathbf{x}} \leftarrow \arg\min_{\mathbf{x}} f(\mathbf{x})
+```
+
+* the idea is the same, we are looking for ``\hat{\mathbf{x}}`` where the **gradient** is zero, *i.e.* 
+
+
+```math
+\large
+\nabla f(\mathbf{x}) = \mathbf{0}
+```
+
+
+"""
+
+# ╔═╡ cc6fa932-1e64-4379-b4b1-5d4096fbcb7e
+md"""
+
+## Optimise quadratic form -- closed form solution
+
+
+Recall that for quadratic function ``f(x) = ax^2+bx+c`` and ``f'(x) = 2ax+b``
+
+
+* the stationary point is
+
+```math
+\large
+f'(x) = 2ax+b =0 \Rightarrow \boxed{x' = -\frac{1}{2}a^{-1}b}
+```
+
+	"""
+
+# ╔═╡ 0488519b-a1cd-40db-8ee9-d2658b576bd2
+
+md"""
+
+## Optimise quadratic form -- closed form solution
+
+
+Recall that for quadratic function ``f(x) = ax^2+bx+c`` and ``f'(x) = 2ax+b``
+
+
+* the stationary point is
+
+```math
+\large
+f'(x) = 2ax+b =0 \Rightarrow \boxed{x' = -\frac{1}{2}a^{-1}b}
+```
+
+Similarly, for multivariate quadratic function with symmetric ``\mathbf{A}``:
+
+```math
+\large
+f(\mathbf{x}) = \mathbf{x}^\top \mathbf{Ax} + \mathbf{b}^\top \mathbf{x} + c
+```
+
+Its gradient is
+
+```math
+\large
+\nabla f(\mathbf{x}) = 2 \mathbf{A}\mathbf{x} + \mathbf{b}
+```
+
+
+The stationary point is
+
+
+```math
+\large
+\nabla f(\mathbf{x}) = 2 \mathbf{A}\mathbf{x} + \mathbf{b} =\mathbf{0} \Rightarrow \boxed{\mathbf{x}'= -\frac{1}{2}\mathbf{A}^{-1}\mathbf{b} }
+```
+
+
+"""
+
+# ╔═╡ 3f56e844-6b96-45a7-ad01-bc76d7951979
+md"""
+
+## Demonstration
+
+"""
+
+# ╔═╡ 62299cf7-0109-4f26-b140-22421a6e249d
+begin
+	A_ = Matrix(I, 2, 2)
+	# A_ = - Matrix(I, 2, 2)
+	# A_ = Matrix([1 0; 0 -1])
+end
+
+# ╔═╡ 0ef53efe-603d-4ca5-936f-996be0caf72a
+bv_, cv_= 10 * rand(2), 0.0
+
+# ╔═╡ 42507d15-f0b4-480c-95a6-5cc3187684d7
+qform(x; A=A_, b=bv_, c=c_) = x' * A * x + b'* x + c 
+
+# ╔═╡ 50982a4f-acae-407a-b7b4-6a1ab653eeec
+let
+	gr()
+	plot(-5:0.5:5, -5:0.5:5, (x,y) -> qform([x,y]; A= -Matrix(I,2,2), b=zeros(2), c=0), st=:surface, colorbar=false, color=:jet, title="A is negative definite; maximum")
+end
+
+# ╔═╡ 0696c9bd-2ecf-4cf8-8881-b76730814342
+TwoColumn(let 
+	plotly()
+	A = [1 0; 0 -1]
+	plot(-5:0.5:5, -5:0.5:5, (x,y) -> qform([x,y]; A= A, b=zeros(2), c=0), st=:surface, colorbar=false, color=:jet, title="A is not definite; not determined", size=(400,400))
+	ys = -5:.5:5
+	xs = zeros(length(ys))
+	zs = [dot([xs[i], ys[i]], A, [xs[i], ys[i]]) for i in 1:length(ys)]
+	zs2 = [dot([ys[i], xs[i]], A, [ys[i], xs[i]]) for i in 1:length(ys)]
+	path3d!(xs, ys,zs, lw=8, label="", c=1)
+	xs = -5:.5:5
+	ys = zeros(length(xs))
+	zs = [dot([xs[i], ys[i]], A, [xs[i], ys[i]]) for i in 1:length(ys)]
+	zs2 = [dot([ys[i], xs[i]], A, [ys[i], xs[i]]) for i in 1:length(ys)]
+	path3d!(xs, ys,zs, lw=8, label="", c=2)
+end, html"""<center><img src="https://saddlemania.com/wp-content/uploads/2022/04/parts-of-saddle.jpeg" height = "300"/></center>""" )
+
+# ╔═╡ 907d88dd-e475-4922-a6fc-1c296721dc78
+let
+	plotly()
+	xmin_0 = -0.5 * A_^(-1) * bv_
+	xs = range(xmin_0[1]-8, xmin_0[1]+8, 100)
+	plot(xs, -8:0.8:8, (x1, x2) -> qform([x1, x2]; A=A_, b= bv_, c= cv_), st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=0.8, framestyle=:zerolines, ratio=1, c=:jet, colorbar=false)
+
+	scatter!([xmin_0[1]],[xmin_0[2]], [qform(xmin_0)], label="x': min/max/station")
+end
+
+# ╔═╡ 6ada36dd-885b-4c58-a67b-ffd87d044437
+md"""
+
+# Local approximation 
+
+#### The essense of differential calculus
+
+"""
+
+# ╔═╡ 6abbb3b7-e65c-460c-a85e-0737fe4fac3f
+md"""
+
+## Linear approximation
+
+
+> If ``f: \mathbb R \rightarrow \mathbb R`` is differentiable at ``x_0``, then
+> 
+> ``f(x)`` can be locally approximated by a linear function
+> ```math
+> \Large
+> \begin{align}
+> f(x) &\approx f(x_0) + f'(x_0)(x-x_0) 
+> \end{align}
+> ```
+
+
+"""
+
+# ╔═╡ 2c74ae59-dfbf-43d1-b16a-0111cc025b8e
+plt_linear_approx
+
+# ╔═╡ 741f95e7-1cef-42f8-b088-b12326380ee0
+
 md"""
 ## 
 
-Minimising the length leads to the same loss
+Multivariate calculus does the trick:
 
-```math
-\Large
-\begin{align}
-\arg\min_{\mu} \boxed{||\mathbf{d} - \mu\mathbf{1}||^2  } =\arg\min_\mu \boxed{\sum_i (d_i -\mu)^2}
-\end{align}
-```
+> If ``f: \mathbb R^n \rightarrow \mathbb R`` is differentiable at ``\mathbf{x}_0``, then
+> 
+> ``f(\mathbf{x})`` can be approximated by a linear function (locally at ``\mathbf{x}_0``)
+> ```math
+> \Large
+> \begin{align}
+> f(\mathbf{x}) &\approx f(\mathbf{x}_0) + \nabla f(x_0)^\top(\mathbf{x}-\mathbf{x}_0) 
+> \end{align}
+> ```
 
 """
 
-# ╔═╡ 4ccfc448-7fd9-4e79-aa99-51c1163fd09d
+# ╔═╡ ff5e5acd-52ab-4b21-b2c3-4e0f85329036
+linear_approx(x; x₀, f) = f(x₀) + dot(ForwardDiff.gradient(f, x₀), x-x₀)
+
+# ╔═╡ d796aec6-7407-4b44-ba28-de71ed89f108
+let
+	plotly()
+	A_ = Matrix(I, 2, 2)
+	bv_ = [3.5, 3.5]
+	xmin_0 = -0.5 * A_^(-1) * bv_
+	xs = range(xmin_0[1]-8, xmin_0[1]+8, 100)
+	ys = range(xmin_0[2]-8, xmin_0[2]+8, 100)
+	ff(x) = qform(x; A=A_, b= bv_, c= cv_)
+	plot(xs, -8:.5:8, (x1, x2) -> ff([x1, x2]), st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=1, framestyle=:zerolines, ratio=1, c=:jet, colorbar=false)
+	x0 = [2, -2]
+
+
+	plot!(xs, -8:1:8, (x1, x2) -> linear_approx([x1, x2]; x₀ = x0, f=ff), st=:surface, alpha=0.8,  c=:blue, colorbar=false)
+	# scatter!([xmin_0[1]],[xmin_0[2]], [qform(xmin_0)], label="x': min/max/station")
+end
+
+# ╔═╡ fb7ee765-3bed-454d-a19e-ca79bcef57ed
 md"""
 
-## Sample mean as optimisation
+## Qudratic approximation
 
 
-```math
-\large
-\begin{align}
-\hat{\mu} &= \arg\min_{\mu} \ell(\mu) \\
-&=\arg\min_{\mu}\sum_{i=1}^n (\mu -d_i)^2
-\end{align}
-```
+> If ``f: \mathbb R \rightarrow \mathbb R`` is differentiable at ``x_0``, then
+> 
+> ``f(x)`` can be locally approximated by a quadratic function
+> ```math
+> \Large
+> \begin{align}
+> f(x) &\approx f(x_0) + f'(x_0)(x-x_0) + \frac{1}{2}\underbrace{\boxed{f^{''}(x_0)}}_{\text{\small second order derivative}}(x-x_0)^2
+> \end{align}
+> ```
 
 
-Take the derivative and set to zero!
-
-
-```math
-\Large
-\ell'(\mu) = 2\sum_{i=1}^n(\mu -d_i)  =0
-```
 """
 
-# ╔═╡ 12f636b9-aa89-4a1a-83ba-7c3219289e1f
+# ╔═╡ f601ef17-f0db-4af2-97aa-35f080a08763
+md"Add approx. $(@bind add_quadratic CheckBox()); Move me ``x_0``: $(@bind x̂_ Slider(-2:0.2:3, default=-1.5, show_value=true))"
+
+# ╔═╡ cafab381-5c85-4e2d-ba7f-7db2cb148bbf
+let
+	gr()
+	x̂ = x̂_
+    # Plot function
+    xs = range(-2, 3, 200)
+    ymin, ymax = extrema(f.(xs))
+    p = plot(
+        xs,
+        f;
+        label=L"$f(x)$",
+        xlabel=L"x",
+        legend=:outerbottom,
+        ylims = (ymin - .5, ymax + .5),
+        legendfontsize=10,
+		lw = 3,
+		ratio = .7,
+		framestyle=:zerolines,
+		size=(800,600)
+    )
+
+    # Obtain the function 𝒟fₓ̃ᵀ
+    # ŷ, 𝒟fₓ̂ᵀ = Zygote.pullback(f, x̂)
+	fprime = ForwardDiff.derivative(f, x̂)
+	fprimep = ForwardDiff.derivative(x -> ForwardDiff.derivative(f, x), x̂)
+    function taylor_approx(x; x̂, order = 1) 
+		fx = f(x̂) + fprime * (x - x̂)
+		if order > 1
+			fx += .5 * fprimep * (x-x̂)^2	
+		end# f(x) ≈ f(x̃) + 𝒟f(x̃)(x-x̃)
+		return fx
+	end
+    plot!(p, xs, (x) -> taylor_approx(x; x̂=x̂); label=L"linear approx. at $x_0$", lc=2,  lw=2, title="Linear approximation")
+	if add_quadratic
+	
+		plot!(p, xs, (x) -> taylor_approx(x; x̂=x̂, order=2); label=L"quadratic approx. at $x_0$", lc=3,  lw=3, title="Quadratic approximation")
+
+	end
+
+	p
+
+	# xq = x̂ + 0.9
+	# annotate!([xq], [taylor_approx(xq; x̂=x̂, order=2)], text("Quadratic approx"))
+
+end
+
+# ╔═╡ af44a8d5-b44e-4b82-a65d-04743ef2d49d
+md"""
+## Second order gradient -- Hessian matrix
+
+For a multivariate function ``f: \mathbb{R}^n \rightarrow \mathbb{R}``, the equivalence of ``f''`` is **Hessian** matrix
+
+> The **Hessian** matrix (the second order gradient) is defined as 
+> ```math
+> \Large
+>
+> \mathbf{H} = \begin{bmatrix} \frac{\partial^2 f}{\partial x_1^2} &  \frac{\partial^2 f}{\partial x_1 x_2} & \ldots & \frac{\partial^2 f}{\partial  x_1x_n} \\
+> \frac{\partial^2 f}{\partial x_2x_1} & \frac{\partial^2 f}{\partial x_2^2} &  \ldots & \frac{\partial^2 f}{\partial x_2x_n}\\
+> \vdots & \vdots & \ddots & \vdots\\
+> \frac{\partial^2 f}{\partial x_nx_1} & \frac{\partial^2 f}{\partial x_n x_2} &  \ldots & \frac{\partial^2 f}{\partial x_n^2}
+> \end{bmatrix}
+>
+> ```
+"""
+
+# ╔═╡ 2d8a9a78-ed85-49e4-a022-dc91cd15d31f
 md"""
 
-## Sample mean as optimisation
+## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
 
+
+For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
 
 ```math
+\large 
+f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
+```
+
+The gradient is 
+
+$$
 \large
-\begin{align}
-\hat{\mu} &= \arg\min_{\mu} \ell(\mu) \\
-&=\arg\min_{\mu}\sum_{i=1}^n (\mu -d_i)^2
-\end{align}
-```
+\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
 
 
-Take the derivative and set to zero!
+The Hessian is
 
+$$
+\large
+\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} =$$
+
+
+"""
+
+# ╔═╡ 4b566c78-21df-44ab-a1eb-d303ad071adf
+md"""
+
+## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
+
+
+For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
 
 ```math
-\Large
-\begin{align}
-\ell'(\mu) &= 2\sum_{i=1}^n(\mu -d_i)  =0 \\
-
-\Rightarrow & \sum_{i=1}^n \mu = \sum_{i=1}^nd_i \\
-\Rightarrow & \mu = \frac{1}{n} \sum_{i=1}^n d_i
-\end{align}
+\large 
+f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
 ```
+
+The gradient is 
+
+$$
+\large
+\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
+
+
+The Hessian is
+
+$$
+\large
+\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} = \begin{bmatrix}\textcolor{red}{\frac{\partial(\partial (x_1^2+x_2^2))}{\partial x_1 \partial x_1}=\frac{\partial(2x_1)}{\partial x_1}} & \cdot \\ \cdot  & \cdot \end{bmatrix}$$
+
+
 """
+
+# ╔═╡ 0834df4c-49bf-43d9-9213-3ce5d18ee471
+md"""
+
+## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
+
+
+For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
+
+```math
+\large 
+f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
+```
+
+The gradient is 
+
+$$
+\large
+\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
+
+
+The Hessian is
+
+$$
+\large
+\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} = \begin{bmatrix}2 & \textcolor{red}{\frac{\partial(\partial (x_1^2+x_2^2))}{\partial x_1 \partial x_2}=\frac{\partial(2x_1)}{\partial x_2}} \\ \cdot  & \cdot \end{bmatrix}$$
+
+
+"""
+
+# ╔═╡ 9b3fbc5c-5a0d-47db-9cbf-86bc3c381038
+md"""
+
+## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
+
+
+For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
+
+```math
+\large 
+f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
+```
+
+The gradient is 
+
+$$
+\large
+\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
+
+
+The Hessian is
+
+$$
+\large
+\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} = \begin{bmatrix}2 & 0\\ 0  & 2 \end{bmatrix}$$
+
+
+"""
+
+# ╔═╡ 77da11a9-f7d0-49e6-8a8c-7f4cb70f369e
+md"""
+
+## Qudratic approximation
+
+
+> If ``f: \mathbb R \rightarrow \mathbb R`` is differentiable at ``x_0``, then
+> 
+> ``f(x)`` can be locally approximated by a **quadratic** function
+> ```math
+> \Large
+> \begin{align}
+> f(x) &\approx f(x_0) + f'(x_0)(x-x_0) + \frac{1}{2}\underbrace{f^{''}(x_0)(x-x_0)^2}_{(x-x_0)f^{''}(x_0)(x-x_0)}
+> \end{align}
+> ```
+
+The multivariate **generalisation**
+
+> If ``f: \mathbb R^n \rightarrow \mathbb R`` is differentiable at ``\mathbf{x}_0``, then
+> 
+> ``f(\mathbf{x})`` can be locally approximated by a **quadratic** function
+> ```math
+> \Large
+> \begin{align}
+> f(\mathbf{x}) &\approx f(\mathbf{x}_0) + \nabla f(\mathbf{x}_0)^\top(\mathbf{x}- \mathbf{x}_0) + \\
+> &\;\;\;\;\;\;\frac{1}{2}(\mathbf{x}-\mathbf{x}_0)^\top \mathbf{H}(\mathbf{x}_0)(\mathbf{x}-\mathbf{x}_0)
+> \end{align}
+> ```
+"""
+
+# ╔═╡ e4dcf373-c1d9-42f1-98dc-1bf74b51063d
+function f2(x)
+	# sin(prod(x))
+	prod(cos.(x))
+end;
+
+# ╔═╡ 3e29bf39-238c-460e-892e-f8651ffde277
+function taylorApprox(f, x0)
+	gx0 = ForwardDiff.gradient(f, x0)
+	hx0 = ForwardDiff.hessian(f, x0)
+	tf(x) = f(x0) + gx0' * (x-x0) + 0.5 * (x-x0)'* hx0 * (x-x0)
+end;
+
+# ╔═╡ e526e3ed-95b0-4bdd-9386-262ac951c000
+let
+	plotly()
+	gf2 = x -> ForwardDiff.gradient(f2, x)
+	xylim = 2.8
+	x1_ = range(-xylim, stop =xylim, length=100)
+	x2_ = range(-xylim, stop =xylim, length=100)
+	p1_ = plot(x1_, x2_, (a, b) -> f2([a, b]), st=:surface, xlabel ="x", ylabel="y", zlabel="f", colorbar=false, color=:jet, framestyle=:zerolines)
+	p2_= plot(contour(x1_, x2_, (a, b) -> f2([a, b])), colorbar=false)
+	plot(p1_, p2_)
+	# plot(p1_, 
+end
+
+# ╔═╡ 5ed8c4d8-2f31-40f8-ae21-f4286c634983
+let
+	plotly()
+	tf2 = taylorApprox(f2, [1.5, -1.5])
+	xylim = 2.8
+	x1_ = range(-xylim, stop =xylim, length=100)
+	x2_ = range(-xylim, stop =xylim, length=100)
+	plot(x1_, x2_, (a, b) -> f2([a, b]), st=:surface, xlabel ="x", ylabel="y", zlim=[-1.2,1.2], zlabel="f", colorbar=false, color=:reds, alpha =0.9)
+	plot!(x1_, x2_, (x, y) -> tf2([x, y]),  st=:surface, color=:roma)
+end
 
 # ╔═╡ 0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 md"""
@@ -922,32 +2147,6 @@ function perp_square(origin, vx, vy; δ=0.1)
 	xunit = origin + x
 	yunit = origin +y
 	Shape([origin[1], xunit[1], xyunit[1], yunit[1]], [origin[2], xunit[2], xyunit[2], yunit[2]])
-end
-
-# ╔═╡ 048a1d00-2268-40e3-b01f-ee23b78eed90
-let
-	gr()
- 	plot( ratio=1, framestyle=:origin)
-	# quiver([0,0,0],[0,0,0],quiver=([1,1,1],[1,2,3]))
-	oo = [0,0]
-	a = [1,1]
-	b = data
-	# bp = dot(a,b)/dot(a,a)*a
-	bp = μ_ * a 
-	quiver!([0], [0], quiver=([a[1]], [a[2]]), lc=2, lw=2)
-	quiver!([0], [0],  quiver=([b[1]], [b[2]]), lc=1, lw=2)
-	plot!([b[1], bp[1]], [b[2],bp[2]], ls=:solid, lc=:gray, lw=2, arrow=true, label="")
-
-	quiver!([0], [0],  quiver=([bp[1]], [bp[2]]), ls=:dash, lw=2)
-	annotate!(a[1],a[2], text(L"\mathbf{1}", 15, :top, :red))
-	annotate!(b[1],b[2], text(L"\mathbf{d}", 15, :bottom, :blue))
-	# annotate!(bp[1]+0.2,bp[2], text(L"b_{\texttt{proj}} =latexify(:(x = $t))", :left))
-	if μ_ ≈ mean(data)
-		plot!(perp_square(bp, a, b-bp; δ=0.1), lw=1, label="", fillcolor=false)
-	end
-	annotate!(bp[1]+0.2,bp[2], text(L"\hat{\mathbf{d}} = \mu\mathbf{1}", 15,:left, :purple))
-	annotate!(.5 *(data[1] + bp[1]), .5 *(data[2] + bp[2]), text(L"\mathbf{d} - \mu\mathbf{1}", 15, :right, :gray))
-
 end
 
 # ╔═╡ fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
@@ -968,9 +2167,62 @@ function arrow3d!(x, y, z,  u, v, w; as=0.1, lc=:black, la=1, lw=0.4, scale=:ide
     end
 end
 
+# ╔═╡ 22cd0ef4-29ad-4118-92f4-c4d440612db5
+let
+	plotly()
+	f(x) = qform(x; A=Matrix(I,2,2), b=zeros(2), c=0) +5
+	plt = plot(-5:0.5:5, -5:0.5:5, (x,y) -> f([x,y]), st=:surface, colorbar=false, color=:jet,alpha=0.8, xlim=[-5, 5] , ylim=[-5, 5],zlim =[0, 55], title=L"\mathbf{A}" * "is positive definite; minimum")
+
+
+	θs = range(0, 2π, 15)
+	length = 4
+	for (ind, θ) in enumerate(θs)
+		x, y = cos(θ) * length, sin(θ)* length	
+		arrow3d!([0], [0], [0], [x], [y], [0]; as=0.1, lc=ind, la=0.9, lw=2, scale=:identity)
+		v = [cos(θ), sin(θ)]
+		xs = range(-5, 5, 50)
+		k = v[2]/v[1]
+		ys = k .* xs
+		zs = [f([x, ys[i]]) for (i, x) in enumerate(xs)]
+		path3d!(xs, ys, zs, lw=3, label="", c=ind)
+	end
+	plt
+end
+
+# ╔═╡ f268a7cd-c193-45ae-8cee-a4a0710a2a3a
+let
+	x0 = xx
+	plotly()
+	A = Matrix(I,2,2)
+	μ = [0,0]
+	f(x1, x2) = dot([x1, x2]- μ, A, [x1, x2]-μ) + .5
+	plt = plot(μ[1]-5:0.8:μ[1]+5, μ[2]-5:0.8:μ[2]+5, f, st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=0.5, color=:jet, framestyle=:zerolines, ratio=1, colorbar=false, xlim=[-6,6], ylim=[-6, 6])
+	scatter!([x0[1]], [x0[2]], [0], ms=1, markershape=:x, label="x'")
+	scatter!([x0[1]], [x0[2]], [f(x0...)], ms=1, label="")
+	vs = 0:0.1:f(x0...)
+	plot!(x0[1] * ones(length(vs)), x0[2] * ones(length(vs)), vs, lw=3, ls=:dash, lc=:gray, label="")
+	arrow3d!([x0[1]], [x0[2]], [0], [3], [0], [0]; as = 0.4, lc=2, la=1, lw=2, scale=:identity)
+
+	xs = -5:0.5:5
+	ys = x0[2] * ones(length(xs))
+	zs = [f(xs[i], ys[i]) for i in 1:length(ys)]
+	path3d!(xs, ys, zs, lw=3, label="", c=2)
+
+	if add_theother
+		arrow3d!([x0[1]], [x0[2]], [0], [0], [3], [0]; as = 0.4, lc=1, la=1, lw=2, scale=:identity)
+
+		ys = -5:0.5:5
+		xs = x0[1] * ones(length(xs))
+		zs = [f(xs[i], ys[i]) for i in 1:length(ys)]
+		path3d!(xs,ys,zs, lw=3, label="", c=1)
+	end
+	plt
+end
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
@@ -981,15 +2233,6 @@ PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
-
-[compat]
-HypertextLiteral = "~0.9.4"
-LaTeXStrings = "~1.3.0"
-Latexify = "~0.15.21"
-Plots = "~1.38.15"
-PlutoTeachingTools = "~0.2.11"
-PlutoUI = "~0.7.51"
-Zygote = "~0.6.62"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -998,7 +2241,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "01d81ea555e48c0dcc037654a0aa31e03c47e32d"
+project_hash = "ef4d2a9227487234ab5b2cc2761f42644b441059"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1062,9 +2305,9 @@ version = "1.16.1+1"
 
 [[deps.ChainRules]]
 deps = ["Adapt", "ChainRulesCore", "Compat", "Distributed", "GPUArraysCore", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "Statistics", "StructArrays"]
-git-tree-sha1 = "0266ee4ffeeac8405ab07c49252c144616fe825d"
+git-tree-sha1 = "8bae903893aeeb429cf732cf1888490b93ecf265"
 uuid = "082447d4-558c-5d27-93f4-14fc19e9eca2"
-version = "1.49.1"
+version = "1.49.0"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
@@ -1135,20 +2378,6 @@ git-tree-sha1 = "96d823b94ba8d187a6d8f0826e731195a74b90e9"
 uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
 version = "2.2.0"
 
-[[deps.ConstructionBase]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "738fec4d684a9a6ee9598a8bfee305b26831f28c"
-uuid = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
-version = "1.5.2"
-
-    [deps.ConstructionBase.extensions]
-    ConstructionBaseIntervalSetsExt = "IntervalSets"
-    ConstructionBaseStaticArraysExt = "StaticArrays"
-
-    [deps.ConstructionBase.weakdeps]
-    IntervalSets = "8197267c-284f-5f27-9208-e0e47529a953"
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
@@ -1188,9 +2417,9 @@ version = "1.1.0"
 
 [[deps.DiffRules]]
 deps = ["IrrationalConstants", "LogExpFunctions", "NaNMath", "Random", "SpecialFunctions"]
-git-tree-sha1 = "158232a81d43d108837639d3fd4c66cc3988c255"
+git-tree-sha1 = "a4ad7ef19d2cdc2eff57abbbe68032b1cd0bd8f8"
 uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
-version = "1.14.0"
+version = "1.13.0"
 
 [[deps.Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -1230,9 +2459,9 @@ uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "ed569cb9e7e3590d5ba884da7edc50216aac5811"
+git-tree-sha1 = "3cce72ec679a5e8e6a84ff09dd03b721de420cfe"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "1.1.0"
+version = "1.0.1"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -1284,27 +2513,27 @@ version = "3.3.8+0"
 
 [[deps.GPUArrays]]
 deps = ["Adapt", "GPUArraysCore", "LLVM", "LinearAlgebra", "Printf", "Random", "Reexport", "Serialization", "Statistics"]
-git-tree-sha1 = "0dbc906e66a5e337598dda85f1bfaa81a88251fd"
+git-tree-sha1 = "9ade6983c3dbbd492cf5729f865fe030d1541463"
 uuid = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
-version = "8.7.0"
+version = "8.6.6"
 
 [[deps.GPUArraysCore]]
 deps = ["Adapt"]
-git-tree-sha1 = "2d6ca471a6c7b536127afccfa7564b5b39227fe0"
+git-tree-sha1 = "1cd7f0af1aa58abc02ea1d872953a97359cb87fa"
 uuid = "46192b85-c4d5-4398-a991-12ede77f4527"
-version = "0.1.5"
+version = "0.1.4"
 
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
-git-tree-sha1 = "8b8a2fd4536ece6e554168c21860b6820a8a83db"
+git-tree-sha1 = "d014972cd6f5afb1f8cd7adf000b7a966d62c304"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.72.7"
+version = "0.72.5"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "19fad9cd9ae44847fe842558a744748084a722d1"
+git-tree-sha1 = "f670f269909a9114df1380cc0fcaa316fff655fb"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.72.7+0"
+version = "0.72.5+0"
 
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
@@ -1331,9 +2560,9 @@ version = "1.0.2"
 
 [[deps.HTTP]]
 deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
-git-tree-sha1 = "5e77dbf117412d4f164a464d610ee6050cc75272"
+git-tree-sha1 = "41f7dfb2b20e7e8bf64f6b6fae98f4d2df027b06"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "1.9.6"
+version = "1.9.4"
 
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
@@ -1542,9 +2771,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "c3ce8e7420b3a6e071e0fe4745f5d4300e37b13f"
+git-tree-sha1 = "0a1b7c2863e44523180fdb3146534e265a91870b"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.24"
+version = "0.3.23"
 
     [deps.LogExpFunctions.extensions]
     LogExpFunctionsChainRulesCoreExt = "ChainRulesCore"
@@ -1648,10 +2877,10 @@ uuid = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
 version = "1.4.1"
 
 [[deps.OpenSSL_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "1aa4b74f80b01c6bc2b89992b861b5f210e665b5"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "9ff31d101d987eb9d66bd8b176ac7c277beccd09"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "1.1.21+0"
+version = "1.1.20+0"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
@@ -1710,10 +2939,10 @@ uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.3.5"
 
 [[deps.Plots]]
-deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "UnitfulLatexify", "Unzip"]
-git-tree-sha1 = "ceb1ec8d4fbeb02f8817004837d924583707951b"
+deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
+git-tree-sha1 = "d03ef538114b38f89d66776f2d8fdc0280f90621"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.38.15"
+version = "1.38.12"
 
     [deps.Plots.extensions]
     FileIOExt = "FileIO"
@@ -1889,9 +3118,9 @@ version = "1.6.0"
 
 [[deps.StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "75ebe04c5bed70b91614d684259b661c9e6274a4"
+git-tree-sha1 = "d1bf48bfcc554a3761a133fe3a9bb01488e06916"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.34.0"
+version = "0.33.21"
 
 [[deps.StructArrays]]
 deps = ["Adapt", "DataAPI", "GPUArraysCore", "StaticArraysCore", "Tables"]
@@ -1964,24 +3193,6 @@ deps = ["REPL"]
 git-tree-sha1 = "53915e50200959667e78a92a418594b428dffddf"
 uuid = "1cfade01-22cf-5700-b092-accc4b62d6e1"
 version = "0.4.1"
-
-[[deps.Unitful]]
-deps = ["ConstructionBase", "Dates", "LinearAlgebra", "Random"]
-git-tree-sha1 = "ba4aa36b2d5c98d6ed1f149da916b3ba46527b2b"
-uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
-version = "1.14.0"
-
-    [deps.Unitful.extensions]
-    InverseFunctionsUnitfulExt = "InverseFunctions"
-
-    [deps.Unitful.weakdeps]
-    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
-
-[[deps.UnitfulLatexify]]
-deps = ["LaTeXStrings", "Latexify", "Unitful"]
-git-tree-sha1 = "e2d817cc500e960fdbafcf988ac8436ba3208bfd"
-uuid = "45397f5d-5981-4c77-b2b3-fc36d6e9b728"
-version = "1.6.3"
 
 [[deps.Unzip]]
 git-tree-sha1 = "ca0969166a028236229f63514992fc073799bb78"
@@ -2151,9 +3362,9 @@ version = "1.5.5+0"
 
 [[deps.Zygote]]
 deps = ["AbstractFFTs", "ChainRules", "ChainRulesCore", "DiffRules", "Distributed", "FillArrays", "ForwardDiff", "GPUArrays", "GPUArraysCore", "IRTools", "InteractiveUtils", "LinearAlgebra", "LogExpFunctions", "MacroTools", "NaNMath", "PrecompileTools", "Random", "Requires", "SparseArrays", "SpecialFunctions", "Statistics", "ZygoteRules"]
-git-tree-sha1 = "5be3ddb88fc992a7d8ea96c3f10a49a7e98ebc7b"
+git-tree-sha1 = "ebac1ae9f048c669317ad48c9bed815790a468d8"
 uuid = "e88e6eb3-aa80-5325-afca-941959d7151f"
-version = "0.6.62"
+version = "0.6.61"
 
     [deps.Zygote.extensions]
     ZygoteColorsExt = "Colors"
@@ -2247,6 +3458,7 @@ version = "1.4.1+0"
 # ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
+# ╟─7f70d752-ba03-4378-9bc6-c8869a4f56ca
 # ╟─7091d2cf-9237-45b2-b609-f442cd1cdba5
 # ╟─0a7f37e1-51bc-427d-a947-31a6be5b765e
 # ╟─a696c014-2070-4041-ada3-da79f50c9140
@@ -2288,22 +3500,106 @@ version = "1.4.1+0"
 # ╟─a646aefe-d2a0-4f8b-bb63-4ffe2ec43ff0
 # ╟─5b02277a-1c2e-418e-b4a3-9bed86230cd7
 # ╟─f56d2626-ff15-4b4c-8184-7147b58ed7db
-# ╟─9b94af8d-b5d2-4c57-84ca-9406fa9e2d7b
-# ╟─404d8f96-c76d-48e8-ae2f-28160fc5c549
-# ╟─47b5c1dd-52c9-4670-8203-32cf0c3a0bfb
-# ╟─62efcc68-e897-480b-9f54-1cec0255d35b
-# ╟─14503fd1-8a66-45d1-b72c-155995aa885e
-# ╟─d760db9b-5c5e-4e0b-8e37-a680240f351d
-# ╟─b324f27a-ccce-4ba4-8c04-6bd03ab11267
-# ╟─10212f8f-158e-40c8-9b84-5319de464e90
-# ╟─6f6fa322-2724-4cf6-8301-229308623cfd
-# ╟─e04e96d3-85d6-47b0-be5c-37d3b34c1fec
-# ╟─048a1d00-2268-40e3-b01f-ee23b78eed90
-# ╟─e1bf8a58-4046-41e8-a0a0-dd45cbd81d75
-# ╟─02386433-a1d1-4001-8d6c-e16c00ce114a
-# ╟─de98855b-b75c-4c72-ae8e-c2716ad08998
-# ╟─4ccfc448-7fd9-4e79-aa99-51c1163fd09d
-# ╟─12f636b9-aa89-4a1a-83ba-7c3219289e1f
+# ╟─653ab1b9-0839-4217-8301-f326efa2a2ad
+# ╟─333094ef-f309-4816-9651-df44d51f9d95
+# ╟─8af85d4c-9759-4549-8827-b6e54868aa38
+# ╟─bbf4a250-96f3-457c-9bb1-f4147bff8056
+# ╟─056186fb-4db5-46c5-a2df-fdb19684ffcc
+# ╟─58d10219-b1b5-4063-b645-8690470b98f8
+# ╟─a56baf6a-cd46-4eb0-9d98-97b22cbdebee
+# ╟─1619883b-fccc-4e39-a18f-2868bf3d05e5
+# ╟─716bbad1-873c-4623-9874-35d5812755b2
+# ╟─1577f3b9-d4e4-4f90-a2d8-c24a582e3842
+# ╟─c418d004-90ad-4fdb-b830-cfca116ef89c
+# ╟─e878821e-23a1-4de2-b751-f23da4e31023
+# ╟─1e3f91ae-df75-446d-9d10-c08b3174d0e9
+# ╟─efe4a943-c1b5-4ebf-b412-d995b8259335
+# ╟─0d635d0c-6b9b-4909-a3bf-96bc51658f40
+# ╟─d6c13bea-4102-4d21-9cd1-4f04ea3bc110
+# ╟─7709b758-a81a-4244-8b67-1eb0ec4f178e
+# ╟─18435e02-7911-4971-a9b1-adda47a96b04
+# ╟─8aef8b0f-2c00-4cb2-877a-d11ce8ca3cbc
+# ╟─560bc22a-d907-4acc-8bd9-6dd45a53a01a
+# ╟─1a93d491-79f9-4bd5-ae9b-37b08f5a0348
+# ╟─8a5f30ad-f686-42d3-b634-32342a16c299
+# ╟─a26408c3-1d2c-48af-b373-c87098c364de
+# ╟─1bdd7aec-3bcf-4130-8a81-2acf45437e3f
+# ╟─ba90e665-7f2b-44a5-9a8c-587249481272
+# ╟─f253f70e-4fe4-489d-ab40-4fd222eaa413
+# ╟─b96382d6-1837-4db7-aeb6-0d0bc868205b
+# ╟─c4b26533-1fd8-4a5a-88ed-f767cc0b765b
+# ╟─156378ef-d2f6-452a-8d76-59f697f03c17
+# ╟─d99bce21-59ca-491e-a7a2-57ad4abe73ed
+# ╟─af66f43d-27be-4a8c-bd4b-60e25e113214
+# ╟─92a4d83a-7637-4201-9c5e-c36b379210a0
+# ╟─22cd0ef4-29ad-4118-92f4-c4d440612db5
+# ╟─602e6920-54bd-4579-9b5d-63e477d1431e
+# ╟─50982a4f-acae-407a-b7b4-6a1ab653eeec
+# ╟─3e6030a0-81e6-43a7-8bc6-beb6ef9aab87
+# ╟─0696c9bd-2ecf-4cf8-8881-b76730814342
+# ╟─ac006f54-7108-459c-a800-6832b2de254d
+# ╟─22ca5cae-7ea7-47a4-b551-dcef2158f4ea
+# ╟─80a793f7-9c8c-493c-afcc-4beba2f0bf21
+# ╟─25f5ce83-c520-415d-9537-3a483a20e178
+# ╟─b2e5c268-8dfa-425e-9abf-b3ec50e9c0c5
+# ╟─355d7e19-8e92-4ce0-afbd-854ea3a3f33e
+# ╟─7cebb1ad-bddf-41b0-8d50-c8a2dc2bd202
+# ╟─64834d5f-cb72-4ab4-81ba-7a3d7eb8d8c0
+# ╟─ae351013-0928-4544-b043-54091f17565f
+# ╟─087d8ccb-0207-4dad-ac44-d25a4835de4f
+# ╟─4b899664-f5b9-4932-a3bb-38f818efb60d
+# ╟─01c290ac-d448-47bd-ae74-545c6c4d2c00
+# ╟─788e7c1b-d58d-4553-bce6-eaa4cc3085ae
+# ╟─1a8ac980-8a88-47f3-ac23-3333945c5720
+# ╟─313cc81a-3568-40f5-8b3f-76d0ee36abfa
+# ╟─c2efcc3d-b5be-4047-ad7d-e80e9186f7f9
+# ╟─3d1c6668-9d2b-46a4-82bf-0dae728dfe8b
+# ╟─547e2772-5a5f-4cc9-bec2-a9c67fed8b5a
+# ╟─5b363889-b66e-4e10-8e51-78791510de48
+# ╟─f268a7cd-c193-45ae-8cee-a4a0710a2a3a
+# ╟─8a781eb7-e0db-4286-98e8-70a3beb49952
+# ╟─6422fa63-d113-45f5-aee7-8df4836138d5
+# ╟─9279bed6-cade-4ae7-9441-81facec7ee1c
+# ╟─17a01f79-4791-4c09-82d9-369e5bd58b10
+# ╟─7bdccd4e-b9e4-4571-b086-b98619022bf1
+# ╟─159948ef-588d-4ecd-80e4-dcd335d5d4e7
+# ╠═6490d76d-0b7b-4720-91b2-7e05fbfae0f9
+# ╟─3432bede-1139-4ae8-a292-9fe3bffdf9b3
+# ╟─2b2f840a-95a5-4882-a2b6-79e12e02d805
+# ╟─9da5feca-40f5-49c7-939f-49c6266970e6
+# ╟─58c7aabe-b3ae-4bc8-ba61-356f7e0fa31d
+# ╟─9e9c6830-7544-4d81-95c6-34dca751f75f
+# ╟─4a5b5744-701e-4051-ac88-b2c3d9715413
+# ╟─1c5210c8-7f50-4a6f-a37b-5a6b19b25fc7
+# ╟─749ee0b8-7cf5-4c44-9029-08732d959958
+# ╟─2f816b4e-ce78-4bc9-9a57-75961e944c78
+# ╟─cc6fa932-1e64-4379-b4b1-5d4096fbcb7e
+# ╟─0488519b-a1cd-40db-8ee9-d2658b576bd2
+# ╟─3f56e844-6b96-45a7-ad01-bc76d7951979
+# ╠═42507d15-f0b4-480c-95a6-5cc3187684d7
+# ╠═62299cf7-0109-4f26-b140-22421a6e249d
+# ╠═0ef53efe-603d-4ca5-936f-996be0caf72a
+# ╟─907d88dd-e475-4922-a6fc-1c296721dc78
+# ╟─6ada36dd-885b-4c58-a67b-ffd87d044437
+# ╟─6abbb3b7-e65c-460c-a85e-0737fe4fac3f
+# ╟─2c74ae59-dfbf-43d1-b16a-0111cc025b8e
+# ╟─741f95e7-1cef-42f8-b088-b12326380ee0
+# ╟─d796aec6-7407-4b44-ba28-de71ed89f108
+# ╟─81b26abe-c275-4f1e-96de-30d30651ae85
+# ╟─ff5e5acd-52ab-4b21-b2c3-4e0f85329036
+# ╟─fb7ee765-3bed-454d-a19e-ca79bcef57ed
+# ╟─f601ef17-f0db-4af2-97aa-35f080a08763
+# ╟─cafab381-5c85-4e2d-ba7f-7db2cb148bbf
+# ╟─af44a8d5-b44e-4b82-a65d-04743ef2d49d
+# ╟─2d8a9a78-ed85-49e4-a022-dc91cd15d31f
+# ╟─4b566c78-21df-44ab-a1eb-d303ad071adf
+# ╟─0834df4c-49bf-43d9-9213-3ce5d18ee471
+# ╟─9b3fbc5c-5a0d-47db-9cbf-86bc3c381038
+# ╟─77da11a9-f7d0-49e6-8a8c-7f4cb70f369e
+# ╟─e4dcf373-c1d9-42f1-98dc-1bf74b51063d
+# ╟─3e29bf39-238c-460e-892e-f8651ffde277
+# ╟─e526e3ed-95b0-4bdd-9386-262ac951c000
+# ╟─5ed8c4d8-2f31-40f8-ae21-f4286c634983
 # ╟─0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 # ╟─8687dbd1-4857-40e4-b9cb-af469b8563e2
 # ╟─fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b

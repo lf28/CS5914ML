@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.25
+# v0.19.26
 
 using Markdown
 using InteractiveUtils
@@ -31,9 +31,6 @@ end
 # ╔═╡ 959d3f6e-ad5b-444f-9000-825063598837
 using Zygote
 
-# ╔═╡ 81b26abe-c275-4f1e-96de-30d30651ae85
-using ForwardDiff
-
 # ╔═╡ 3e2e1ea8-3a7d-462f-ac38-43a087907a14
 TableOfContents()
 
@@ -46,7 +43,8 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Vector calculus
+#### Vector calculus 2
+
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -58,639 +56,6 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 *University of St Andrews, UK*
 
 """
-
-# ╔═╡ 7f70d752-ba03-4378-9bc6-c8869a4f56ca
-md"""
-
-## Today
-
-\
-\
-
-A quick revision on **Vector calculus**
-* used in all aspect of science and engineering
-* particularly useful for optimisation in ML models
-
-
-
-\
-
-Agains, we focus on more **intuition** 
-* we will start from something nice and simple
-* then move to more general multivariate examples
-"""
-
-# ╔═╡ 7091d2cf-9237-45b2-b609-f442cd1cdba5
-md"""
-
-## Topics to cover
-	
-"""
-
-# ╔═╡ 0a7f37e1-51bc-427d-a947-31a6be5b765e
-aside((md"""$(@bind next1 Button("next")) 
-$(@bind init1 Button("init"))
-	"""))
-
-# ╔═╡ 595a5ef3-4f54-4502-a943-ace4146efa31
-begin
-	init1
-	next_idx = [0];
-end;
-
-# ╔═╡ a696c014-2070-4041-ada3-da79f50c9140
-begin
-	next1
-	topics = ["Univariate functions: linear & quadratic function", "Multivariate extensions: level set, contour", "Gradient and differentiation rules", "Optimisation"]
-	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
-end
-
-# ╔═╡ bc1ee08d-9376-44d7-968c-5e114b09a5e0
-let
-	next1
-	next_idx[1] += 1
-end;
-
-# ╔═╡ 992a13dd-e6bf-4b18-8654-ac70398e15ab
-md"""
-
-# Single variable calculus
-"""
-
-# ╔═╡ 49815f5b-f5e4-4cd4-b891-599033fe9d8b
-md"""
-
-## Linear function
-
-Univariate linear function ``f: \mathbb{R} \rightarrow \mathbb{R}``
-
-```math
-\large
-f(x) = b\cdot x+ c
-```
-
-* ``c``: intercept
-* ``b``: slope
-  * *constant* change rate between ``f`` and ``x``
-"""
-
-# ╔═╡ 9a2d12cc-59d7-42ef-b1bd-bc90f7c0db3c
-md"Add function: $(@bind add_f_linear CheckBox(default=false))"
-
-# ╔═╡ 15428895-7f94-41e4-9fe8-ae2231900afc
-md"""
-Slope: ``b=`` $(@bind b_ Slider(-10:0.1:10; default = 5, show_value=true)), Intercept: ``c=`` $(@bind c_ Slider(-10:0.1:10; default = 0, show_value=true))
-"""
-
-# ╔═╡ 3de289ab-a863-43b3-9799-3ca66791e02c
-let
-	gr()
-	b, c = b_, c_
-	plt = plot()
-	abs = [(2, 0), (-2, 0)]
-	for (a, b) in abs
-		plot!(-3:0.1:3, (x) -> a*x+b, framestyle=:origin, label=L"f(x) = %$(a)x + %$(b)", lw =2, lc=:gray,legend=:outerright)
-	end
-
-	if add_f_linear
-		plot!(-3:0.1:3, (x) -> b*x+c, framestyle=:origin, label="", legend=:outerright, lw=2, r=1)
-		x_ = 0 
-		if c < 0
-			ann_text = text(L"{f(x) = %$(b)x  %$(c)}", :green,  :bottom, rotation = atan(b) * 90/π)
-		else
-			ann_text = text(L"{f(x) = %$(b)x + %$(c)}",:green,   18, :bottom, rotation = atan(b) * 90/π)
-		end
-		annotate!([x_], [b*x_ + c], ann_text)
-	end
-	plt
-end
-
-# ╔═╡ 20536535-dd93-4987-886c-5d1d3cccf469
-md"""
-
-## Effects of intercept and slope 
-
-
-### Effect of the intercept: ``c``
-\
-"""
-
-# ╔═╡ c1a2cdac-605c-4891-abe3-a7e013f390cc
-let
-	gr()
-	b₁, b₀ = 1.5, 0
-	plt = plot( legend=:outerright, title="Effect of intercept: "*L"c")
-
-	bbs = [[b₁, b₀]  for b₀ in -3:3]
-	for (b₁, b₀) in bbs
-		if b₀ < 0 
-			anno_text = L"f(x) = %$(b₁)x %$(b₀)"
-		else
-			anno_text = L"f(x) = %$(b₁)x + %$(b₀)"
-		end
-		plot!(-1:0.1:3, (x) -> b₁*x+b₀, framestyle=:origin, label=anno_text, legend=:outerright, lw=2)
-	end
-	plt
-end
-
-# ╔═╡ d41c8ca2-a6fa-495e-b8c0-5fe6007f2485
-md"""
-
-### Effect of slope: ``b``
-"""
-
-# ╔═╡ 3ed1700f-4335-4e2d-b0c6-8a121784e38a
-let
-	gr()
-	a, b = 0, 2
-	plt = plot( legend=:outerright, title="Effect of slope: "*L"b")
-
-	abs = [(-2, b),  (-1.5, b), (-1, b), (-0.5, b),  (0,b), (.5, b), (1, b), (1.5, b), (2, b)]
-	for (a, b) in abs
-		if a == 1.0
-			anno_text =	L"f(x) = x + %$(b)"
-		else
-			anno_text = L"f(x) = %$(a)x + %$(b)"
-		end
-		plot!(-1:0.1:3, (x) -> a*x+b, framestyle=:origin, label=anno_text, legend=:outerright, lw=2)
-	end
-	plt
-end
-
-# ╔═╡ b4390e22-bf19-4445-8988-954615ac5991
-md"""
-## Quadratic function
-
-Univariate qudratic function ``\mathbb R\rightarrow \mathbb R``
-
-```math
-\large 
-f(x) = ax^2 + b x+ c, \;\; a\neq 0
-
-```
-
-> ``a``: quadratic coefficient
-* ``a> 0``: bowl facing up
-* ``a<0``: bowl facing down
-* ``a=0``: reduce to linear function
-
-> ``b``: linear coefficient
-
-> ``c``: the intercept
-"""
-
-# ╔═╡ 1dd3214e-de41-4f9d-b43a-35b107c64cf2
-md"""
-
-## Quadratic function
-
-"""
-
-# ╔═╡ cf1b8de7-1c04-46a8-8ca6-8c266bc7a6fc
-pltapos, pltaneg=let
-	gr()
-	b, c = 0, 0
-	plt = plot( legend=:outerbottom, title="Effect of "*L"a>0", size=(300,400))
-	plt2 = plot( legend=:outerbottom, title="Effect of "*L"a<0", size=(300,400))
-	
-	ass = [0.1, 1,2,3,4,6]
-	for a in ass
-		plot!(plt, -5:0.2:5, (x) -> a* x^2 + b* x+ c, framestyle=:origin, label=L"f(x) = %$(a)x^2 + %$(b)x + %$(c)", lw=2)
-		plot!(plt2, -5:0.2:5, (x) -> -a * x^2 + b* x+ c, framestyle=:origin, label=L"f(x) = -%$(a)x^2 + %$(b)x + %$(c)", lw=2)
-	end
-
-
-	plt, plt2
-end;
-
-# ╔═╡ d2e4fb88-3728-4886-ba4f-634050bbf738
-TwoColumn(md"
-
-#### when `` a > 0``
-
-
-The function has a **minimum**
-
-$(pltapos)
-", 
-	
-	
-md" #### when `` a<0``
-
-
-The function has a **maximum**
-
-
-$(pltaneg)
-")
-
-# ╔═╡ da2f5399-32de-4998-83f2-b84b2d720f82
-md"""
-
-## Derivative
-
-
-
-$$\large f'(x)= \frac{\mathrm{d}f}{\mathrm{d}x}(x) =\lim_{\Delta x \rightarrow 0} \frac{f(x+\Delta x) - f(x)}{\Delta x}$$
-
-
-- _instant change rate_ of ``f`` at location ``x``
-
-
-
-"""
-
-# ╔═╡ 16ecc090-613e-4746-b12d-0a3d0e4e1727
-md"``\Delta x``: $(@bind Δx Slider(1.5:-0.1:0, default=1.5))"
-
-# ╔═╡ 4ef8df63-5b77-48a8-99c0-f014cf6360c1
-let
-	gr()
-	x₀ = 0.0
-	xs = -1.2π : 0.1: 1.2π
-	f, ∇f = sin, cos
-	# anim = @animate for Δx in π:-0.1:0.0
-	# Δx = 1.3
-	plot(xs, sin, label=L"\sin(x)", ylim = [-1.5, 1.5], xlabel=L"x", lw=2, legend=:outerbottom, framestyle=:semi, title="Derivative at "*L"x=0", legendfontsize=10)
-		df = f(x₀ + Δx)-f(x₀)
-		k = Δx == 0 ? ∇f(x₀) : df/Δx
-		b = f(x₀) - k * x₀ 
-		# the approximating linear function with Δx 
-		plot!(xs, (x) -> k*x+b, label="", lw=2)
-		# the location where the derivative is defined
-		scatter!([x₀], [f(x₀)], ms=3, label=L"x_0,\; \sin(x_0)")
-		scatter!([x₀+Δx], [f(x₀+Δx)], ms=3, label=L"x_0+Δx,\; \sin(x_0+Δx)")
-		plot!([x₀, x₀+Δx], [f(x₀), f(x₀)], lc=:gray, label="")
-		plot!([x₀+Δx, x₀+Δx], [f(x₀), f(x₀+Δx)], lc=:gray, label="")
-		font_size = Δx < 0.8 ? 12 : 14
-		annotate!(x₀+Δx, 0.5 *(f(x₀) + f(x₀+Δx)), text(L"Δf", font_size, :top, rotation = 90))
-		annotate!(0.5*(x₀+x₀+Δx), 0, text(L"Δx", font_size,:top))
-		annotate!(-.6, 1, text(L"\frac{Δf}{Δx}=%$(round(k, digits=2))", 15,:top))
-end
-
-# ╔═╡ e4bd5842-e6af-4e12-af4b-1556b91db0ee
-md"""
-##
-
-"""
-
-# ╔═╡ 55b1388f-c368-4d95-9893-ea95e8c2359e
-let
-	gr()
-	x₀ = 0.0
-	xs = -1.5π : 0.1: 1.5π
-	f, ∇f = sin, cos
-	anim = @animate for Δx in 1.5:-0.1:0.0
-		plot(xs, sin, label=L"\sin(x)", ylim = [-1.5, 1.5], xlabel=L"x", lw=2, legend=:topleft, legendfontsize = 10)
-		df = f(x₀ + Δx)-f(x₀)
-		k = Δx == 0 ? ∇f(x₀) : df/Δx
-		b = f(x₀) - k * x₀ 
-		# the approximating linear function with Δx 
-		plot!(xs, (x) -> k*x+b, label="", lw=2)
-		# the location where the derivative is defined
-		scatter!([x₀], [f(x₀)], ms=3, label=L"x_0, \sin(x_0)")
-		scatter!([x₀+Δx], [f(x₀+Δx)], ms=3, label=L"x_0+Δx, \sin(x_0+Δx)")
-		plot!([x₀, x₀+Δx], [f(x₀), f(x₀)], lc=:gray, label="")
-		plot!([x₀+Δx, x₀+Δx], [f(x₀), f(x₀+Δx)], lc=:gray, label="")
-		font_size = Δx < 0.8 ? 7 : 10
-		annotate!(x₀+Δx, 0.5 *(f(x₀) + f(x₀+Δx)), text(L"Δf=%$(round(df, digits=1))", font_size, :top, rotation = 90))
-		annotate!(0.5*(x₀+x₀+Δx), 0, text(L"Δx=%$(round(Δx, digits=1))", font_size,:top))
-		annotate!(0, 1, text(L"\frac{Δf}{Δx}=%$(round(k, digits=2))", 10,:top))
-	end
-
-	gif(anim, fps=5)
-end
-
-# ╔═╡ 6fc139a6-a8b6-4215-a4c6-06a54c2985ec
-md"""
-
-## Derivative
-
-
-
-$$\large f'(x)= \frac{\mathrm{d}f}{\mathrm{d}x}(x) =\lim_{\Delta x \rightarrow 0} \frac{f(x+\Delta x) - f(x)}{\Delta x}$$
-
-- *also note*, the derivative itself ``f'`` is a ``\mathbb R \rightarrow \mathbb R``  **function**
-  - input: ``x\in \mathbb R``
-  - outputs: the change rate at $x$ (or the *slope* of the tangent line)
-
-
-
-"""
-
-# ╔═╡ a79f418f-d054-46e7-bb9b-f13a7631e21b
-html"""<center><img src="https://upload.wikimedia.org/wikipedia/commons/2/2d/Tangent_function_animation.gif" width = "350"/></center>""" 
-
-# ╔═╡ 8ae96192-2b4f-48e7-b55d-bea27d565671
-aside(tip(md"""
-Differentiation rules
-* constant rule: ``f(x)=c``, then ``f'= 0``
-* scalar rule: ``(af(x))' = a f'(x)``
-* sum/subtraction rule: ``(f(x)\pm g(x))'= f(x)' \pm g(x)'``
-* product rule: ``(f(x)g(x))' = f' g + f g'``
-* quotient rule: ``\left (\frac{f(x)}{g(x)}\right )' = \frac{f' g-g'f}{g^2}``
-* chain rule: ``h(x) = f(g(x))``, then ``h'(x)=f'(g(x)) g'(x)``"""))
-
-# ╔═╡ bbed688d-0caf-4f93-a19c-ea3a0039a1a2
-md"""
-
-## Calculate derivative
-
-
-
-
-Some common derivatives are
-
-```math
-f(x)=c, \;\; f'(x) = 0
-```
-
-```math
-f(x)=bx, \;\; f'(x) = b
-```
-
-
-```math
-f(x)=ax^2+bx+c, \;\; f'(x) = 2ax + b
-```
-
-```math
-f(x)=\exp(x), \;\; f'(x) = \exp(x) 
-```
-
-
-```math
-f(x)=\ln(x), \;\; f'(x) = \frac{1}{x}
-```
-
-```math
-f(x)=\sin(x), \;\; f'(x) = \cos(x) 
-```
-"""
-
-# ╔═╡ 5568a672-a68d-42ce-ad7d-e2f93f597a19
-md"""
-
-## Calculate derivative -- chain rule
-
-Composite two functions ``f_2, f_1`` together, the composite function denoted as ``f_2 \circ f_1``
-
-```math
-(f_2 \circ f_1) (x) \triangleq f_2(f_1(x))
-```
-
-
-The derivative is
-
-```math
-\large
-\frac{d f_1}{dx} = \frac{d f_1}{d f_2} \frac{d f_2}{d x}
-```
-
-
-##
-
-**Example:**
-
-
-```math
-\large
-f(x) = (b- ax)^2
-```
-
-* as a dependence gragh
-
-```math
-\Large
-x \textcolor{blue}{\xrightarrow{b-ax}} f_1(x) \textcolor{red}{\xrightarrow{x^2}}f_2(f_1(x))
-```
-
-```math
-\Large
-x \textcolor{blue}{\xrightarrow{b-ax}} (b-ax) \textcolor{red}{\xrightarrow{x^2}} (b-ax)^2 
-```
-
-
-
-"""
-
-# ╔═╡ 20735597-3cb2-4514-b015-cf12464fb286
-md"""
-
-
-##
-
-**Example:**
-
-
-```math
-\large
-f(x) = (b- ax)^2
-```
-
-* as a dependence gragh
-
-```math
-\Large
-x \textcolor{blue}{\xrightarrow{b-ax}} f_1(x) \textcolor{red}{\xrightarrow{x^2}}f_2(f_1(x))
-```
-
-```math
-\Large
-x \textcolor{blue}{\xrightarrow{b-ax}} (b-ax) \textcolor{red}{\xrightarrow{x^2}} (b-ax)^2 
-```
-
-
-
-* chain rule tells us to _multiply all local derivatives_ 
-
-```math
-\Large
-x \textcolor{blue}{\xleftarrow{\frac{{d} f_1}{{d} x}}} f_1(x) \textcolor{red}{\xleftarrow{\frac{{d} f_2}{{d} f_1}}}f_2(f_1(x))
-```
-
-```math
-\Large
-x \textcolor{blue}{\xleftarrow{-a}} f_2(x) \textcolor{red}{\xleftarrow{2(b-ax)}}f_2(f_1(x))
-```
-
-* the derivative is the multiplication of the local derivatives
-
-```math
-\large
-\frac{d f}{d x} = \textcolor{red}{\underbrace{2(b-ax)}_{df_1/df_2}} \cdot \textcolor{blue}{\underbrace{(-a)}_{df_2/dx}}
-```
-"""
-
-# ╔═╡ 9367ff5b-cc1d-41b9-8a06-fe248b0b8a19
-md"""
-
-## Differentiation and linear approximation
-
-
-> If ``f: \mathbb R \rightarrow \mathbb R`` is differentiable at ``x_0``, then
-> 
-> ``f(x)`` can be locally approximated by a linear function
-> ```math
-> \Large
-> \begin{align}
-> f(x) &\approx f(x_0) + f'(x_0)(x-x_0) 
-> \end{align}
-> ```
-"""
-
-# ╔═╡ 6161543b-34d1-44df-9b04-e2644adb3882
-Foldable("More formally", md"""
-
-
-> ```math
-> f(x) = f(x_0) + f'(x_0)(x-x_0)  + o(|x-x_0|)
-> ```
-
-where the small ``o`` denotes that the function is an order of magnitude smaller around 𝑥0 than the function ``|x -x_0|``.
-
-""")
-
-# ╔═╡ ec39f15f-14af-48c6-beae-9a128c3eccb7
-f(x) = x * sin(x^2) + 1; # you can change this function!
-
-# ╔═╡ 1f102762-3f4a-4895-a26d-d44e2804f6de
-@bind x̂ Slider(-2:0.2:3, default=-1.5, show_value=true)
-
-# ╔═╡ f59d2e5d-4f1b-4c45-b312-bcfc72f97c75
-plt_linear_approx = begin
-    # Plot function
-    xs = range(-2, 3, 200)
-    ymin, ymax = extrema(f.(xs))
-    p = plot(
-        xs,
-        f;
-        label=L"$f(x)$",
-        xlabel=L"x",
-        legend=:topleft,
-        ylims = (ymin - .5, ymax + .5),
-        legendfontsize=10,
-		lw = 2,
-		ratio = .7,
-		framestyle=:zerolines
-    )
-
-    # Obtain the function 𝒟fₓ̃ᵀ
-    ŷ, 𝒟fₓ̂ᵀ = Zygote.pullback(f, x̂)
-
-    # Plot Dfₓ̃(x)
-    # plot!(p, xs, w -> 𝒟fₓ̂ᵀ(w)[1]; label=L"Derivative $\mathcal{D}f_\tilde{x}(x)$")
-    # Show point of linearization
-    vline!(p, [x̂]; style=:dash, c=:gray, label=L"x_0")
-    # Plot 1st order Taylor series approximation
-    taylor_approx(x) = f(x̂) + 𝒟fₓ̂ᵀ(x - x̂)[1] # f(x) ≈ f(x̃) + 𝒟f(x̃)(x-x̃)
-    plot!(p, xs, taylor_approx; label=L"Linear approx. at $x_0$", lc=2,  lw=2)
-end
-
-# ╔═╡ d85e3b50-8fe7-4178-a7b5-3c757dce9677
-md"""
-
-## Optimisation
-"""
-
-# ╔═╡ 350de8a8-fda9-471a-be21-d5606de38f97
-TwoColumn(md"""
-
-Whenenver 
-
-```math
-\large 
-\frac{\mathrm{d}f}{\mathrm{d}x}(x) =0,
-``` 
-
-* it implies ``f(x)`` is flat near ``x``
-* the derivative vanishes: it does not increase nor decrease
-  * it can be a *maximum*, 
-  * a *minimum* 
-  * or a *saddle point* (not shown here)
-""", md"
-![](https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/05-example-monotonicity-derivatives.png)
-")
-
-# ╔═╡ dc1f2d6a-5195-4f01-9b1f-350566bea0b9
-md"[Figure source](https://tivadardanka.com/book)"
-
-# ╔═╡ 27f70663-d4c9-4a06-aa15-db9e9e4d822c
-md"""
-
-
-## Optimisation
-
-To optimise (maximise or minimise) ``f``, *i.e.*
-
-```math
-\Large 
-x' \leftarrow \arg\max_x f(x)\;\; \text{or}\;\; x' \leftarrow \arg\min_x f(x)
-```
-
-We need to solve
-
-```math
-\Large
-\frac{\mathrm{d}f}{\mathrm{d}x}(x) = 0
-
-```
-* either _analytically_
-* or iteratively (gradient descent, more on this later in the course)
-"""
-
-# ╔═╡ a646aefe-d2a0-4f8b-bb63-4ffe2ec43ff0
-md"""
-
-## Example
-
-To optimise 
-
-```math
-f(x) = ax^2 + bx +c
-```
-
-Find derivative and set to zero:
-
-```math
-f'(x) = 2a\cdot x + b =0 \Rightarrow x = \frac{-b}{2a}
-```
-
-
-"""
-
-# ╔═╡ 5b02277a-1c2e-418e-b4a3-9bed86230cd7
-md" ``x=``$(@bind x₀_ Slider(-6.5:0.1:4.5, default= -2/2*1))"
-
-# ╔═╡ f56d2626-ff15-4b4c-8184-7147b58ed7db
-let
-	gr()
-	a, b, c = 1, 2, 20
-	f(x) = a* x^2 + b*x+c
-	df(x) = 2a * x + b
-	xs = range(-6, 4.5, 50)
-	plt = plot(xs, f, label=L"f(x)= x^2 + 2x +20", legend=:topleft, lw=2, framestyle=:origin, size=(500,400))
-	linear_approx_f(x; f, ∇f, x₀) = f(x₀) + ∇f(x₀) * (x- x₀)
-	if df(x₀_) < 0
-		plot!((x) -> linear_approx_f(x; f=f, ∇f= df, x₀ = x₀_), legend=:topleft, label="Local linear approx",  lc=:red, lw=1.5, ylim=[0, 50])
-	elseif df(x₀_) > 0
-		plot!((x) -> linear_approx_f(x; f=f, ∇f= df, x₀ = x₀_), legend=:topleft, label="Local linear approx", lc=:green,  lw=1.5, ylim=[0, 50])
-	else
-		plot!((x) -> linear_approx_f(x; f=f, ∇f= df, x₀ = x₀_), legend=:topleft, label="Local linear approx", lc=:gray,  lw=1.5, ylim=[0, 50])
-	end
-	fprime = 2*a*x₀_ + b
-	annotate!(x₀_, f(x₀_)-3, L"x_0 = %$(round(x₀_, digits=2));\;\;\; f'(x_0)=%$(round(fprime, digits=2))")
-	
-	# x₀ = -b/2a
-	# # scatter!([x₀], [f(x₀)])
-	# scatter!([x₀], [0], label="")
-	# plot!([x₀], [f(x₀)], st=:sticks, line=:dash, c=:gray, lw=2, label="")
-	# old_xticks = xticks(plt)[1]
-	# new_xticks = ([x₀], ["\$-\\frac{b}{2a}=-1\$"])
-	# keep_indices = findall(x -> all(x .≠ new_xticks[1]), old_xticks[1])
-	# merged_xticks = (old_xticks[1][keep_indices] ∪ new_xticks[1], old_xticks[2][keep_indices] ∪ new_xticks[2])
-	# xticks!(merged_xticks)
-end
 
 # ╔═╡ 653ab1b9-0839-4217-8301-f326efa2a2ad
 md"""
@@ -746,11 +111,6 @@ more_ex_surface
 	
 )
 
-# ╔═╡ 58d10219-b1b5-4063-b645-8690470b98f8
-aside(tip(md"
-Recall ``\mathbf{b}^\top \mathbf{x}  = b_1 x_1 + b_2 x_2 + \ldots  b_n x_n``
-"))
-
 # ╔═╡ a56baf6a-cd46-4eb0-9d98-97b22cbdebee
 md"""
 ## Linear function: ``\mathbb R^n \rightarrow \mathbb R``
@@ -771,6 +131,11 @@ f(\mathbf{x}) &=   c + b_1 x_1 + b_2 x_2 + \ldots  b_n x_n\\
 
 
 """
+
+# ╔═╡ 3dfbd08c-9c75-4d9a-8f8c-3b0976b880b3
+aside(tip(md"
+Recall ``\mathbf{b}^\top \mathbf{x}  = b_1 x_1 + b_2 x_2 + \ldots  b_n x_n``
+"))
 
 # ╔═╡ 1619883b-fccc-4e39-a18f-2868bf3d05e5
 md"""
@@ -1113,6 +478,23 @@ md"""
 The quadratic coefficient ``a`` determines: maximum, minimum
 """
 
+# ╔═╡ 814a51b4-bfb7-4dcf-953c-c5f9e20f853f
+pltapos, pltaneg=let
+	gr()
+	b, c = 0, 0
+	plt = plot( legend=:outerbottom, title="Effect of "*L"a>0", size=(300,400))
+	plt2 = plot( legend=:outerbottom, title="Effect of "*L"a<0", size=(300,400))
+	
+	ass = [0.1, 1,2,3,4,6]
+	for a in ass
+		plot!(plt, -5:0.2:5, (x) -> a* x^2 + b* x+ c, framestyle=:origin, label=L"f(x) = %$(a)x^2 + %$(b)x + %$(c)", lw=2)
+		plot!(plt2, -5:0.2:5, (x) -> -a * x^2 + b* x+ c, framestyle=:origin, label=L"f(x) = -%$(a)x^2 + %$(b)x + %$(c)", lw=2)
+	end
+
+
+	plt, plt2
+end;
+
 # ╔═╡ af66f43d-27be-4a8c-bd4b-60e25e113214
 TwoColumn(md"
 
@@ -1137,13 +519,13 @@ $(pltaneg)
 # ╔═╡ 92a4d83a-7637-4201-9c5e-c36b379210a0
 md"""
 
-## Max/min test
+## Max/min test: multivariate function
 ```math
 \Large
 f(\mathbf{x})= \mathbf{x}^\top\mathbf{A}\mathbf{x} + \mathbf{b}^\top\mathbf{x} + c
 ```
 
-* cross reference single variate case
+* cross reference single variate case (with a minimum)
 
 $a>0, ax^2 > 0\; \text{for all } {x\in \mathbb{R}}$
 * when ``\mathbf{A}`` is _positive definite_, *i.e.* when 
@@ -1492,7 +874,7 @@ The gradient function outputs _**constant**_ direction ``\mathbf{b}`` for all lo
 """
 
 # ╔═╡ 6490d76d-0b7b-4720-91b2-7e05fbfae0f9
-bvec = [1,0]
+bvec = [1, 0]
 
 # ╔═╡ 3432bede-1139-4ae8-a292-9fe3bffdf9b3
 let
@@ -1509,7 +891,22 @@ let
 	∇f(x₁, x₂) = bvec * 3
 	xs = -15:0.5:15
 	ys= -15:0.5:15
-	cont = contour(xs, ys, (x, y) -> f([x,y]), c=:jet, xlabel=L"x_1", ylabel=L"x_2", title="Contour and gradient field plot", framestyle=:origin)
+	cont = contour(xs, ys, (x, y) -> f([x,y]), c=:jet, xlabel=L"x_1", ylabel=L"x_2", title="Contour and gradients of "*L"f(\mathbf{x}) = %$(bvec)^\top \mathbf{x}", framestyle=:origin)
+	# for better visualisation
+	meshgrid(x, y) = (repeat(x, outer=length(y)), repeat(y, inner=length(x))) # helper function to create a quiver grid.
+	xs_, ys_ = meshgrid(range(-15, 15, length=4), range(-15, 15, length=4))
+	quiver!(xs_, ys_, quiver = ∇f, c=:green)
+end
+
+# ╔═╡ 2d72ed24-21f9-4a4b-9fcf-e20d83a5a1c1
+let
+	gr()
+	bvec = [1,1]
+	f(x) = linear_f(x; b=bvec)
+	∇f(x₁, x₂) = bvec * 3
+	xs = -15:0.5:15
+	ys= -15:0.5:15
+	cont = contour(xs, ys, (x, y) -> f([x,y]), c=:jet, xlabel=L"x_1", ylabel=L"x_2", title="Contour and gradients of "*L"f(\mathbf{x}) = %$(bvec)^\top \mathbf{x}", framestyle=:origin)
 	# for better visualisation
 	meshgrid(x, y) = (repeat(x, outer=length(y)), repeat(y, inner=length(x))) # helper function to create a quiver grid.
 	xs_, ys_ = meshgrid(range(-15, 15, length=4), range(-15, 15, length=4))
@@ -1749,8 +1146,8 @@ md"""
 
 # ╔═╡ 62299cf7-0109-4f26-b140-22421a6e249d
 begin
-	A_ = Matrix(I, 2, 2)
-	# A_ = - Matrix(I, 2, 2)
+	# A_ = Matrix(I, 2, 2)
+	A_ = - Matrix(I, 2, 2)
 	# A_ = Matrix([1 0; 0 -1])
 end
 
@@ -1790,347 +1187,7 @@ let
 	xs = range(xmin_0[1]-8, xmin_0[1]+8, 100)
 	plot(xs, -8:0.8:8, (x1, x2) -> qform([x1, x2]; A=A_, b= bv_, c= cv_), st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=0.8, framestyle=:zerolines, ratio=1, c=:jet, colorbar=false)
 
-	scatter!([xmin_0[1]],[xmin_0[2]], [qform(xmin_0)], label="x': min/max/station")
-end
-
-# ╔═╡ 6ada36dd-885b-4c58-a67b-ffd87d044437
-md"""
-
-# Local approximation 
-
-#### The essense of differential calculus
-
-"""
-
-# ╔═╡ 6abbb3b7-e65c-460c-a85e-0737fe4fac3f
-md"""
-
-## Linear approximation
-
-
-> If ``f: \mathbb R \rightarrow \mathbb R`` is differentiable at ``x_0``, then
-> 
-> ``f(x)`` can be locally approximated by a linear function
-> ```math
-> \Large
-> \begin{align}
-> f(x) &\approx f(x_0) + f'(x_0)(x-x_0) 
-> \end{align}
-> ```
-
-
-"""
-
-# ╔═╡ 2c74ae59-dfbf-43d1-b16a-0111cc025b8e
-plt_linear_approx
-
-# ╔═╡ 741f95e7-1cef-42f8-b088-b12326380ee0
-
-md"""
-## 
-
-Multivariate calculus does the trick:
-
-> If ``f: \mathbb R^n \rightarrow \mathbb R`` is differentiable at ``\mathbf{x}_0``, then
-> 
-> ``f(\mathbf{x})`` can be approximated by a linear function (locally at ``\mathbf{x}_0``)
-> ```math
-> \Large
-> \begin{align}
-> f(\mathbf{x}) &\approx f(\mathbf{x}_0) + \nabla f(x_0)^\top(\mathbf{x}-\mathbf{x}_0) 
-> \end{align}
-> ```
-
-"""
-
-# ╔═╡ ff5e5acd-52ab-4b21-b2c3-4e0f85329036
-linear_approx(x; x₀, f) = f(x₀) + dot(ForwardDiff.gradient(f, x₀), x-x₀)
-
-# ╔═╡ d796aec6-7407-4b44-ba28-de71ed89f108
-let
-	plotly()
-	A_ = Matrix(I, 2, 2)
-	bv_ = [3.5, 3.5]
-	xmin_0 = -0.5 * A_^(-1) * bv_
-	xs = range(xmin_0[1]-8, xmin_0[1]+8, 100)
-	ys = range(xmin_0[2]-8, xmin_0[2]+8, 100)
-	ff(x) = qform(x; A=A_, b= bv_, c= cv_)
-	plot(xs, -8:.5:8, (x1, x2) -> ff([x1, x2]), st=:surface, xlabel="x₁", ylabel="x₂", zlabel="f",  alpha=1, framestyle=:zerolines, ratio=1, c=:jet, colorbar=false)
-	x0 = [2, -2]
-
-
-	plot!(xs, -8:1:8, (x1, x2) -> linear_approx([x1, x2]; x₀ = x0, f=ff), st=:surface, alpha=0.8,  c=:blue, colorbar=false)
-	# scatter!([xmin_0[1]],[xmin_0[2]], [qform(xmin_0)], label="x': min/max/station")
-end
-
-# ╔═╡ fb7ee765-3bed-454d-a19e-ca79bcef57ed
-md"""
-
-## Qudratic approximation
-
-
-> If ``f: \mathbb R \rightarrow \mathbb R`` is differentiable at ``x_0``, then
-> 
-> ``f(x)`` can be locally approximated by a quadratic function
-> ```math
-> \Large
-> \begin{align}
-> f(x) &\approx f(x_0) + f'(x_0)(x-x_0) + \frac{1}{2}\underbrace{\boxed{f^{''}(x_0)}}_{\text{\small second order derivative}}(x-x_0)^2
-> \end{align}
-> ```
-
-
-"""
-
-# ╔═╡ f601ef17-f0db-4af2-97aa-35f080a08763
-md"Add approx. $(@bind add_quadratic CheckBox()); Move me ``x_0``: $(@bind x̂_ Slider(-2:0.2:3, default=-1.5, show_value=true))"
-
-# ╔═╡ cafab381-5c85-4e2d-ba7f-7db2cb148bbf
-let
-	gr()
-	x̂ = x̂_
-    # Plot function
-    xs = range(-2, 3, 200)
-    ymin, ymax = extrema(f.(xs))
-    p = plot(
-        xs,
-        f;
-        label=L"$f(x)$",
-        xlabel=L"x",
-        legend=:outerbottom,
-        ylims = (ymin - .5, ymax + .5),
-        legendfontsize=10,
-		lw = 3,
-		ratio = .7,
-		framestyle=:zerolines,
-		size=(800,600)
-    )
-
-    # Obtain the function 𝒟fₓ̃ᵀ
-    # ŷ, 𝒟fₓ̂ᵀ = Zygote.pullback(f, x̂)
-	fprime = ForwardDiff.derivative(f, x̂)
-	fprimep = ForwardDiff.derivative(x -> ForwardDiff.derivative(f, x), x̂)
-    function taylor_approx(x; x̂, order = 1) 
-		fx = f(x̂) + fprime * (x - x̂)
-		if order > 1
-			fx += .5 * fprimep * (x-x̂)^2	
-		end# f(x) ≈ f(x̃) + 𝒟f(x̃)(x-x̃)
-		return fx
-	end
-    plot!(p, xs, (x) -> taylor_approx(x; x̂=x̂); label=L"linear approx. at $x_0$", lc=2,  lw=2, title="Linear approximation")
-	if add_quadratic
-	
-		plot!(p, xs, (x) -> taylor_approx(x; x̂=x̂, order=2); label=L"quadratic approx. at $x_0$", lc=3,  lw=3, title="Quadratic approximation")
-
-	end
-
-	p
-
-	# xq = x̂ + 0.9
-	# annotate!([xq], [taylor_approx(xq; x̂=x̂, order=2)], text("Quadratic approx"))
-
-end
-
-# ╔═╡ af44a8d5-b44e-4b82-a65d-04743ef2d49d
-md"""
-## Second order gradient -- Hessian matrix
-
-For a multivariate function ``f: \mathbb{R}^n \rightarrow \mathbb{R}``, the equivalence of ``f''`` is **Hessian** matrix
-
-> The **Hessian** matrix (the second order gradient) is defined as 
-> ```math
-> \Large
->
-> \mathbf{H} = \begin{bmatrix} \frac{\partial^2 f}{\partial x_1^2} &  \frac{\partial^2 f}{\partial x_1 x_2} & \ldots & \frac{\partial^2 f}{\partial  x_1x_n} \\
-> \frac{\partial^2 f}{\partial x_2x_1} & \frac{\partial^2 f}{\partial x_2^2} &  \ldots & \frac{\partial^2 f}{\partial x_2x_n}\\
-> \vdots & \vdots & \ddots & \vdots\\
-> \frac{\partial^2 f}{\partial x_nx_1} & \frac{\partial^2 f}{\partial x_n x_2} &  \ldots & \frac{\partial^2 f}{\partial x_n^2}
-> \end{bmatrix}
->
-> ```
-"""
-
-# ╔═╡ 2d8a9a78-ed85-49e4-a022-dc91cd15d31f
-md"""
-
-## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
-
-
-For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
-
-```math
-\large 
-f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
-```
-
-The gradient is 
-
-$$
-\large
-\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
-
-
-The Hessian is
-
-$$
-\large
-\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} =$$
-
-
-"""
-
-# ╔═╡ 4b566c78-21df-44ab-a1eb-d303ad071adf
-md"""
-
-## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
-
-
-For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
-
-```math
-\large 
-f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
-```
-
-The gradient is 
-
-$$
-\large
-\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
-
-
-The Hessian is
-
-$$
-\large
-\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} = \begin{bmatrix}\textcolor{red}{\frac{\partial(\partial (x_1^2+x_2^2))}{\partial x_1 \partial x_1}=\frac{\partial(2x_1)}{\partial x_1}} & \cdot \\ \cdot  & \cdot \end{bmatrix}$$
-
-
-"""
-
-# ╔═╡ 0834df4c-49bf-43d9-9213-3ce5d18ee471
-md"""
-
-## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
-
-
-For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
-
-```math
-\large 
-f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
-```
-
-The gradient is 
-
-$$
-\large
-\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
-
-
-The Hessian is
-
-$$
-\large
-\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} = \begin{bmatrix}2 & \textcolor{red}{\frac{\partial(\partial (x_1^2+x_2^2))}{\partial x_1 \partial x_2}=\frac{\partial(2x_1)}{\partial x_2}} \\ \cdot  & \cdot \end{bmatrix}$$
-
-
-"""
-
-# ╔═╡ 9b3fbc5c-5a0d-47db-9cbf-86bc3c381038
-md"""
-
-## Example: ``f(\mathbf{x}) = \mathbf{x}^\top \mathbf{x}``
-
-
-For function ``\mathbf{x} =[x_1, x_2]^\top \in \mathbb R^2``
-
-```math
-\large 
-f(\mathbf{x}) =\mathbf{x}^\top \mathbf{x} = x_1^2 + x_2^2
-```
-
-The gradient is 
-
-$$
-\large
-\nabla f(\mathbf{x}) = \begin{bmatrix}\frac{\partial f(\mathbf{x})}{\partial x_1}\\ \frac{\partial f(\mathbf{x})}{\partial x_2}\end{bmatrix} = \begin{bmatrix} 2 x_1\\ 2x_2\end{bmatrix} = 2 \mathbf{x}$$
-
-
-The Hessian is
-
-$$
-\large
-\mathbf{H}(\mathbf{x}) = \begin{bmatrix}\frac{\partial f^2(\mathbf{x})}{\partial x_1^2} & \frac{\partial f^2(\mathbf{x})}{\partial x_1x_2}\\ \frac{\partial f(\mathbf{x})}{\partial x_2x_1} & \frac{\partial f^2(\mathbf{x})}{\partial x_2^2}\end{bmatrix} = \begin{bmatrix}2 & 0\\ 0  & 2 \end{bmatrix}$$
-
-
-"""
-
-# ╔═╡ 77da11a9-f7d0-49e6-8a8c-7f4cb70f369e
-md"""
-
-## Qudratic approximation
-
-
-> If ``f: \mathbb R \rightarrow \mathbb R`` is differentiable at ``x_0``, then
-> 
-> ``f(x)`` can be locally approximated by a **quadratic** function
-> ```math
-> \Large
-> \begin{align}
-> f(x) &\approx f(x_0) + f'(x_0)(x-x_0) + \frac{1}{2}\underbrace{f^{''}(x_0)(x-x_0)^2}_{(x-x_0)f^{''}(x_0)(x-x_0)}
-> \end{align}
-> ```
-
-The multivariate **generalisation**
-
-> If ``f: \mathbb R^n \rightarrow \mathbb R`` is differentiable at ``\mathbf{x}_0``, then
-> 
-> ``f(\mathbf{x})`` can be locally approximated by a **quadratic** function
-> ```math
-> \Large
-> \begin{align}
-> f(\mathbf{x}) &\approx f(\mathbf{x}_0) + \nabla f(\mathbf{x}_0)^\top(\mathbf{x}- \mathbf{x}_0) + \\
-> &\;\;\;\;\;\;\frac{1}{2}(\mathbf{x}-\mathbf{x}_0)^\top \mathbf{H}(\mathbf{x}_0)(\mathbf{x}-\mathbf{x}_0)
-> \end{align}
-> ```
-"""
-
-# ╔═╡ e4dcf373-c1d9-42f1-98dc-1bf74b51063d
-function f2(x)
-	# sin(prod(x))
-	prod(cos.(x))
-end;
-
-# ╔═╡ 3e29bf39-238c-460e-892e-f8651ffde277
-function taylorApprox(f, x0)
-	gx0 = ForwardDiff.gradient(f, x0)
-	hx0 = ForwardDiff.hessian(f, x0)
-	tf(x) = f(x0) + gx0' * (x-x0) + 0.5 * (x-x0)'* hx0 * (x-x0)
-end;
-
-# ╔═╡ e526e3ed-95b0-4bdd-9386-262ac951c000
-let
-	plotly()
-	gf2 = x -> ForwardDiff.gradient(f2, x)
-	xylim = 2.8
-	x1_ = range(-xylim, stop =xylim, length=100)
-	x2_ = range(-xylim, stop =xylim, length=100)
-	p1_ = plot(x1_, x2_, (a, b) -> f2([a, b]), st=:surface, xlabel ="x", ylabel="y", zlabel="f", colorbar=false, color=:jet, framestyle=:zerolines)
-	p2_= plot(contour(x1_, x2_, (a, b) -> f2([a, b])), colorbar=false)
-	plot(p1_, p2_)
-	# plot(p1_, 
-end
-
-# ╔═╡ 5ed8c4d8-2f31-40f8-ae21-f4286c634983
-let
-	plotly()
-	tf2 = taylorApprox(f2, [1.5, -1.5])
-	xylim = 2.8
-	x1_ = range(-xylim, stop =xylim, length=100)
-	x2_ = range(-xylim, stop =xylim, length=100)
-	plot(x1_, x2_, (a, b) -> f2([a, b]), st=:surface, xlabel ="x", ylabel="y", zlim=[-1.2,1.2], zlabel="f", colorbar=false, color=:reds, alpha =0.9)
-	plot!(x1_, x2_, (x, y) -> tf2([x, y]),  st=:surface, color=:roma)
+	scatter!([xmin_0[1]],[xmin_0[2]], [qform(xmin_0; A=A_, b= bv_, c= cv_)], label="x': min/max/station")
 end
 
 # ╔═╡ 0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
@@ -2222,7 +1279,6 @@ end
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
@@ -2235,7 +1291,6 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-ForwardDiff = "~0.10.35"
 HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.15.21"
@@ -2249,9 +1304,9 @@ Zygote = "~0.6.62"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.0"
+julia_version = "1.9.1"
 manifest_format = "2.0"
-project_hash = "949daca3ed7ba8a924d7d6a3343f17e9d87b083c"
+project_hash = "01d81ea555e48c0dcc037654a0aa31e03c47e32d"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -3445,7 +2500,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.7.0+0"
+version = "5.8.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -3500,60 +2555,18 @@ version = "1.4.1+0"
 # ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
-# ╟─7f70d752-ba03-4378-9bc6-c8869a4f56ca
-# ╟─7091d2cf-9237-45b2-b609-f442cd1cdba5
-# ╟─0a7f37e1-51bc-427d-a947-31a6be5b765e
-# ╟─a696c014-2070-4041-ada3-da79f50c9140
-# ╟─595a5ef3-4f54-4502-a943-ace4146efa31
-# ╟─bc1ee08d-9376-44d7-968c-5e114b09a5e0
-# ╟─992a13dd-e6bf-4b18-8654-ac70398e15ab
-# ╟─49815f5b-f5e4-4cd4-b891-599033fe9d8b
-# ╟─9a2d12cc-59d7-42ef-b1bd-bc90f7c0db3c
-# ╟─15428895-7f94-41e4-9fe8-ae2231900afc
-# ╟─3de289ab-a863-43b3-9799-3ca66791e02c
-# ╟─20536535-dd93-4987-886c-5d1d3cccf469
-# ╟─c1a2cdac-605c-4891-abe3-a7e013f390cc
-# ╟─d41c8ca2-a6fa-495e-b8c0-5fe6007f2485
-# ╟─3ed1700f-4335-4e2d-b0c6-8a121784e38a
-# ╟─b4390e22-bf19-4445-8988-954615ac5991
-# ╟─1dd3214e-de41-4f9d-b43a-35b107c64cf2
-# ╟─d2e4fb88-3728-4886-ba4f-634050bbf738
-# ╟─cf1b8de7-1c04-46a8-8ca6-8c266bc7a6fc
-# ╟─da2f5399-32de-4998-83f2-b84b2d720f82
-# ╟─16ecc090-613e-4746-b12d-0a3d0e4e1727
-# ╟─4ef8df63-5b77-48a8-99c0-f014cf6360c1
-# ╟─e4bd5842-e6af-4e12-af4b-1556b91db0ee
-# ╟─55b1388f-c368-4d95-9893-ea95e8c2359e
-# ╟─6fc139a6-a8b6-4215-a4c6-06a54c2985ec
-# ╟─a79f418f-d054-46e7-bb9b-f13a7631e21b
-# ╟─8ae96192-2b4f-48e7-b55d-bea27d565671
-# ╟─bbed688d-0caf-4f93-a19c-ea3a0039a1a2
-# ╟─5568a672-a68d-42ce-ad7d-e2f93f597a19
-# ╟─20735597-3cb2-4514-b015-cf12464fb286
-# ╟─9367ff5b-cc1d-41b9-8a06-fe248b0b8a19
-# ╟─6161543b-34d1-44df-9b04-e2644adb3882
-# ╠═ec39f15f-14af-48c6-beae-9a128c3eccb7
-# ╟─1f102762-3f4a-4895-a26d-d44e2804f6de
-# ╟─f59d2e5d-4f1b-4c45-b312-bcfc72f97c75
-# ╟─d85e3b50-8fe7-4178-a7b5-3c757dce9677
-# ╟─350de8a8-fda9-471a-be21-d5606de38f97
-# ╟─dc1f2d6a-5195-4f01-9b1f-350566bea0b9
-# ╟─27f70663-d4c9-4a06-aa15-db9e9e4d822c
-# ╟─a646aefe-d2a0-4f8b-bb63-4ffe2ec43ff0
-# ╟─5b02277a-1c2e-418e-b4a3-9bed86230cd7
-# ╟─f56d2626-ff15-4b4c-8184-7147b58ed7db
 # ╟─653ab1b9-0839-4217-8301-f326efa2a2ad
 # ╟─333094ef-f309-4816-9651-df44d51f9d95
 # ╟─8af85d4c-9759-4549-8827-b6e54868aa38
 # ╟─bbf4a250-96f3-457c-9bb1-f4147bff8056
 # ╟─056186fb-4db5-46c5-a2df-fdb19684ffcc
-# ╟─58d10219-b1b5-4063-b645-8690470b98f8
 # ╟─a56baf6a-cd46-4eb0-9d98-97b22cbdebee
+# ╟─3dfbd08c-9c75-4d9a-8f8c-3b0976b880b3
 # ╟─1619883b-fccc-4e39-a18f-2868bf3d05e5
 # ╟─716bbad1-873c-4623-9874-35d5812755b2
 # ╟─1577f3b9-d4e4-4f90-a2d8-c24a582e3842
 # ╟─c418d004-90ad-4fdb-b830-cfca116ef89c
-# ╟─e878821e-23a1-4de2-b751-f23da4e31023
+# ╠═e878821e-23a1-4de2-b751-f23da4e31023
 # ╟─1e3f91ae-df75-446d-9d10-c08b3174d0e9
 # ╟─efe4a943-c1b5-4ebf-b412-d995b8259335
 # ╟─0d635d0c-6b9b-4909-a3bf-96bc51658f40
@@ -3573,6 +2586,7 @@ version = "1.4.1+0"
 # ╟─156378ef-d2f6-452a-8d76-59f697f03c17
 # ╟─d99bce21-59ca-491e-a7a2-57ad4abe73ed
 # ╟─af66f43d-27be-4a8c-bd4b-60e25e113214
+# ╟─814a51b4-bfb7-4dcf-953c-c5f9e20f853f
 # ╟─92a4d83a-7637-4201-9c5e-c36b379210a0
 # ╟─22cd0ef4-29ad-4118-92f4-c4d440612db5
 # ╟─602e6920-54bd-4579-9b5d-63e477d1431e
@@ -3608,6 +2622,7 @@ version = "1.4.1+0"
 # ╠═6490d76d-0b7b-4720-91b2-7e05fbfae0f9
 # ╟─3432bede-1139-4ae8-a292-9fe3bffdf9b3
 # ╟─2b2f840a-95a5-4882-a2b6-79e12e02d805
+# ╟─2d72ed24-21f9-4a4b-9fcf-e20d83a5a1c1
 # ╟─9da5feca-40f5-49c7-939f-49c6266970e6
 # ╟─58c7aabe-b3ae-4bc8-ba61-356f7e0fa31d
 # ╟─9e9c6830-7544-4d81-95c6-34dca751f75f
@@ -3618,30 +2633,10 @@ version = "1.4.1+0"
 # ╟─cc6fa932-1e64-4379-b4b1-5d4096fbcb7e
 # ╟─0488519b-a1cd-40db-8ee9-d2658b576bd2
 # ╟─3f56e844-6b96-45a7-ad01-bc76d7951979
-# ╠═42507d15-f0b4-480c-95a6-5cc3187684d7
+# ╟─42507d15-f0b4-480c-95a6-5cc3187684d7
 # ╠═62299cf7-0109-4f26-b140-22421a6e249d
 # ╠═0ef53efe-603d-4ca5-936f-996be0caf72a
 # ╟─907d88dd-e475-4922-a6fc-1c296721dc78
-# ╟─6ada36dd-885b-4c58-a67b-ffd87d044437
-# ╟─6abbb3b7-e65c-460c-a85e-0737fe4fac3f
-# ╟─2c74ae59-dfbf-43d1-b16a-0111cc025b8e
-# ╟─741f95e7-1cef-42f8-b088-b12326380ee0
-# ╟─d796aec6-7407-4b44-ba28-de71ed89f108
-# ╟─81b26abe-c275-4f1e-96de-30d30651ae85
-# ╟─ff5e5acd-52ab-4b21-b2c3-4e0f85329036
-# ╟─fb7ee765-3bed-454d-a19e-ca79bcef57ed
-# ╟─f601ef17-f0db-4af2-97aa-35f080a08763
-# ╟─cafab381-5c85-4e2d-ba7f-7db2cb148bbf
-# ╟─af44a8d5-b44e-4b82-a65d-04743ef2d49d
-# ╟─2d8a9a78-ed85-49e4-a022-dc91cd15d31f
-# ╟─4b566c78-21df-44ab-a1eb-d303ad071adf
-# ╟─0834df4c-49bf-43d9-9213-3ce5d18ee471
-# ╟─9b3fbc5c-5a0d-47db-9cbf-86bc3c381038
-# ╟─77da11a9-f7d0-49e6-8a8c-7f4cb70f369e
-# ╟─e4dcf373-c1d9-42f1-98dc-1bf74b51063d
-# ╟─3e29bf39-238c-460e-892e-f8651ffde277
-# ╟─e526e3ed-95b0-4bdd-9386-262ac951c000
-# ╟─5ed8c4d8-2f31-40f8-ae21-f4286c634983
 # ╟─0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 # ╟─8687dbd1-4857-40e4-b9cb-af469b8563e2
 # ╟─fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
