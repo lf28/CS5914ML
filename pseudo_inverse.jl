@@ -39,7 +39,8 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Projection, Pseudo inverse and Normal equation
+#### Linear regression 2
+##### Normal equation
 
 \
 
@@ -56,7 +57,14 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 # ╔═╡ 5e774ede-251e-4321-b241-9bba130526ce
 md"""
 
-# General projection
+# Normal equation
+
+
+```math
+\LARGE
+\boxed{
+\hat{\mathbf{w}} = (\mathbf{X}^\top\mathbf{X})^{-1} \mathbf{X}^\top \mathbf{y}}
+```
 """
 
 # ╔═╡ b82902b8-75a2-484c-9e95-0aa85e7ffe43
