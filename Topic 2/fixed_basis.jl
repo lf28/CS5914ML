@@ -38,12 +38,6 @@ begin
 	# using Images
 end
 
-# ╔═╡ 253958f1-ae84-4230-bfd1-6023bdffee26
-using BenchmarkTools
-
-# ╔═╡ 72f82376-2bf3-4314-bf7a-74f670ccc113
-using FiniteDifferences;
-
 # ╔═╡ f79bd8ab-894e-4e7b-84eb-cf840baa08e4
 using Logging
 
@@ -59,8 +53,8 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Linear regression 1
-##### Introduction
+#### Linear regression 4
+##### Fixed basis expansion
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -105,7 +99,7 @@ Scalars: normal letters
 # ╔═╡ dfcfd2c0-9f51-48fb-b91e-629b6934dc0f
 md"""
 
-# Linear regression
+# Fixed basis expansion
 
 """
 
@@ -146,69 +140,15 @@ md"""
 
 """
 
+# ╔═╡ c4e497fc-cfbf-4d0b-9a0c-1071f2f43a98
+linear_reg_normal_eq(X, y) = X \y;
+
 # ╔═╡ 0e2dc755-57df-4d9a-b4f3-d01569c3fcde
 begin
 	X_housing = MLDatasets.BostonHousing().features |> Matrix |> transpose
 	df_house = DataFrame(X_housing', MLDatasets.BostonHousing().metadata["feature_names"] .|> lowercase)
 	df_house[!, :target] = (MLDatasets.BostonHousing().targets |> Matrix )[:]
 end;
-
-# ╔═╡ 86f09ee8-087e-47ac-a81e-6f8c38566774
-md"""
-
-## Regression's objective
-
-
-!!! note "Regression's objective"
-	**Predict** house price ``y_{test}`` with some test data ``\mathbf{x}_{test}``
-    * mathematically, we are _looking for_ a function ``h`` that compute
-
-	```math
-	\Large
-		h(\mathbf{x}_{test})
-	```
-
-!!! term "Terminology"
-	``h(x)`` is called the **prediction** function or **regression function**
-"""
-
-# ╔═╡ 6073463a-ca24-4ddc-b83f-4c6ff5033b3b
-md"""
-``\mathbf{x}_{test}``: objective to predict ``h(\mathbf{x}_{test})``
-"""
-
-# ╔═╡ ed20d0b0-4e1e-4ec5-92b0-2d4938c249b9
-@bind x_test_0 Slider(3:0.2:9, default=7, show_value=true)
-
-# ╔═╡ 2f0abb5d-f81e-44fe-8da3-57b84f0af20f
-md"""
-
-## _Linear_ regression 
-"""
-
-# ╔═╡ 074124b1-96da-4b96-aa0e-a434e4d54692
-md"""
-## Multiple linear regression
-
-The _House_ dataset has 
-* **14 predictors**: `room`, `crime rate`, `dis`, and so on
-"""
-
-# ╔═╡ 8926d547-10b5-4adc-91bc-a1060df498a3
-first(df_house, 5)
-
-# ╔═╡ 2b4b8045-f931-48da-9c3d-66c8af12f6f2
-md"""
-## 
-
-Some selected **predictors**: `room`, `age`, `crime`
-"""
-
-# ╔═╡ 378c10c8-d4be-4337-ac48-b5c534799973
-@df df_house cornerplot([:rm :crim :age :target], label = ["room", "crime", "age", "price"], grid = false, compact=true)
-
-# ╔═╡ 65f28dfb-981d-4361-b37c-12af3c7995cd
-linear_reg_normal_eq(X, y) = X \y
 
 # ╔═╡ 6bce7fb9-8b00-4351-bcf8-d5d1223df915
 TwoColumn(md"""
@@ -217,10 +157,7 @@ TwoColumn(md"""
     * input feature ``\mathbf{x}^{(i)}``
     * target ``y^{(i)}``
 
-**Example**: *house price* prediction:  data ``\{\mathbf{x}^{(i)}, y^{(i)}\}`` for ``i=1,2,\ldots, n``
-
-* ``y^{(i)} \in \mathbb{R}``:  house _price_ is continuous
-* ``\mathbf{x}^{(i)}``: the average number of rooms""", 
+**Example**: *house price* prediction, the price is continuous""", 
 	
 	let
 	@df df_house scatter(:rm, :target, xlabel="room", ylabel="price", label="", title="House price prediction", size=(350,300))
@@ -232,32 +169,31 @@ TwoColumn(md"""
 	plot!(3.5:0.5:9, (x) -> b* x+ c, lw=3, label="")
 end)
 
-# ╔═╡ 774c46c0-8a62-4635-ab56-662267e67511
-let
-	gr()
-	@df df_house scatter(:rm, :target, xlabel="room", ylabel="price", label="", title="House price prediction: regression")
-	x_room = df_house[:, :rm]
-	x_room_sq = x_room.^2
-	X_train_room = [ones(length(x_room)) x_room x_room_sq]
-	c, b, a = linear_reg_normal_eq(X_train_room, df_house.target)
-	plot!(3.5:0.5:9, (x) -> a* x^2 + b* x+ c, lw=3, label=L"h(\mathbf{x})", legend=:outerbottom)
-	scatter!([x_test_0], [0], c= 4, label=L"\mathbf{x}_{\textit{test}}")
-	plot!([x_test_0], [a*x_test_0^2 + b* x_test_0+ c], st=:sticks, line=:dash, c=:gray, lw=2, label="")
-end
+# ╔═╡ c4f42980-0e68-4943-abbe-b28f05dd3ee5
+function loss(w, X, y) # in matrix notation
+	error = y - X * w
+	0.5 * dot(error, error)
+end;
 
-# ╔═╡ 85934ff7-4cb5-4ba0-863e-628f8770f8d8
+# ╔═╡ 8b479e5c-8151-4769-9d27-b5661285b497
+md"""
+
+## _Linear_ regression 
+"""
+
+# ╔═╡ 55fbb81b-8323-4405-beb9-acd557e6d9f3
 TwoColumn(md"""
+\
+\
 
 !!! note "Linear regression"
-	**Linear regression**: the prediction function ``h(\cdot)`` is assumed **linear**
+	**Linear regression**: ``h(\cdot)`` is assumed **linear**
 
 	```math
 	\Large
 	h(x_{\text{room}}) = w_0 + w_1 x_{\text{room}} 
 	```
 
-* ``w_0, w_1``:  the model parameters
-* sometimes we write ``h(x; w_0, w_1)`` or ``h_{w_0,w_1}(x)`` to emphasise ``h`` is parameterised with ``w_0, w_1``
 
 """, let
 	@df df_house scatter(:rm, :target, xlabel="room", ylabel="price", label="", title="Linear regression", size=(350,300))
@@ -266,1093 +202,74 @@ TwoColumn(md"""
 	X_train_room = [ones(length(x_room)) x_room]
 	c, b = linear_reg_normal_eq(X_train_room, df_house.target)
 
+	
 	plot!(3.5:0.5:9, (x) -> b* x+ c, lw=3, label=L"h(x) = w_0 + w_1x")
 end)
 
-# ╔═╡ 24eb939b-9568-4cfd-bfe5-0191eada253a
+# ╔═╡ 86f09ee8-087e-47ac-a81e-6f8c38566774
 md"""
 
-## Multiple linear regression
-
-!!! note "Linear regression - generalisation"
-
-	The prediction function ``h(\mathbf{x})`` becomes a hyperplane
-
-	```math
-	\Large
-	\begin{align}
-	h(\mathbf{x}) &= w_0 + w_1 x_{1} + w_2 x_2 + \ldots + w_m x_m 
-	\end{align}
-	```
+## Non-linear ``h(\mathbf{x})``
 
 
-## Multiple linear regression
-
-!!! note "Linear regression - generalisation"
-
-	The prediction function ``h(\mathbf{x})`` becomes a hyperplane
-
-	```math
-	\large
-	\begin{align}
-	h(\mathbf{x}) &= w_0 + w_1 x_{1} + w_2 x_2 + \ldots + w_m x_m \\
-	&=\begin{bmatrix}w_0 & w_1 & w_2 & \ldots & w_m \end{bmatrix}  \begin{bmatrix}\boxed{\textcolor{red}{1}}\\ x_1 \\ x_2 \\ \vdots\\ x_m \end{bmatrix}\\
-	&= \boxed{\mathbf{w}^\top\mathbf{x} }
-	\end{align}
-	```
-
-
-* for convenience, we add a ``\textcolor{red}{\rm dummy \, predictor\, 1}`` to ``\mathbf{x}``:
+However, it seems a quadratic ``h(x)`` fits the data **better**
 
 ```math
-	\mathbf{x} =\begin{bmatrix}\boxed{\textcolor{red}{1}}\\ x_1 \\ x_2 \\ \vdots\\ x_m \end{bmatrix}
+\Large
+h(x_{\rm room}) = w_0 + w_1 x_{\rm room} + w_2 x_{\rm room}^2
 ```
 
-* sometimes we write ``h(\mathbf{x}; \mathbf{w}) = \mathbf{w}^\top \mathbf{x}`` or ``h_{\mathbf{w}}(\mathbf{x})``
-
 """
 
-# ╔═╡ 5d96f623-9b30-49a4-913c-6dee65ae0d23
-md"""
-
-## Hyperplane ``h(\mathbf{x}) = \mathbf{w}^\top \mathbf{x}``
-
-
-"""
-
-# ╔═╡ 672ca2c6-515c-4e2f-b518-fb9bb662ec0d
-md"""
-
-## Correlation ``\neq`` causality
-
-
-COVID Death rate *versus* Vote Trump
-
-* positively correlated
-* but *voting for Trump* does not cause someone to die!
-"""
-
-# ╔═╡ fbc1a2ed-2eea-4981-9153-87f55fa6a464
-html"""<center><img src="https://static01.nyt.com/images/2021/09/27/multimedia/27-MORNING-sub3-STATE-DEATH-VOTE-PLOT/27-MORNING-sub3-STATE-DEATH-VOTE-PLOT-superJumbo.png?quality=75&auto=webp" width = "400"/></center>
-"""
-
-# ╔═╡ 616c47fd-879d-40a7-a166-23834c4a7bb8
-md"""
-##
-
-Vaccine rate *versus* Vote Trump
-"""
-
-# ╔═╡ 6ceb9474-0108-407f-95f3-2ff7ffbf2a1d
-html"""<center><img src="https://static01.nyt.com/images/2021/09/27/multimedia/27-MORNING-sub2-STATE-VAX-VOTE-PLOT/27-MORNING-sub2-STATE-VAX-VOTE-PLOT-superJumbo-v2.png?quality=75&auto=webp" width = "400"/></center>
-"""
-
-# ╔═╡ 12a26c3e-a361-423b-9332-af1ba6a73257
-md"""
-
-## "Learning"
-
-
-In many ways, machine "**learning**" is 
-
-* _looking for_ some *good* ``\hat{h}(\mathbf{x})`` from a set of possible functions ``\{h_1, h_2, \ldots\}``
-
-* based on some *goodness* measure on the training data
-
-"""
-
-# ╔═╡ 5029cf59-0241-4b3a-bf33-cb0623b247d0
-TwoColumn(html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/mlgoodness.png' width = '250' /></center>", let
+# ╔═╡ f8f34671-ef4c-4300-a983-10d42d43fb9f
+quadratic_fit = let
 	gr()
-	Random.seed!(123)
-	n = 20
-	w0, w1 = 1, 2
-	Xs = rand(n) * 2 .- 1
-	ys = (w0 .+ Xs .* w1) .+ randn(n)/2
-	Xs = [Xs; 0.25]
-	ys = [ys; 3.5]
-	plt = plot(Xs, ys, st=:scatter, markersize=4, label="", xlabel=L"x", ylabel=L"y", size=(400,300))
-	plot!(-1:0.5:1.0, (x) -> w0 + w1 * x , lw=3, label=L"\hat{h}(x)", legend=:outerright)
-
-
-	for i in 1:12
-		w0_, w1_ = rand(2) .* [1.5, 3.0] 
-		if i == 12
-			plot!(-1:0.5:1.0, (x) -> w0_ + w1_ * x , lw=1.5, label=L"\ldots")
-		else
-			plot!(-1:0.5:1.0, (x) -> w0_ + w1_ * x , lw=1.5, label=L"h_{%$(i)}(x)")
-		end
-	end
-	plt
-end)
-
-# ╔═╡ fc826717-2a28-4b86-a52b-5c133a50c2f9
-md"""
-
-## Defining a *good* ``h(\cdot)``
-
-
-One possible measure of the (_negative_) **goodness** is the sum of the squared **errors**
-
-
-```math
-\Large
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (\underbrace{\boxed{y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})}}_{\text{pred.  error of } y^{(i)}})^2
-```
-
-
-"""
-
-# ╔═╡ 93600d0c-fa7e-4d38-bbab-5adcf54d0c90
-let
-	gr()
-	Random.seed!(123)
-	n = 10
-	w0, w1 = 1, 1
-	Xs = range(-2, 2, n)
-	ys = (w0 .+ Xs .* w1) .+ randn(n)/1
-	Xs = [Xs; 0.5]
-	ys = [ys; 3.5]
-	plt=plot(Xs, ys, st=:scatter, markersize=4, alpha=0.5,  label="", xlabel=L"x", ylabel=L"y", ratio=1, title="Prediction error: "*L"y^{(i)} - h(x^{(i)})")
-	plot!(-2.9:0.1:2.9, (x) -> w0 + w1 * x , xlim=[-3, 3], lw=2, label=L"h_w(x)", legend=:topleft, framestyle=:axes)
-	ŷs = Xs .* w1 .+ w0
-	for i in 1:length(Xs)
-		plot!([Xs[i], Xs[i]], [ys[i], ŷs[i] ], arrow =:both, lc=:gray, lw=1, label="")
-	end
-
-	
-	annotate!(Xs[end], 0.5*(ys[end] + ŷs[end]), text(L"y^i - h(x^{(i)})", 12, :black, :top, rotation = -90 ))
-	plt
+	@df df_house scatter(:rm, :target, xlabel="room", ylabel="price", label="", title="House price prediction: non-linear regression")
+	x_room = df_house[:, :rm]
+	x_room_sq = x_room.^2
+	X_train_room = [ones(length(x_room)) x_room x_room_sq]
+	X_train_room_ = [ones(length(x_room)) x_room]
+	c, b, a = linear_reg_normal_eq(X_train_room, df_house.target)
+	c_, b_ = linear_reg_normal_eq(X_train_room_, df_house.target)
+	sse = loss([c, b, a] , X_train_room, df_house.target)/ length(df_house.target)
+	sse_ = loss([c_, b_] , X_train_room_, df_house.target)/ length(df_house.target)
+	plot!(3.5:0.1:9, (x) -> a* x^2 + b* x+ c, lw=3, label=L"h(\mathbf{x}) = w_0+ w_1 x+ w_2 x^2;"*" loss = "*L"%$(round(sse; digits=2))", legend=:outerbottom)
+	plot!(3.5:0.5:9, (x) -> b_* x+ c_, lw=3, label=L"h(\mathbf{x}) = w_0 + w_1x;"*" loss = "*L"%$(round(sse_; digits=2))", legend=:outerbottom)
 end
-
-# ╔═╡ b1ec11d0-48dc-4c48-a2c0-a891d4343b4d
-md"""
-
-## Defining a *good* ``h(\cdot)``
-
-
-Given training data ``\mathcal{D}_{train} = \{\mathbf{x}^{(i)}, y^{(i)}\}``
-
-
-One possible measure of the (_negative_) **goodness** is the sum of the **squared errors**
-
-
-```math
-\Large
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n \boxed{(y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2}
-```
-
-"""
-
-# ╔═╡ f6408f52-bd75-4147-87a3-4b701629b150
-md" Move me: $(@bind iidx Slider(1:11, default=11, show_value=true))"
-
-# ╔═╡ 39d89313-17d8-445f-a0d0-5a241c0e6c13
-begin
-	# define a function that returns a Plots.Shape
-	rectangle(w, h, x, y) = Shape(x .+ [0,w,w,0], y .+ [0,0,h,h])
-	
-	# plot(0:5,0:5)
-	# plot!(rectangle(3,2,0,0), opacity=.5)
-end
-
-# ╔═╡ c5e9d9ab-aa19-489c-a513-bef5f751e7d3
-let
-	gr()
-	Random.seed!(123)
-	n = 10
-	w0, w1 = 1, 1
-	Xs = range(-2, 2, n)
-	ys = (w0 .+ Xs .* w1) .+ randn(n)/1
-	Xs = [Xs; 0.5]
-	ys = [ys; 3.5]
-	plt = plot(Xs, ys, st=:scatter, markersize=3, alpha=0.5, label="", xlabel=L"x", ylabel=L"y", ratio=1, title="Prediction error squared: "*L"(y^{(i)} - h(x^{(i)}))^2")
-	plot!(-2.9:0.1:2.9, (x) -> w0 + w1 * x , xlim=[-3, 3], lw=2, label=L"h_w(x)", legend=:topleft, framestyle=:axes)
-	ŷs = Xs .* w1 .+ w0
-	for i in 1:length(Xs)
-		plot!([Xs[i], Xs[i]], [ys[i], ŷs[i] ], lc=:gray, lw=1.5, label="")
-	end
-
-	if (ys[iidx] -  ŷs[iidx]) > 0 
-		li = -(ŷs[iidx] - ys[iidx] )
-		plot!(rectangle(li, li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
-		if iidx ==11
-			annotate!(Xs[iidx], 0.5*(ys[iidx] + ŷs[iidx]), text(L"y^i - h(x^{(i)})", 10, :black, :top, rotation = -90 ))
-			annotate!(.5 * (Xs[iidx] + abs(li)), ŷs[iidx], text(L"y^i - h(x^{(i)})", 10, :black, :top, rotation = 0 ))
-		end
-	else
-		li = -(ŷs[iidx] - ys[iidx] )
-		plot!(rectangle(abs(li), li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
-		# annotate!(.5*(Xs[iidx] + abs(li)), 0.5*(ys[iidx] + ŷs[iidx]), text(L"(y^i - h(x^{(i)}))^2", 10, :black ))
-
-	end
-	plt
-end
-
-# ╔═╡ dead4d31-8ed4-4599-a3f7-ff8b7f02548c
-md"""
-## Least square estimation
-
-And we aim to minimise the loss to achieve the best **goodness**
-
-
-```math
-\Large
-\begin{align}
-\hat{\mathbf{w}} &\leftarrow \arg\min_{\mathbf{w}}L(\mathbf{w}) \\
-&= \arg\min_{\mathbf{w}} \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2
-\end{align}
-```
-
-* optimisation: good old calculus!
-"""
-
-# ╔═╡ 1efe5011-ffbb-4703-bb4a-eb7e310ab7e4
-let
-	gr()
-	Random.seed!(123)
-	n = 10
-	w0, w1 = 1, 1
-	Xs = range(-2, 2, n)
-	ys = (w0 .+ Xs .* w1) .+ randn(n)/1
-	Xs = [Xs; 0.5]
-	ys = [ys; 3.5]
-	plt = plot(Xs, ys, st=:scatter, markersize=3, alpha=0.5, label="", xlabel=L"x", ylabel=L"y", ratio=1, title="SSE loss: "*L"\sum (y^{(i)} - h(x^{(i)}))^2")
-	plot!(-2.9:0.1:2.9, (x) -> w0 + w1 * x , xlim=[-3, 3], lw=2, label=L"h_w(x)", legend=:topleft, framestyle=:axes)
-	ŷs = Xs .* w1 .+ w0
-	for i in 1:length(Xs)
-		plot!([Xs[i], Xs[i]], [ys[i], ŷs[i] ], lc=:gray, lw=1.5, label="")
-		iidx = i
-			if (ys[iidx] -  ŷs[iidx]) > 0 
-		li = -(ŷs[iidx] - ys[iidx] )
-		plot!(rectangle(li, li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
-	else
-		li = -(ŷs[iidx] - ys[iidx] )
-		plot!(rectangle(abs(li), li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
-		# annotate!(.5*(Xs[iidx] + abs(li)), 0.5*(ys[iidx] + ŷs[iidx]), text(L"(y^i - h(x^{(i)}))^2", 10, :black ))
-
-	end
-	end
-
-
-	plt
-end
-
-# ╔═╡ d70102f1-06c0-4c5b-8dfd-e41c4a455181
-md"""
-
-## Some examples
-
-Four different hyperplanes ``h(\mathbf{x})``
-  * top left -- the zero function: ``h(\mathbf{x}) = 0``
-  * top right -- over estimate
-  * bottom left -- under estimate
-  * bottom right -- seems perfect
-
-
-The learning objective is to find the hyperplane with the _least loss_: **Least Square Estimation** (LSE)
-"""
-
-# ╔═╡ d550ec33-4e32-4711-8edc-1ac99ec08a13
-md"""
-
-## Matrix notation
-
-**Matrix notation**: it becomes more **concise** and **elegant** 
-
-
-!!! note "Loss in matrix notation"
-
-	```math
-	\Large
-	\begin{align}
-	L(\mathbf{w}) &= \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2 \\
-	&= \boxed{\frac{1}{2} (\mathbf{y} - \mathbf{Xw})^\top (\mathbf{y} -\mathbf{Xw})}
-	\end{align}
-	```
-
-## Let's see the notation - step by step
-
-"""
-
-# ╔═╡ d714f71b-099b-4a77-b03f-a82342df44f3
-TwoColumn(md"""
-
-
-**First**, stack the ``n`` labels into a ``n\times 1`` vector ``\mathbf{y}``
-```math
-\Large
-\mathbf{y} = \begin{bmatrix} y^{(1)} \\ y^{(1)} \\ \vdots \\ y^{(n)}\end{bmatrix}
-```
-
-""", html"""For our house data, <center><img src="https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/housey.svg" width = "230"/></center>""" )
-
-# ╔═╡ 52678bce-36c8-45e8-8677-6662cbd839ed
-# md"Our training data's targets ``\mathbf{y}``:"
-
-# ╔═╡ e774a50b-d9c7-4bb1-b79a-012c280d20f8
-md"""
-
-**Next** stack ``n`` training inputs ``\{\mathbf{x}^{(i)}\}`` to form a ``n\times m`` matrix ``\mathbf{X}``
-
-* ``\mathbf{X}``: ``n\times m`` matrix;  called **design matrix**
-
-  * ``n``: # of observations
-  * ``m``: # of features
-
-```math
-\Large
-\mathbf{X} = \begin{bmatrix}  \rule[.5ex]{2.5ex}{0.5pt} & (\mathbf{x}^{(1)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\\  \rule[.5ex]{2.5ex}{0.5pt} & (\mathbf{x}^{(2)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\\ & \vdots & \\  \rule[.5ex]{2.5ex}{0.5pt} &(\mathbf{x}^{(n)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\end{bmatrix}
-```
-
-"""
-
-# ╔═╡ 14262cc5-3704-4aef-b447-9c1965eded3a
-md"For our housing dataset:"
-
-# ╔═╡ a1e1d6d1-849c-4fdb-9d12-49c1011443eb
-html"""<center><img src="https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/houseX.svg" width = "500"/></center>""" 
-
-# ╔═╡ a05b4f10-73c4-4525-8ca2-5e814432f452
-aside(tip(md"Recall ``\mathbf{x}^\top`` means a row vector"))
-
-# ╔═╡ eee34ece-836f-4fdc-a69f-eb258f6d1314
-md"""
-
-##
-
-**Next**: multiply ``\mathbf{X}`` with ``\mathbf{w}``
-
-```math
-\Large
-\mathbf{X} \mathbf{w} = \begin{bmatrix}  \rule[.5ex]{2.5ex}{0.5pt} & (\mathbf{x}^{(1)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\\  \rule[.5ex]{2.5ex}{0.5pt} & (\mathbf{x}^{(2)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\\ & \vdots & \\  \rule[.5ex]{2.5ex}{0.5pt} &(\mathbf{x}^{(n)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\end{bmatrix} \begin{bmatrix} \vert \\ \mathbf{w} \\\vert\end{bmatrix} =\begin{bmatrix}  (\mathbf{x}^{(1)})^\top \mathbf{w}\\  (\mathbf{x}^{(2)})^\top \mathbf{w}\\  \vdots  \\ (\mathbf{x}^{(n)})^\top \mathbf{w}\end{bmatrix}
-```
-
-* note that ``(\mathbf{x}^{(i)})^\top \mathbf{w} = \mathbf{w}^\top \mathbf{x}^{(i)}`` is a scalar
-* ``\mathbf{Xw}`` is a ``n\times 1`` vector
-* the ``i``-th element of ``\mathbf{Xw}``: the prediction of the ``i``-th observion ``h_{\mathbf{w}}(\mathbf{x}^{(i)})``
-
-"""
-
-# ╔═╡ 153bc89d-f37d-4403-a6f1-bc726a5aac2d
-md"""
-
-**Lastly**: ``\mathbf{y} - \mathbf{Xw}`` is
-
-
-
-```math
-\Large
-\mathbf{y} - \mathbf{Xw} = \underbrace{\begin{bmatrix} y^{(1)} \\ y^{(2)} \\ \vdots \\ y^{(n)}\end{bmatrix}}_{\mathbf{y}} - \underbrace{\begin{bmatrix}h_{\mathbf{w}}(\mathbf{x}^{(1)}) \\ h_{\mathbf{w}}(\mathbf{x}^{(2)}) \\\vdots \\ h_{\mathbf{w}}(\mathbf{x}^{(n)})\end{bmatrix}}_{\mathbf{Xw}} = \underbrace{\begin{bmatrix}y^{(1)}-h_{\mathbf{w}}(\mathbf{x}^{(1)}) \\ y^{(2)}-h_{\mathbf{w}}(\mathbf{x}^{(2)}) \\\vdots \\ y^{(n)}- h_{\mathbf{w}}(\mathbf{x}^{(n)})\end{bmatrix}}_{\text{pred. error vector}}
-
-```
-
-"""
-
-# ╔═╡ 2799735a-b967-44e4-8b50-80efcfba464e
-md"""
-
-
-##
-
-And the inner product ``(\mathbf{y} - \mathbf{Xw})^\top (\mathbf{y} - \mathbf{Xw})`` is the sum of squared errors
-
-```math
-\large
-\begin{align}
-(\mathbf{y} &- \mathbf{Xw})^\top (\mathbf{y} - \mathbf{Xw})= \\
-
-& \underbrace{\begin{bmatrix}y^{(1)}-h_{\mathbf{w}}(\mathbf{x}^{(1)}),\, y^{(2)}-h_{\mathbf{w}}(\mathbf{x}^{(2)})\,\ldots \, y^{(n)}- h_{\mathbf{w}}(\mathbf{x}^{(n)})\end{bmatrix}}_{(\mathbf{y} - \mathbf{Xw})^\top} \underbrace{\begin{bmatrix}y^{(1)}-h_{\mathbf{w}}(\mathbf{x}^{(1)}) \\ y^{(2)}-h_{\mathbf{w}}(\mathbf{x}^{(2)}) \\\vdots \\ y^{(n)}- h_{\mathbf{w}}(\mathbf{x}^{(n)})\end{bmatrix}}_{\mathbf{y}-\mathbf{Xw}}\\
-&= \boxed{\sum_{i=1}^n (y^{(i)}-h_{\mathbf{w}}(\mathbf{x}^{(i)}))^2}
-\end{align}
-```
-
-"""
-
-# ╔═╡ ce881537-04e5-4f0f-8f9b-5e257811df9e
-md"""
-
-**In summary,**
-
-!!! note "LSE Loss in matrix notation"
-
-	```math
-	\Large
-	\begin{align}
-	L(\mathbf{w}) &= \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2 \\
-	&= \boxed{\frac{1}{2} (\mathbf{y} - \mathbf{Xw})^\top (\mathbf{y} -\mathbf{Xw})}
-	\end{align}
-	```
-
-"""
-
-# ╔═╡ ecdf71c3-2465-4c71-bc2f-30e84edfe1ee
-md"""
-
-## Why bother using matrix?
-
-
-**Elegancy** and **Efficiency**
-
-* use matrix is known as **vectorisation** 
-* way more efficient than loop!
-  * the underlying Linear Algebra packages are highly optimised
-
-
-"""
-
-# ╔═╡ 6f2e09f4-f17a-4a2d-90d6-bd72347ed3a6
-md"""
-## Why bother using Matrix ?
-
-
-Two implementations below
-
-* **vectorised** is much more elegant and concise
-* **vectorised** is also twice faster
-"""
-
-# ╔═╡ 907260bf-1c51-4d1b-936d-fccfe41abdd0
-TwoColumn(md"
-```julia
-# loss: vectorised
-function loss(w, X, y) 
-	error = y - X * w
-	return 0.5 * dot(error, error) / length(y)
-end
-```
-", md"
-
-```julia
-# loss: with loop
-function loss_loop(w, X, y) 
-	# number of observations
-	n = length(y) 
-	loss = 0
-	for i in 1:n
-		loss += (y[i] - dot(X[i,:], w))^2
-	end
-	return .5 * loss / n
-end
-```
-")
-
-# ╔═╡ 407f56fa-cbb0-4fc8-952d-7e0a8448ef46
-md"Benchmark **vectorised** loss:"
-
-# ╔═╡ c3bf685e-7f76-45a4-a9fd-8a61eb1d9eca
-md"Benchmark **loop** loss:"
-
-# ╔═╡ 1398bda3-5b94-4d54-a553-ca1ac1bc6ce9
-function loss(w, X, y) # in matrix notation
-	error = y - X * w
-	0.5 * dot(error, error)
-end;
-
-# ╔═╡ 0a162252-359a-4be9-96d9-d66d4dca926c
-@benchmark loss(rand(1000), rand(100000,1000), rand(100000))
-
-# ╔═╡ 4e430aa8-9c74-45c1-8771-b33e558208cf
-function loss_loop(w, X, y) # no matrix notation
-	n = length(y) # number of observations
-	.5 * sum([(y[i] - X[i,:]' * w )^2 for i in 1:n])
-end;
-
-# ╔═╡ 648ef3b0-2198-44eb-9085-52e2362b7f88
-@benchmark loss_loop(rand(1000), rand(100000, 1000), rand(100000))
-
-# ╔═╡ 7c99d41f-f656-4610-9df0-31a74de62cf2
-# let
-# 	w_ = rand(3)
-# 	loss(w_, X_train, y_train) ≈ loss_loop(w_, X_train, y_train)
-# end;
-
-# ╔═╡ 4638f4d3-88d6-4e6a-91de-25ca89d4096b
-md"""
-## What the loss function looks like?
-
-
-
-!!! note "The loss: a quadratic function of w"
-
-	```math
-	\Large
-	L(\mathbf{w}) = \frac{1}{2} (\mathbf{y} - \mathbf{Xw})^\top (\mathbf{y} -\mathbf{Xw})
-	```
-
-	* the loss is a quadratic function *w.r.t* ``\mathbf{w}``
-    * check *Method 2: use matrix algebra* for details
-"""
-
-# ╔═╡ d8f335d0-ea9a-48db-b3de-a514e8dfa5a5
-let
-	gr()
-	Random.seed!(111)
-	num_features = 1
-	num_data = 500
-	true_w = [0,1]
-	# simulate the design matrix or input features
-	X_train_ = [ones(num_data) range(-1, 1; length=num_data)]
-	# generate the noisy observations
-	y_train_ = X_train_ * true_w + randn(num_data)/100
-	xlength, ylength = 50, 100
-	plot(true_w[1]-xlength:1:true_w[1]+xlength,  true_w[2]-ylength:1:true_w[2]+ylength, (x,y) -> (loss([x, y], X_train_, y_train_)), st=:surface, nlevels=100, r=1, colorbar=false, xlabel=L"w_0", ylabel=L"w_1", zlabel="loss", title=L"L(\mathbf{w})")
-
-
-end
-
-# ╔═╡ 309d2a24-3d6c-40f1-bb3c-8e04ab863fa5
-md"""
-
-## Optimise ``L(\mathbf{w})``
-
-
-Least square estimation
-
-
-```math
-\Large
-\begin{align}
-\hat{\mathbf{w}} &\leftarrow \arg\min_{\mathbf{w}}L(\mathbf{w}) ,
-\end{align}
-```
-
-where 
-```math
-	L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2 =\frac{1}{2} (\mathbf{y} - \mathbf{Xw})^\top (\mathbf{y} -\mathbf{Xw})
-```
-
-> **Optimisation**: **_Good old calculus_**
-> * find where the gradient **vanishes**
-> 
-> ```math
-> \Large \boxed{\nabla L(\mathbf{w}) = \mathbf{0}}
-> ```
-"""
-
-# ╔═╡ 4b3ed507-f66d-4c81-84e0-ef27c9935b50
-md"""
-
-## Recall some matrix calculus results
-
-
-```math
-\large
-h(\mathbf{w}) = \mathbf{b}^\top \mathbf{w} + c
-```
-
-* its gradients *w.r.t* ``\mathbf{w}`` is
-
-
-```math
-\boxed{
-\large
-\nabla_\mathbf{w} h(\mathbf{w}) =  \mathbf{b}}
-```
-
-* which is just generalisation of ``h(w) =bw +c``  derivative
-
-```math
-\large
-h'(w) = b
-```
-
-
-"""
-
-# ╔═╡ a11fa3b0-2364-46c7-9ce7-0c79bc86c967
-md"""
-
-## Recall some matrix calculus results
-
-
-```math
-\large
-f(\mathbf{w}) = \mathbf{w}^\top \mathbf{Aw} + \mathbf{b}^\top \mathbf{w} + c
-```
-
-* its gradients *w.r.t* ``\mathbf{w}`` is
-
-
-```math
-\boxed{
-\large
-\nabla_\mathbf{w} f(\mathbf{w}) = (\mathbf{A} +\mathbf{A}^\top)\mathbf{w} + \mathbf{b}}
-```
-
-
-* for symmetric ``\mathbf{A}``, the result is
-
-```math
-\boxed{
-\large
-\nabla_\mathbf{x} f(\mathbf{x}) = 2 \mathbf{A}\mathbf{w} + \mathbf{b}}
-```
-
-* which is just generalisation of ``f(w) =aw^2+ bw +c``'s derivative:
-
-```math
-f'(w) = 2aw +b
-```
-
-
-"""
-
-# ╔═╡ 073c6ed9-a4cc-489d-9609-2d710aa7740f
-md"""
-
-## Method 1: sum of scalars 
-
-If we use the first summation definition:
-
-```math
-\boxed{
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2}
-```
-
-The gradient is
-```math
-
-\begin{align}
-\nabla L(\mathbf{w}) &= \frac{1}{2} \sum_{i=1}^n \nabla (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2 \\
-&= \frac{1}{2} \sum_{i=1}^n  2 (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})) \cdot  \nabla(y^{(i)} -h(\mathbf{x}^{(i)}; \mathbf{w})) \tag{chain rule}
-\end{align}
-```
-"""
-
-# ╔═╡ d10568b6-9517-41ca-8a4f-8fa4291050db
-md"""
-
-## Method 1: sum of scalars 
-
-If we use the first summation definition:
-
-```math
-\boxed{
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2}
-```
-
-The gradient is
-```math
-
-\begin{align}
-\nabla L(\mathbf{w}) &= \frac{1}{2} \sum_{i=1}^n \nabla (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2 \\
-&= \frac{1}{2} \sum_{i=1}^n  2 (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})) \cdot  \nabla(y^{(i)} -h(\mathbf{x}^{(i)}; \mathbf{w}))\\
-&=\frac{1}{2} \sum_{i=1}^n  2 (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})) \cdot  \nabla(-h(\mathbf{x}^{(i)}; \mathbf{w})) \tag{$y^{(i)}$ is constant}
-\end{align}
-```
-"""
-
-# ╔═╡ 00c2ab0f-08be-4d8b-a9c7-178802f45fe2
-md"""
-
-## Method 1: sum of scalars 
-
-If we use the first summation definition:
-
-```math
-\boxed{
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2}
-```
-
-The gradient is
-```math
-
-\begin{align}
-\nabla L(\mathbf{w}) &= \frac{1}{2} \sum_{i=1}^n \nabla (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2 \\
-&= \frac{1}{2} \sum_{i=1}^n  2 (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})) \cdot (- \nabla h(\mathbf{x}^{(i)}; \mathbf{w}))\\
-&=\frac{1}{2} \sum_{i=1}^n  2 (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})) \cdot  \nabla(-h(\mathbf{x}^{(i)}; \mathbf{w})) \\
-&= \frac{1}{2} \sum_{i=1}^n  2 (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})) \cdot (- \mathbf{x}^{(i)}) \tag{linearality}
-\end{align}
-```
-"""
-
-# ╔═╡ d57d1d6e-db6f-4ea6-b0fc-0f1d7cc4aa3b
-aside(tip(md"""Remember 
-
-```math
-h(\mathbf{x}; \mathbf{w}) = \mathbf{w}^\top \mathbf{x}
-```
-
-And its gradient w.r.t ``\mathbf{w}`` is
-
-```math
-\nabla_{\mathbf{w}} \mathbf{w}^\top \mathbf{x} = \mathbf{x}
-```
-"""))
-
-# ╔═╡ 6edd6809-d478-4824-b12c-eaac45416d16
-md"""
-
-## Method 1: sum of scalars 
-
-If we use the first summation definition:
-
-```math
-\boxed{
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2}
-```
-
-The gradient is
-```math
-
-\begin{align}
-\nabla L(\mathbf{w}) &= \frac{1}{2} \sum_{i=1}^n \nabla (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2 \\
-&= \frac{1}{2} \sum_{i=1}^n  2 (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})) \cdot (- \nabla h(\mathbf{x}^{(i)}; \mathbf{w}))\\
-&=\frac{1}{2} \sum_{i=1}^n  2 (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})) \cdot  \nabla(-h(\mathbf{x}^{(i)}; \mathbf{w})) \\
-&= \boxed{\sum_{i=1}^n (h(\mathbf{x}^{(i)}; \mathbf{w}) - y^{(i)}) \cdot  \mathbf{x}^{(i)}}\tag{tidy up}
-\end{align}
-```
-"""
-
-# ╔═╡ 7435197d-a8a5-42fd-a261-b2dc56bbc2d5
-md"""
-
-## Method 2: use matrix algebra
-
-Use the matrix definition:
-
-```math
-\boxed{
-\large
-L(\mathbf{w}) = \frac{1}{2} (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw})}
-```
-
-
-**Expand the quadratic form** first
-```math
-\begin{align}
-L(\mathbf{w}) &= \frac{1}{2} (\mathbf{y}^\top-(\mathbf{Xw})^\top) (\mathbf{y}-\mathbf{Xw}) \tag{apply $\top$}
-\end{align}
-```
-
-"""
-
-# ╔═╡ 49c52cda-defd-45eb-9a27-db139adbff6f
-md"""
-
-## Method 2: use matrix algebra
-
-Use the matrix definition:
-
-```math
-\large
-L(\mathbf{w}) = \frac{1}{2} (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw})
-```
-
-
-Expand the quadratic form first
-```math
-\begin{align}
-L(\mathbf{w}) &= \frac{1}{2} (\mathbf{y}^\top-(\mathbf{Xw})^\top) (\mathbf{y}-\mathbf{Xw}) \\
-&= \frac{1}{2} (\mathbf{y}^\top-\mathbf{w}^\top\mathbf{X}^\top) (\mathbf{y}-\mathbf{Xw}) \tag{$(\mathbf{AB})^\top = \mathbf{B}^\top\mathbf{A}^\top$}
-\end{align}
-```
-
-"""
-
-# ╔═╡ fc8ae0a9-ef66-4187-a71a-52e9627f9fe4
-md"""
-
-## Method 2: use matrix algebra
-
-Use the matrix definition:
-
-```math
-\large
-L(\mathbf{w}) = \frac{1}{2} (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw})
-```
-
-
-Expand the quadratic form first
-```math
-\begin{align}
-L(\mathbf{w}) &= \frac{1}{2} (\mathbf{y}^\top-(\mathbf{Xw})^\top) (\mathbf{y}-\mathbf{Xw}) \\
-&= \frac{1}{2} (\mathbf{y}^\top-\mathbf{w}^\top\mathbf{X}^\top) (\mathbf{y}-\mathbf{Xw}) \\
-&=  \frac{1}{2} \left \{\mathbf{y}^\top (\mathbf{y}-\mathbf{Xw}) - \mathbf{w}^\top\mathbf{X}^\top(\mathbf{y}-\mathbf{Xw}) \right \} \tag{distributive law}
-\end{align}
-```
-
-"""
-
-# ╔═╡ 9956f38c-9678-4f57-a42c-875594a7e4ae
-md"""
-
-## Method 2: use matrix algebra
-
-Use the matrix definition:
-
-```math
-\large
-L(\mathbf{w}) = \frac{1}{2} (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw})
-```
-
-
-Expand the quadratic form first
-```math
-\begin{align}
-L(\mathbf{w}) &= \frac{1}{2} (\mathbf{y}^\top-(\mathbf{Xw})^\top) (\mathbf{y}-\mathbf{Xw}) \\
-&= \frac{1}{2} (\mathbf{y}^\top-\mathbf{w}^\top\mathbf{X}^\top) (\mathbf{y}-\mathbf{Xw}) \\
-&=  \frac{1}{2} \left (\mathbf{y}^\top (\mathbf{y}-\mathbf{Xw}) - \mathbf{w}^\top\mathbf{X}^\top(\mathbf{y}-\mathbf{Xw}) \right )\\
-&= \frac{1}{2} \left (\mathbf{y}^\top \mathbf{y}-\mathbf{y}^\top\mathbf{Xw} - \mathbf{w}^\top\mathbf{X}^\top\mathbf{y}+ \mathbf{w}^\top\mathbf{X}^\top\mathbf{Xw} \right ) \tag{expansion}
-\end{align}
-```
-
-"""
-
-# ╔═╡ 4128f8d1-4ec9-4955-96f8-0172e7bd8479
-md"""
-
-## Method 2: use matrix algebra
-
-Use the matrix definition:
-
-```math
-\large
-L(\mathbf{w}) = \frac{1}{2} (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw})
-```
-
-
-Expand the quadratic form first
-```math
-\begin{align}
-L(\mathbf{w}) &= \frac{1}{2} (\mathbf{y}^\top-(\mathbf{Xw})^\top) (\mathbf{y}-\mathbf{Xw}) \\
-&= \frac{1}{2} (\mathbf{y}^\top-\mathbf{w}^\top\mathbf{X}^\top) (\mathbf{y}-\mathbf{Xw}) \\
-&=  \frac{1}{2} \left (\mathbf{y}^\top (\mathbf{y}-\mathbf{Xw}) - \mathbf{w}^\top\mathbf{X}^\top(\mathbf{y}-\mathbf{Xw}) \right )\\
-&= \frac{1}{2} \left (\mathbf{y}^\top \mathbf{y}-\mathbf{y}^\top\mathbf{Xw} - \mathbf{w}^\top\mathbf{X}^\top\mathbf{y}+ \mathbf{w}^\top\mathbf{X}^\top\mathbf{Xw} \right )\\
-&= \frac{1}{2} \left (\underbrace{\mathbf{w}^\top\mathbf{X}^\top\mathbf{Xw}}_{\mathbf{w}^\top \mathbf{A} \mathbf{w}} -\underbrace{\mathbf{y}^\top\mathbf{Xw}}_{\mathbf{b}^\top \mathbf{w}} - \underbrace{\mathbf{w}^\top\mathbf{X}^\top\mathbf{y}}_{\mathbf{w}^\top \mathbf{b}}+ \underbrace{\mathbf{y}^\top \mathbf{y}}_{c} \right ) \tag{rearrange}
-\end{align}
-```
-
-"""
-
-# ╔═╡ e634ed01-0826-4df1-a4d1-b4ccf75d09be
-md"""
-
-## Method 2: use matrix algebra
-
-Use the matrix definition:
-
-```math
-\large
-L(\mathbf{w}) = \frac{1}{2} (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw})
-```
-
-
-Expand the quadratic form first
-```math
-\begin{align}
-L(\mathbf{w}) &= \frac{1}{2} (\mathbf{y}^\top-(\mathbf{Xw})^\top) (\mathbf{y}-\mathbf{Xw}) \\
-&= \frac{1}{2} (\mathbf{y}^\top-\mathbf{w}^\top\mathbf{X}^\top) (\mathbf{y}-\mathbf{Xw}) \\
-&=  \frac{1}{2} \left (\mathbf{y}^\top (\mathbf{y}-\mathbf{Xw}) - \mathbf{w}^\top\mathbf{X}^\top(\mathbf{y}-\mathbf{Xw}) \right )\\
-&= \frac{1}{2} \left (\mathbf{y}^\top \mathbf{y}-\mathbf{y}^\top\mathbf{Xw} - \mathbf{w}^\top\mathbf{X}^\top\mathbf{y}+ \mathbf{w}^\top\mathbf{X}^\top\mathbf{Xw} \right )\\
-&= \frac{1}{2} \left (\underbrace{\mathbf{w}^\top\mathbf{X}^\top\mathbf{Xw}}_{\mathbf{w}^\top \mathbf{A} \mathbf{w}} -\underbrace{\mathbf{y}^\top\mathbf{Xw}}_{\mathbf{b}^\top \mathbf{w}} - \underbrace{\mathbf{w}^\top\mathbf{X}^\top\mathbf{y}}_{\mathbf{w}^\top \mathbf{b}}+ \underbrace{\mathbf{y}^\top \mathbf{y}}_{c} \right ) \\
-&= \frac{1}{2} \left  (\underbrace{\mathbf{w}^\top\mathbf{X}^\top\mathbf{Xw}}_{\mathbf{w}^\top \mathbf{A} \mathbf{w}} -2\underbrace{\mathbf{y}^\top\mathbf{Xw}}_{\mathbf{b}^\top \mathbf{w}} + \underbrace{\mathbf{y}^\top \mathbf{y}}_{c} \right ) \tag{$\mathbf{a}^\top\mathbf{b} = \mathbf{b}^\top\mathbf{a}$}\\
-\end{align}
-```
-
-"""
-
-# ╔═╡ c3099ffe-78e6-468e-93fe-291a40547596
-md"""
-
-## Method 2: use matrix algebra
-
-Use the matrix definition:
-
-```math
-\large
-L(\mathbf{w}) = \frac{1}{2} (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw})
-```
-
-
-This is a _canonical quadartic function_ 
-
-```math
-\large
-\begin{align}
-L(\mathbf{w}) 
-&= \frac{1}{2} \left  (\underbrace{\mathbf{w}^\top\mathbf{X}^\top\mathbf{Xw}}_{\mathbf{w}^\top \mathbf{A} \mathbf{w}} -2\underbrace{(\mathbf{X}^\top \mathbf{y})^\top\mathbf{w}}_{\mathbf{b}^\top \mathbf{w}} + \underbrace{\mathbf{y}^\top \mathbf{y}}_{c} \right ) 
-\end{align}
-```
-
-"""
-
-# ╔═╡ 478d2ba3-6950-49b0-bb21-aa1dba59c4cb
-aside(tip(md"""
-For canonical quadratic function
-
-```math
-\large
-f(\mathbf{w}) = \mathbf{w}^\top \mathbf{Aw} + \mathbf{b}^\top \mathbf{w} + c
-```
-
-* its gradients *w.r.t* ``\mathbf{w}`` is
-
-
-```math
-\boxed{
-\large
-\nabla_\mathbf{w} f(\mathbf{w}) = (\mathbf{A} +\mathbf{A}^\top)\mathbf{w} + \mathbf{b}}
-```
-
-
-* for symmetric ``\mathbf{A}``, the result is
-
-```math
-\boxed{
-\large
-\nabla_\mathbf{x} f(\mathbf{x}) = 2 \mathbf{A}\mathbf{w} + \mathbf{b}}
-```
-
-
-
-"""))
-
-# ╔═╡ 81973d1b-d022-4068-8afb-034abc9eedb4
-md"""
-
-The **gradient** therefore is
-
-
-```math
-\large
-
-\begin{align}
-\nabla L(\mathbf{w}) &= \frac{1}{2} \left(2 \mathbf{X}^\top\mathbf{Xw} - 2 \mathbf{X}^\top\mathbf{y} \right) =  \mathbf{X}^\top\mathbf{Xw} -  \mathbf{X}^\top\mathbf{y}\\
-&= \boxed{\mathbf{X}^\top(\mathbf{Xw}- \mathbf{y} )}
-\end{align}
-```
-"""
-
-# ╔═╡ 42037da5-792c-407e-935f-534bf35a739b
-function ∇L(w, X, y)
-	# X': Xᵀ
-	X' * (X * w -y)
-end;
-
-# ╔═╡ 350f2a70-405c-45dc-bfcd-913bc9a7de75
-md"""
-
-## Exercise
-
-!!! question "Exercise"
-	Verify the two gradient expressions are the same
-	```math
-		\mathbf{X}^\top(\mathbf{Xw}- \mathbf{y} ) = \sum_{i=1}^n   (  \mathbf{w}^\top \mathbf{x}^{(i)}- y^{(i)}) \cdot  \mathbf{x}^{(i)}
-	```
-
-"""
-
-# ╔═╡ af7c985f-56f5-4e59-8a48-09f74ddb7635
-# let
-# 	w_ = rand(3)
-# 	FiniteDifferences.grad(central_fdm(5,1), (w) -> loss(w, X_train, y_train), w_)[1] ≈ ∇L(w_, X_train, y_train)
-# end
-
-# ╔═╡ a86f734c-e0b0-4d41-905f-0e2b4566b62f
-md"""
-
-
-## Least square estimation -- normal equation
-
-
-**Lastly,** the objective is to **minimise** the loss
-
-```math
-\large
-\mathbf{w}_{\text{LSE}} \leftarrow \arg\min_{\mathbf{w}} L(\mathbf{w})
-```
-
-
-* set the gradient to **zero** and solve it!
-
-
-```math
-\Large
-\begin{align}
-\nabla L(&\mathbf{w}) 
-= \mathbf{X}^\top(\mathbf{Xw}- \mathbf{y} ) = \mathbf{0} \\
-
-&\Rightarrow \mathbf{X}^\top\mathbf{Xw} = \mathbf{X}^\top\mathbf{y}\\
-&\Rightarrow \boxed{\hat{\mathbf{w}} = (\mathbf{X}^\top\mathbf{X})^{-1} \mathbf{X}^\top \mathbf{y}}
-\end{align}
-
-```
-
-* known as the **normal equation** approach (we will see why it is called "_normal_" next time)
-"""
-
-# ╔═╡ cdc893d4-07ff-410f-989d-eca5832f2ba9
-md"""
-## Implementation 
-
-In practice, we **DO NOT** directly invert ``\mathbf{X}^\top\mathbf{X}`` 
-
-* it is computational expensive for large models (a lot of features) ( inverting a ``m\times m`` matrix is expensive: ``O(m^3)``
-* also not numerical stable
-
-
-For **Python**+**Numpy**: we use `np.linalg.lstsq()`
-* the least square method
-
-```python
-# add dummy ones
-X_bias = np.concatenate([X, np.ones((X.shape[0],1))], axis=1)
-# NumPy shapes: w_fit is (M+1,) if X is (N,M+1) and yy is (N,)
-w_fit = np.linalg.lstsq(X_bias, yy, rcond=None)[0]
-```
-
-"""
-
-# ╔═╡ 09e61d12-f1f4-4050-acf4-ffe2a940f69e
-md"""
-
-## Implementation in Julia/Matlab
-
-If you use more numerical programming language, the syntax is surprisingly simple
-
-```julia
-# for both Julia and Matlab
-w_fit = X \ yy;
-```
-"""
 
 # ╔═╡ 8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
 function least_square_est(X, y) # implement the method here!
 	X \ y
 end
 
-# ╔═╡ 5baffc43-62fe-4a20-a5d7-0c938d6ec7ee
-md"Estiamte: $(@bind estimate CheckBox(default=false))"
-
 # ╔═╡ f65644e7-cb25-46ad-b146-87cf7de69f72
 md"""
 
 ## Polynomial regression
 
-The following function seems fitting the data better
 
-Indeed, it is a quadratic function:
+Quadratic prediction function:
 
 ```math
+\large
 h(x) = w_0 + w_1 x + w_2 x^2
 ```
 
+Cubic prediction function:
 
+```math
+\large
+h(x) = w_0 + w_1 x + w_2 x^2 + w_3 x^3
+```
+
+
+A general polynormial regression
+
+```math
+\large
+h(x) = w_0 + w_1 x + w_2 x^2 + \ldots + w_p x^p
+```
 """
-
-# ╔═╡ f8f34671-ef4c-4300-a983-10d42d43fb9f
-quadratic_fit=let
-	gr()
-	@df df_house scatter(:rm, :target, xlabel="room", ylabel="price", label="", title="House price prediction: non-linear regression")
-	x_room = df_house[:, :rm]
-	x_room_sq = x_room.^2
-	X_train_room = [ones(length(x_room)) x_room x_room_sq]
-	c, b, a = linear_reg_normal_eq(X_train_room, df_house.target)
-
-	plot!(3.5:0.5:9, (x) -> a* x^2 + b* x+ c, lw=3, label=L"h(\mathbf{x})", legend=:outerbottom)
-end
 
 # ╔═╡ 22cbb1aa-c53f-45d6-891a-90c6f2b9e886
 md"""
@@ -1360,17 +277,21 @@ md"""
 ## Free lunch -- fixed basis expansion
 
 
-The simplest method to do polynomial regression is 
+> The simplest method to do polynomial regression is to
+> 
+> **Expand the input** ``x^{(i)}``
+>
+> which is known as polynomial fixed basis expansion
 
-* expand input ``x^{(i)}``
 
+##
 
-For each ``x^{(i)}``, input room, we add another feature ``(x^{(i)})^2``
+For each ``x^{(i)}``, input room, we expand the input with another feature ``(x^{(i)})^2``
 
-The expanded input matrix becomes
+* the expanded input matrix becomes
 
 ```math
-
+\large 
 \mathbf{X} = \begin{bmatrix}1 & x^{(1)} & (x^{(1)})^2 \\
 1 & x^{(2)} & (x^{(2)})^2 \\
 \vdots & \vdots & \vdots \\
@@ -1380,36 +301,99 @@ The expanded input matrix becomes
 ```
 
 
+"""
 
-Just regress with the expanded design matrix (now a ``n \times 3`` matrix)
+# ╔═╡ dd162f70-73b7-4f1a-beab-6fa26b2b11b1
+md"""
+
+## Free lunch -- fixed basis expansion
+
+
+> The simplest method to do polynomial regression is to
+> 
+> **Expand the input** ``x^{(i)}``
+>
+> which is known as polynomial fixed basis expansion
+
+
+##
+
+For each ``x^{(i)}``, input room, we expand the input with another feature ``(x^{(i)})^2``
+
+* the expanded input matrix becomes
 
 ```math
+\large 
+\mathbf{X} = \begin{bmatrix}1 & x^{(1)} & (x^{(1)})^2 \\
+1 & x^{(2)} & (x^{(2)})^2 \\
+\vdots & \vdots & \vdots \\
+1 & x^{(n)} & (x^{(n)})^2
+\end{bmatrix}
+
+```
+
+* for ``\mathbf{w} =[w_0, w_1, w_2]^\top``, for the ``i``th--house's prediction becomes
+
+```math
+h(x^{(i)}) = \begin{bmatrix}1 & x^{(i)} & (x^{(i)})^2 
+\end{bmatrix}\begin{bmatrix}w_0\\w_1 \\ w_2\end{bmatrix} = w_0 + w_1 x^{(i)} +w_2 (x^{(i)})^2
+```
+
+"""
+
+# ╔═╡ 0a661464-3080-4105-a0d8-e20334a722d9
+md"""
+
+## Free lunch -- fixed basis expansion
+
+
+> The simplest method to do polynomial regression is to
+> 
+> **Expand the input** ``x^{(i)}``
+>
+> which is known as polynomial fixed basis expansion
+
+
+##
+
+For each ``x^{(i)}``, input room, we expand the input with another feature ``(x^{(i)})^2``
+
+* the expanded input matrix becomes
+
+```math
+\large 
+\mathbf{X} = \begin{bmatrix}1 & x^{(1)} & (x^{(1)})^2 \\
+1 & x^{(2)} & (x^{(2)})^2 \\
+\vdots & \vdots & \vdots \\
+1 & x^{(n)} & (x^{(n)})^2
+\end{bmatrix}
+
+```
+
+* for ``\mathbf{w} =[w_0, w_1, w_2]^\top``, for the ``i``th--house's prediction becomes
+
+```math
+h(x^{(i)}) = \begin{bmatrix}1 & x^{(i)} & (x^{(i)})^2 
+\end{bmatrix}\begin{bmatrix}w_0\\w_1 \\ w_2\end{bmatrix} = w_0 + w_1 x^{(i)} +w_2 (x^{(i)})^2
+```
+
+
+
+* then regress with the expanded design matrix (now a ``n \times 3`` matrix) with the ordinary least square method
+
+```math
+\large
 \hat{\mathbf{w}} \leftarrow \arg\min_{\mathbf{w}} \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h({x}^{(i)}; \mathbf{w}))^2,
 ```
 
-where 
-
-$$h(x) = w_0 + w_1 x + w_2 x^2$$
 """
-
-# ╔═╡ bd2a3243-049d-4b4e-9a7c-9600f7716687
-md"Example: "
 
 # ╔═╡ ce35ddcb-5018-4cb9-b0c9-01fb4b14be40
 begin
 	x_room = df_house[:, :rm]
 	x_room_sq = x_room.^2 # squared x_room^2
 	X_room_expanded = [ones(length(x_room)) x_room x_room_sq]
-end
-
-# ╔═╡ 59a3e04f-c842-4b6d-b067-0525c9dda70b
-md"Then fit with normal equation:"
-
-# ╔═╡ 660b612b-fbc6-434a-b8ae-69f1213dfad4
-(X_room_expanded' * X_room_expanded)^(-1) * X_room_expanded' * df_house.target
-
-# ╔═╡ f3e404b7-3419-43e7-affa-217324a65534
-quadratic_fit
+end;
 
 # ╔═╡ 2cdd8751-7ec8-47b0-a174-fdc23e176921
 md"""
@@ -1418,9 +402,10 @@ md"""
 
 
 ```math
+\Large
 h(x) = w_0 + w_1 x + w_2 x^2 +\ldots + w_p w^p
 ```
- * still free lunch: regress with a ``n\times (p+1)`` matrix
+ * still _free lunch_: regress with a ``n\times (p+1)`` matrix
 
 """
 
@@ -1428,6 +413,7 @@ h(x) = w_0 + w_1 x + w_2 x^2 +\ldots + w_p w^p
 md"""
 
 ```math
+\large
 \mathbf{X} = \begin{bmatrix}1 & x^{(1)} & (x^{(1)})^2  & \ldots & (x^{(1)})^p \\
 1 & x^{(2)} & (x^{(2)})^2 & \ldots &(x^{(2)})^p\\
 \vdots & \vdots & \vdots & \ddots & \vdots \\
@@ -1436,11 +422,14 @@ md"""
 ```
 """
 
+# ╔═╡ 8b596e98-4d0c-471e-bb25-20f492a9199b
+md"Polynomial order: $(@bind poly_order Slider(0:10, default =2, show_value=true))"
+
 # ╔═╡ edc245bc-6571-4e65-a50c-0bd4b8d63b74
 function poly_expand(x; order = 2) # expand the design matrix to the pth order
 	n = length(x)
 	return hcat([x.^p for p in 0:order]...)
-end
+end;
 
 # ╔═╡ 4154585d-4eff-4ee9-8f33-dad0dfdd143c
 function poly_reg(x, y; order = 2) # fit a polynomial regression to the input x; x is assumed a vector
@@ -1448,23 +437,10 @@ function poly_reg(x, y; order = 2) # fit a polynomial regression to the input x;
 	w = linear_reg_normal_eq(X, y)
 	l = loss(w, X, y)
 	return w, l
-end
-
-# ╔═╡ d5cc7ea6-d1a0-46e1-9fda-b7f7092eb73c
-poly_reg(x_room, df_house.target; order=3)
-
-# ╔═╡ f90957ea-4123-461f-9a3e-ae23a2848264
-md"The polynomial order:"
-
-# ╔═╡ 8b596e98-4d0c-471e-bb25-20f492a9199b
-@bind poly_order Slider(0:10, default =2, show_value=true)
-
-# ╔═╡ 72440a56-7a47-4a32-9244-cb0424a6fd79
-md"Recall the loss here is the training loss: sum of squared error on the training data
-" 
+end;
 
 # ╔═╡ 46180264-bddc-47d8-90a7-a16d0ea87cfe
-poly_fun(x, w) = sum([x^p for p in 0:length(w)-1] .* w)
+poly_fun(x, w) = sum([x^p for p in 0:length(w)-1] .* w);
 
 # ╔═╡ 9aff2235-7da4-41a9-9926-4fe291d9a638
 let
@@ -1789,45 +765,6 @@ begin
 	y_train = X_train * true_w + randn(num_data)
 end;
 
-# ╔═╡ 69005e98-5ef3-4376-9eed-919580e5de53
-let
-	plotly()
-	# plot(X_train[:,2], y_train, st=:scatter, label="Observations")
-	scatter(X_train[:, 2], X_train[:,3], y_train, markersize=1.5, label="observations", title="Linear regression assumption", xlabel="x₁", ylabel="x₂", zlabel="y")
-	surface!(0:0.5:1, 0:0.5:1.0, (x1, x2) -> dot([1, x1, x2], true_w),  colorbar=false, xlabel="x₁", ylabel="x₂", zlabel="y", alpha=0.5, label="h(x)")
-end
-
-# ╔═╡ 57b77a3c-7424-4215-850e-b0c77036b993
-let
-	plotly()
-	Random.seed!(111)
-	ws = [zeros(3) rand(3) * 15  rand(3)*5   true_w]
-	plots_frames = []
-	# plot(X_train[:,2], y_train, st=:scatter, label="Observations")
-	for i in 1 : 4
-		plt = scatter(X_train[:, 2], X_train[:,3], y_train, markersize=1.5, label="", title="Loss is $(round(loss(ws[:, i], X_train, y_train);digits=2))",  xlabel="", ylabel="", zlabel="")
-		surface!(0:0.5:1, 0:0.5:1.0, (x1, x2) -> dot([1, x1, x2], ws[:, i]),  colorbar=false, alpha=0.8)
-		push!(plots_frames, plt)
-	end
-	
-	plot(plots_frames..., layout=4)
-end
-
-# ╔═╡ 36e0cf8d-a0e3-4d17-bb4b-998c9ffabbad
-least_square_est(X_train, y_train)
-
-# ╔═╡ 77fed95d-7281-49cc-9f6d-388eb129a955
-let
-	w_lse = zeros(size(X_train)[2])
-	if estimate
-		w_lse = least_square_est(X_train, y_train)
-	end
-	plotly()
-	scatter(X_train[:, 2], X_train[:,3], y_train, markersize=1.5, label="observations", title="Linear regression: normal equation", xlabel="x₁", ylabel="x₂", zlabel="y")
-
-	surface!(0:0.5:1, 0:0.5:1.0, (x1, x2) -> dot([1, x1, x2], w_lse),  colorbar=false, xlabel="x₁", α=0.8, ylabel="x₂", zlabel="y")
-end
-
 # ╔═╡ cb02aee5-d082-40a5-b799-db6b4af557f7
 # md"""
 # ## More datasets
@@ -1858,10 +795,8 @@ end;
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
@@ -1878,10 +813,8 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
-BenchmarkTools = "~1.3.2"
 CSV = "~0.10.10"
 DataFrames = "~1.5.0"
-FiniteDifferences = "~0.12.27"
 HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.15.21"
@@ -1900,7 +833,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.1"
 manifest_format = "2.0"
-project_hash = "c48c2bf39d25f4b0846e262e1acf3e1518b9ad99"
+project_hash = "3c5c0fa779a72e256b388f8a09587c9ff0e6b889"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -2009,12 +942,6 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 git-tree-sha1 = "aebf55e6d7795e02ca500a689d326ac979aaf89e"
 uuid = "9718e550-a3fa-408a-8086-8db961cd8217"
 version = "0.1.1"
-
-[[deps.BenchmarkTools]]
-deps = ["JSON", "Logging", "Printf", "Profile", "Statistics", "UUIDs"]
-git-tree-sha1 = "d9a9701b899b30332bbcb3e1679c41cce81fb0e8"
-uuid = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-version = "1.3.2"
 
 [[deps.BitFlags]]
 git-tree-sha1 = "43b1a4a8f797c1cddadf60499a8a077d4af2cd2d"
@@ -2321,12 +1248,6 @@ deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
 git-tree-sha1 = "ed569cb9e7e3590d5ba884da7edc50216aac5811"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
 version = "1.1.0"
-
-[[deps.FiniteDifferences]]
-deps = ["ChainRulesCore", "LinearAlgebra", "Printf", "Random", "Richardson", "SparseArrays", "StaticArrays"]
-git-tree-sha1 = "c7cde0cfc4f8698256a66547e095b56c9dc14828"
-uuid = "26cc04aa-876d-5657-8c51-4c34ba976000"
-version = "0.12.27"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -3110,10 +2031,6 @@ version = "2.2.4"
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
-[[deps.Profile]]
-deps = ["Printf"]
-uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
-
 [[deps.Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
 git-tree-sha1 = "0c03844e2231e12fda4d0086fd7cbe4098ee8dc5"
@@ -3178,12 +2095,6 @@ deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibG
 git-tree-sha1 = "feafdc70b2e6684314e188d95fe66d116de834a7"
 uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
 version = "3.5.2"
-
-[[deps.Richardson]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "e03ca566bec93f8a3aeb059c8ef102f268a38949"
-uuid = "708f8203-808e-40c0-ba2d-98a6953ed40d"
-version = "1.4.0"
 
 [[deps.Rmath]]
 deps = ["Random", "Rmath_jll"]
@@ -3751,106 +2662,25 @@ version = "1.4.1+0"
 # ╟─b59aa80b-9d94-4d01-90b7-12db4db95339
 # ╟─d2ea21da-08f2-4eb1-b763-c69f8d714652
 # ╟─6bce7fb9-8b00-4351-bcf8-d5d1223df915
+# ╟─c4e497fc-cfbf-4d0b-9a0c-1071f2f43a98
 # ╟─0e2dc755-57df-4d9a-b4f3-d01569c3fcde
+# ╠═c4f42980-0e68-4943-abbe-b28f05dd3ee5
+# ╟─8b479e5c-8151-4769-9d27-b5661285b497
+# ╟─55fbb81b-8323-4405-beb9-acd557e6d9f3
 # ╟─86f09ee8-087e-47ac-a81e-6f8c38566774
-# ╟─6073463a-ca24-4ddc-b83f-4c6ff5033b3b
-# ╟─ed20d0b0-4e1e-4ec5-92b0-2d4938c249b9
-# ╟─774c46c0-8a62-4635-ab56-662267e67511
-# ╟─2f0abb5d-f81e-44fe-8da3-57b84f0af20f
-# ╟─85934ff7-4cb5-4ba0-863e-628f8770f8d8
-# ╟─074124b1-96da-4b96-aa0e-a434e4d54692
-# ╟─8926d547-10b5-4adc-91bc-a1060df498a3
-# ╟─2b4b8045-f931-48da-9c3d-66c8af12f6f2
-# ╟─378c10c8-d4be-4337-ac48-b5c534799973
-# ╟─65f28dfb-981d-4361-b37c-12af3c7995cd
-# ╟─24eb939b-9568-4cfd-bfe5-0191eada253a
-# ╟─5d96f623-9b30-49a4-913c-6dee65ae0d23
-# ╟─69005e98-5ef3-4376-9eed-919580e5de53
-# ╟─672ca2c6-515c-4e2f-b518-fb9bb662ec0d
-# ╟─fbc1a2ed-2eea-4981-9153-87f55fa6a464
-# ╟─616c47fd-879d-40a7-a166-23834c4a7bb8
-# ╟─6ceb9474-0108-407f-95f3-2ff7ffbf2a1d
-# ╟─12a26c3e-a361-423b-9332-af1ba6a73257
-# ╟─5029cf59-0241-4b3a-bf33-cb0623b247d0
-# ╟─fc826717-2a28-4b86-a52b-5c133a50c2f9
-# ╟─93600d0c-fa7e-4d38-bbab-5adcf54d0c90
-# ╟─b1ec11d0-48dc-4c48-a2c0-a891d4343b4d
-# ╟─f6408f52-bd75-4147-87a3-4b701629b150
-# ╟─c5e9d9ab-aa19-489c-a513-bef5f751e7d3
-# ╟─39d89313-17d8-445f-a0d0-5a241c0e6c13
-# ╟─dead4d31-8ed4-4599-a3f7-ff8b7f02548c
-# ╟─1efe5011-ffbb-4703-bb4a-eb7e310ab7e4
-# ╟─d70102f1-06c0-4c5b-8dfd-e41c4a455181
-# ╟─57b77a3c-7424-4215-850e-b0c77036b993
-# ╟─d550ec33-4e32-4711-8edc-1ac99ec08a13
-# ╟─d714f71b-099b-4a77-b03f-a82342df44f3
-# ╟─52678bce-36c8-45e8-8677-6662cbd839ed
-# ╟─e774a50b-d9c7-4bb1-b79a-012c280d20f8
-# ╟─14262cc5-3704-4aef-b447-9c1965eded3a
-# ╟─a1e1d6d1-849c-4fdb-9d12-49c1011443eb
-# ╟─a05b4f10-73c4-4525-8ca2-5e814432f452
-# ╟─eee34ece-836f-4fdc-a69f-eb258f6d1314
-# ╟─153bc89d-f37d-4403-a6f1-bc726a5aac2d
-# ╟─2799735a-b967-44e4-8b50-80efcfba464e
-# ╟─ce881537-04e5-4f0f-8f9b-5e257811df9e
-# ╟─ecdf71c3-2465-4c71-bc2f-30e84edfe1ee
-# ╟─6f2e09f4-f17a-4a2d-90d6-bd72347ed3a6
-# ╟─907260bf-1c51-4d1b-936d-fccfe41abdd0
-# ╟─253958f1-ae84-4230-bfd1-6023bdffee26
-# ╟─407f56fa-cbb0-4fc8-952d-7e0a8448ef46
-# ╠═0a162252-359a-4be9-96d9-d66d4dca926c
-# ╟─c3bf685e-7f76-45a4-a9fd-8a61eb1d9eca
-# ╠═648ef3b0-2198-44eb-9085-52e2362b7f88
-# ╟─1398bda3-5b94-4d54-a553-ca1ac1bc6ce9
-# ╟─4e430aa8-9c74-45c1-8771-b33e558208cf
-# ╟─7c99d41f-f656-4610-9df0-31a74de62cf2
-# ╟─4638f4d3-88d6-4e6a-91de-25ca89d4096b
-# ╟─d8f335d0-ea9a-48db-b3de-a514e8dfa5a5
-# ╟─309d2a24-3d6c-40f1-bb3c-8e04ab863fa5
-# ╟─4b3ed507-f66d-4c81-84e0-ef27c9935b50
-# ╟─a11fa3b0-2364-46c7-9ce7-0c79bc86c967
-# ╟─073c6ed9-a4cc-489d-9609-2d710aa7740f
-# ╟─d10568b6-9517-41ca-8a4f-8fa4291050db
-# ╟─00c2ab0f-08be-4d8b-a9c7-178802f45fe2
-# ╟─d57d1d6e-db6f-4ea6-b0fc-0f1d7cc4aa3b
-# ╟─6edd6809-d478-4824-b12c-eaac45416d16
-# ╟─7435197d-a8a5-42fd-a261-b2dc56bbc2d5
-# ╟─49c52cda-defd-45eb-9a27-db139adbff6f
-# ╟─fc8ae0a9-ef66-4187-a71a-52e9627f9fe4
-# ╟─9956f38c-9678-4f57-a42c-875594a7e4ae
-# ╟─4128f8d1-4ec9-4955-96f8-0172e7bd8479
-# ╟─e634ed01-0826-4df1-a4d1-b4ccf75d09be
-# ╟─c3099ffe-78e6-468e-93fe-291a40547596
-# ╟─478d2ba3-6950-49b0-bb21-aa1dba59c4cb
-# ╟─81973d1b-d022-4068-8afb-034abc9eedb4
-# ╟─42037da5-792c-407e-935f-534bf35a739b
-# ╟─350f2a70-405c-45dc-bfcd-913bc9a7de75
-# ╟─72f82376-2bf3-4314-bf7a-74f670ccc113
-# ╟─af7c985f-56f5-4e59-8a48-09f74ddb7635
-# ╟─a86f734c-e0b0-4d41-905f-0e2b4566b62f
-# ╟─cdc893d4-07ff-410f-989d-eca5832f2ba9
-# ╟─09e61d12-f1f4-4050-acf4-ffe2a940f69e
-# ╠═8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
-# ╠═36e0cf8d-a0e3-4d17-bb4b-998c9ffabbad
-# ╟─5baffc43-62fe-4a20-a5d7-0c938d6ec7ee
-# ╟─77fed95d-7281-49cc-9f6d-388eb129a955
-# ╟─f65644e7-cb25-46ad-b146-87cf7de69f72
 # ╟─f8f34671-ef4c-4300-a983-10d42d43fb9f
+# ╟─8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
+# ╟─f65644e7-cb25-46ad-b146-87cf7de69f72
 # ╟─22cbb1aa-c53f-45d6-891a-90c6f2b9e886
-# ╟─bd2a3243-049d-4b4e-9a7c-9600f7716687
+# ╟─dd162f70-73b7-4f1a-beab-6fa26b2b11b1
+# ╟─0a661464-3080-4105-a0d8-e20334a722d9
 # ╠═ce35ddcb-5018-4cb9-b0c9-01fb4b14be40
-# ╟─59a3e04f-c842-4b6d-b067-0525c9dda70b
-# ╠═660b612b-fbc6-434a-b8ae-69f1213dfad4
-# ╟─f3e404b7-3419-43e7-affa-217324a65534
 # ╟─2cdd8751-7ec8-47b0-a174-fdc23e176921
 # ╟─720774c4-9aec-4329-bc90-51350fea0191
-# ╟─edc245bc-6571-4e65-a50c-0bd4b8d63b74
-# ╟─4154585d-4eff-4ee9-8f33-dad0dfdd143c
-# ╟─d5cc7ea6-d1a0-46e1-9fda-b7f7092eb73c
-# ╟─f90957ea-4123-461f-9a3e-ae23a2848264
 # ╟─8b596e98-4d0c-471e-bb25-20f492a9199b
 # ╟─9aff2235-7da4-41a9-9926-4fe291d9a638
-# ╟─72440a56-7a47-4a32-9244-cb0424a6fd79
+# ╟─edc245bc-6571-4e65-a50c-0bd4b8d63b74
+# ╟─4154585d-4eff-4ee9-8f33-dad0dfdd143c
 # ╟─46180264-bddc-47d8-90a7-a16d0ea87cfe
 # ╟─882da1c1-1358-4a40-8f69-b4d7cbc9387e
 # ╟─0dff10ec-dd13-4cc2-b092-9e72454763cc
