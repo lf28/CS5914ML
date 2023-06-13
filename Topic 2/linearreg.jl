@@ -148,9 +148,9 @@ md"""
 
 # ╔═╡ 0e2dc755-57df-4d9a-b4f3-d01569c3fcde
 begin
-	X_housing = MLDatasets.BostonHousing.features()
-	df_house = DataFrame(X_housing', MLDatasets.BostonHousing.feature_names())
-	df_house[!, :target] = MLDatasets.BostonHousing.targets()[:]
+	X_housing = MLDatasets.BostonHousing().features |> Matrix |> transpose
+	df_house = DataFrame(X_housing', MLDatasets.BostonHousing().metadata["feature_names"] .|> lowercase)
+	df_house[!, :target] = (MLDatasets.BostonHousing().targets |> Matrix )[:]
 end;
 
 # ╔═╡ 86f09ee8-087e-47ac-a81e-6f8c38566774
@@ -392,16 +392,14 @@ md"""
 ## Defining a *good* ``h(\cdot)``
 
 
-Given training data ``\mathcal{D}_{train} = \{\mathbf{x}^{(i)}, y^{(i)}\}``
-
-
-One possible measure of the (_negative_) **goodness** is the sum of the squared error (SSE)
+One possible measure of the (_negative_) **goodness** is the sum of the squared **errors**
 
 
 ```math
 \Large
-L(\mathbf{w}) = \frac{1}{2 n}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2
+L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (\underbrace{\boxed{y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})}}_{\text{pred.  error of } y^{(i)}})^2
 ```
+
 
 """
 
@@ -409,21 +407,85 @@ L(\mathbf{w}) = \frac{1}{2 n}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf
 let
 	gr()
 	Random.seed!(123)
-	n = 20
-	w0, w1 = 1, 2
-	Xs = rand(n)* 2 .- 1
-	ys = (w0 .+ Xs .* w1) .+ randn(n)/2
-	Xs = [Xs; 0.25]
+	n = 10
+	w0, w1 = 1, 1
+	Xs = range(-2, 2, n)
+	ys = (w0 .+ Xs .* w1) .+ randn(n)/1
+	Xs = [Xs; 0.5]
 	ys = [ys; 3.5]
-	plt=plot(Xs, ys, st=:scatter, markersize=4, label="", xlabel=L"x", ylabel=L"y")
-	plot!(-1:0.5:1.0, (x) -> w0 + w1 * x , lw=2, label=L"h_w(x)", legend=:topleft)
+	plt=plot(Xs, ys, st=:scatter, markersize=4, alpha=0.5,  label="", xlabel=L"x", ylabel=L"y", ratio=1, title="Prediction error: "*L"y^{(i)} - h(x^{(i)})")
+	plot!(-2.9:0.1:2.9, (x) -> w0 + w1 * x , xlim=[-3, 3], lw=2, label=L"h_w(x)", legend=:topleft, framestyle=:axes)
 	ŷs = Xs .* w1 .+ w0
 	for i in 1:length(Xs)
-		plot!([Xs[i], Xs[i]], [ys[i], ŷs[i] ], ls=:dash, lc=:gray, lw=2, label="")
+		plot!([Xs[i], Xs[i]], [ys[i], ŷs[i] ], arrow =:both, lc=:gray, lw=1, label="")
 	end
 
 	
-	annotate!(Xs[end], 0.5*(ys[end] + ŷs[end]), text(L"y^i - h(x^{(i)})", 10, :dark, :top, rotation = -90 ))
+	annotate!(Xs[end], 0.5*(ys[end] + ŷs[end]), text(L"y^i - h(x^{(i)})", 12, :black, :top, rotation = -90 ))
+	plt
+end
+
+# ╔═╡ b1ec11d0-48dc-4c48-a2c0-a891d4343b4d
+md"""
+
+## Defining a *good* ``h(\cdot)``
+
+
+Given training data ``\mathcal{D}_{train} = \{\mathbf{x}^{(i)}, y^{(i)}\}``
+
+
+One possible measure of the (_negative_) **goodness** is the sum of the **squared errors**
+
+
+```math
+\Large
+L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n \boxed{(y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2}
+```
+
+"""
+
+# ╔═╡ f6408f52-bd75-4147-87a3-4b701629b150
+md" Move me: $(@bind iidx Slider(1:11, default=11, show_value=true))"
+
+# ╔═╡ 39d89313-17d8-445f-a0d0-5a241c0e6c13
+begin
+	# define a function that returns a Plots.Shape
+	rectangle(w, h, x, y) = Shape(x .+ [0,w,w,0], y .+ [0,0,h,h])
+	
+	# plot(0:5,0:5)
+	# plot!(rectangle(3,2,0,0), opacity=.5)
+end
+
+# ╔═╡ c5e9d9ab-aa19-489c-a513-bef5f751e7d3
+let
+	gr()
+	Random.seed!(123)
+	n = 10
+	w0, w1 = 1, 1
+	Xs = range(-2, 2, n)
+	ys = (w0 .+ Xs .* w1) .+ randn(n)/1
+	Xs = [Xs; 0.5]
+	ys = [ys; 3.5]
+	plt = plot(Xs, ys, st=:scatter, markersize=3, alpha=0.5, label="", xlabel=L"x", ylabel=L"y", ratio=1, title="Prediction error squared: "*L"(y^{(i)} - h(x^{(i)}))^2")
+	plot!(-2.9:0.1:2.9, (x) -> w0 + w1 * x , xlim=[-3, 3], lw=2, label=L"h_w(x)", legend=:topleft, framestyle=:axes)
+	ŷs = Xs .* w1 .+ w0
+	for i in 1:length(Xs)
+		plot!([Xs[i], Xs[i]], [ys[i], ŷs[i] ], lc=:gray, lw=1.5, label="")
+	end
+
+	if (ys[iidx] -  ŷs[iidx]) > 0 
+		li = -(ŷs[iidx] - ys[iidx] )
+		plot!(rectangle(li, li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
+		if iidx ==11
+			annotate!(Xs[iidx], 0.5*(ys[iidx] + ŷs[iidx]), text(L"y^i - h(x^{(i)})", 10, :black, :top, rotation = -90 ))
+			annotate!(.5 * (Xs[iidx] + abs(li)), ŷs[iidx], text(L"y^i - h(x^{(i)})", 10, :black, :top, rotation = 0 ))
+		end
+	else
+		li = -(ŷs[iidx] - ys[iidx] )
+		plot!(rectangle(abs(li), li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
+		# annotate!(.5*(Xs[iidx] + abs(li)), 0.5*(ys[iidx] + ŷs[iidx]), text(L"(y^i - h(x^{(i)}))^2", 10, :black ))
+
+	end
 	plt
 end
 
@@ -444,6 +506,37 @@ And we aim to minimise the loss to achieve the best **goodness**
 
 * optimisation: good old calculus!
 """
+
+# ╔═╡ 1efe5011-ffbb-4703-bb4a-eb7e310ab7e4
+let
+	gr()
+	Random.seed!(123)
+	n = 10
+	w0, w1 = 1, 1
+	Xs = range(-2, 2, n)
+	ys = (w0 .+ Xs .* w1) .+ randn(n)/1
+	Xs = [Xs; 0.5]
+	ys = [ys; 3.5]
+	plt = plot(Xs, ys, st=:scatter, markersize=3, alpha=0.5, label="", xlabel=L"x", ylabel=L"y", ratio=1, title="SSE loss: "*L"\sum (y^{(i)} - h(x^{(i)}))^2")
+	plot!(-2.9:0.1:2.9, (x) -> w0 + w1 * x , xlim=[-3, 3], lw=2, label=L"h_w(x)", legend=:topleft, framestyle=:axes)
+	ŷs = Xs .* w1 .+ w0
+	for i in 1:length(Xs)
+		plot!([Xs[i], Xs[i]], [ys[i], ŷs[i] ], lc=:gray, lw=1.5, label="")
+		iidx = i
+			if (ys[iidx] -  ŷs[iidx]) > 0 
+		li = -(ŷs[iidx] - ys[iidx] )
+		plot!(rectangle(li, li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
+	else
+		li = -(ŷs[iidx] - ys[iidx] )
+		plot!(rectangle(abs(li), li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
+		# annotate!(.5*(Xs[iidx] + abs(li)), 0.5*(ys[iidx] + ŷs[iidx]), text(L"(y^i - h(x^{(i)}))^2", 10, :black ))
+
+	end
+	end
+
+
+	plt
+end
 
 # ╔═╡ d70102f1-06c0-4c5b-8dfd-e41c4a455181
 md"""
@@ -480,12 +573,19 @@ md"""
 
 ## Let's see the notation - step by step
 
+"""
+
+# ╔═╡ d714f71b-099b-4a77-b03f-a82342df44f3
+TwoColumn(md"""
+
+
 **First**, stack the ``n`` labels into a ``n\times 1`` vector ``\mathbf{y}``
 ```math
 \Large
 \mathbf{y} = \begin{bmatrix} y^{(1)} \\ y^{(1)} \\ \vdots \\ y^{(n)}\end{bmatrix}
 ```
-"""
+
+""", html"""For our house data, <center><img src="https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/housey.svg" width = "230"/></center>""" )
 
 # ╔═╡ 52678bce-36c8-45e8-8677-6662cbd839ed
 # md"Our training data's targets ``\mathbf{y}``:"
@@ -499,10 +599,12 @@ md"""
 
   * ``n``: # of observations
   * ``m``: # of features
+
 ```math
 \Large
 \mathbf{X} = \begin{bmatrix}  \rule[.5ex]{2.5ex}{0.5pt} & (\mathbf{x}^{(1)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\\  \rule[.5ex]{2.5ex}{0.5pt} & (\mathbf{x}^{(2)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\\ & \vdots & \\  \rule[.5ex]{2.5ex}{0.5pt} &(\mathbf{x}^{(n)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\end{bmatrix}
 ```
+
 """
 
 # ╔═╡ 14262cc5-3704-4aef-b447-9c1965eded3a
@@ -553,7 +655,7 @@ md"""
 
 ##
 
-And its inner product ``(\mathbf{y} - \mathbf{Xw})^\top (\mathbf{y} - \mathbf{Xw})`` is the sum of squared errors
+And the inner product ``(\mathbf{y} - \mathbf{Xw})^\top (\mathbf{y} - \mathbf{Xw})`` is the sum of squared errors
 
 ```math
 \large
@@ -616,7 +718,7 @@ TwoColumn(md"
 # loss: vectorised
 function loss(w, X, y) 
 	error = y - X * w
-	return 0.5 * dot(error, error)
+	return 0.5 * dot(error, error) / length(y)
 end
 ```
 ", md"
@@ -630,7 +732,7 @@ function loss_loop(w, X, y)
 	for i in 1:n
 		loss += (y[i] - dot(X[i,:], w))^2
 	end
-	return .5 * loss
+	return .5 * loss / n
 end
 ```
 ")
@@ -748,9 +850,10 @@ h(\mathbf{w}) = \mathbf{b}^\top \mathbf{w} + c
 \nabla_\mathbf{w} h(\mathbf{w}) =  \mathbf{b}}
 ```
 
-* which is just generalisation of ``h(w) =bw +c``'s derivative:
+* which is just generalisation of ``h(w) =bw +c``  derivative
 
 ```math
+\large
 h'(w) = b
 ```
 
@@ -1136,7 +1239,7 @@ md"""
 !!! question "Exercise"
 	Verify the two gradient expressions are the same
 	```math
-		\mathbf{X}^\top(\mathbf{Xw}- \mathbf{y} ) = -\sum_{i=1}^n   (y^{(i)} -  \mathbf{w}^\top \mathbf{x}^{(i)})) \cdot  \mathbf{x}^{(i)}
+		\mathbf{X}^\top(\mathbf{Xw}- \mathbf{y} ) = \sum_{i=1}^n   (  \mathbf{w}^\top \mathbf{x}^{(i)}- y^{(i)}) \cdot  \mathbf{x}^{(i)}
 	```
 
 """
@@ -1182,8 +1285,23 @@ md"""
 
 # ╔═╡ cdc893d4-07ff-410f-989d-eca5832f2ba9
 md"""
-## Implementation in Python
+## Implementation 
 
+In practice, we **DO NOT** directly invert ``\mathbf{X}^\top\mathbf{X}`` 
+
+* it is computational expensive for large models (a lot of features) ( inverting a ``m\times m`` matrix is expensive: ``O(m^3)``
+* also not numerical stable
+
+
+For **Python**+**Numpy**: we use `np.linalg.lstsq()`
+* the least square method
+
+```python
+# add dummy ones
+X_bias = np.concatenate([X, np.ones((X.shape[0],1))], axis=1)
+# NumPy shapes: w_fit is (M+1,) if X is (N,M+1) and yy is (N,)
+w_fit = np.linalg.lstsq(X_bias, yy, rcond=None)[0]
+```
 
 """
 
@@ -1191,12 +1309,22 @@ md"""
 md"""
 
 ## Implementation in Julia/Matlab
+
+If you use more numerical programming language, the syntax is surprisingly simple
+
+```julia
+# for both Julia and Matlab
+w_fit = X \ yy;
+```
 """
 
 # ╔═╡ 8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
 function least_square_est(X, y) # implement the method here!
-	(X' * X)^(-1) * X' * y
+	X \ y
 end
+
+# ╔═╡ 5baffc43-62fe-4a20-a5d7-0c938d6ec7ee
+md"Estiamte: $(@bind estimate CheckBox(default=false))"
 
 # ╔═╡ f65644e7-cb25-46ad-b146-87cf7de69f72
 md"""
@@ -1677,29 +1805,27 @@ let
 	plots_frames = []
 	# plot(X_train[:,2], y_train, st=:scatter, label="Observations")
 	for i in 1 : 4
-		plt = scatter(X_train[:, 2], X_train[:,3], y_train, markersize=1.5, label="", title="Loss is $(round(loss(ws[:, i], X_train, y_train);digits=2))", xlabel="x₁", ylabel="x₂", zlabel="y")
-		surface!(0:0.5:1, 0:0.5:1.0, (x1, x2) -> dot([1, x1, x2], ws[:, i]),  colorbar=false, xlabel="x₁", ylabel="x₂", zlabel="y", alpha=0.8, label="h(x)")
+		plt = scatter(X_train[:, 2], X_train[:,3], y_train, markersize=1.5, label="", title="Loss is $(round(loss(ws[:, i], X_train, y_train);digits=2))",  xlabel="", ylabel="", zlabel="")
+		surface!(0:0.5:1, 0:0.5:1.0, (x1, x2) -> dot([1, x1, x2], ws[:, i]),  colorbar=false, alpha=0.8)
 		push!(plots_frames, plt)
 	end
 	
 	plot(plots_frames..., layout=4)
 end
 
-# ╔═╡ 28111bf3-ad3d-4b09-a369-350bb54fef9c
-y_train;
-
 # ╔═╡ 36e0cf8d-a0e3-4d17-bb4b-998c9ffabbad
 least_square_est(X_train, y_train)
 
 # ╔═╡ 77fed95d-7281-49cc-9f6d-388eb129a955
 let
-	w_lse = least_square_est(X_train, y_train)
+	w_lse = zeros(size(X_train)[2])
+	if estimate
+		w_lse = least_square_est(X_train, y_train)
+	end
 	plotly()
 	scatter(X_train[:, 2], X_train[:,3], y_train, markersize=1.5, label="observations", title="Linear regression: normal equation", xlabel="x₁", ylabel="x₂", zlabel="y")
 
 	surface!(0:0.5:1, 0:0.5:1.0, (x1, x2) -> dot([1, x1, x2], w_lse),  colorbar=false, xlabel="x₁", α=0.8, ylabel="x₂", zlabel="y")
-
-
 end
 
 # ╔═╡ cb02aee5-d082-40a5-b799-db6b4af557f7
@@ -3648,12 +3774,17 @@ version = "1.4.1+0"
 # ╟─5029cf59-0241-4b3a-bf33-cb0623b247d0
 # ╟─fc826717-2a28-4b86-a52b-5c133a50c2f9
 # ╟─93600d0c-fa7e-4d38-bbab-5adcf54d0c90
+# ╟─b1ec11d0-48dc-4c48-a2c0-a891d4343b4d
+# ╟─f6408f52-bd75-4147-87a3-4b701629b150
+# ╟─c5e9d9ab-aa19-489c-a513-bef5f751e7d3
+# ╟─39d89313-17d8-445f-a0d0-5a241c0e6c13
 # ╟─dead4d31-8ed4-4599-a3f7-ff8b7f02548c
+# ╟─1efe5011-ffbb-4703-bb4a-eb7e310ab7e4
 # ╟─d70102f1-06c0-4c5b-8dfd-e41c4a455181
 # ╟─57b77a3c-7424-4215-850e-b0c77036b993
 # ╟─d550ec33-4e32-4711-8edc-1ac99ec08a13
+# ╟─d714f71b-099b-4a77-b03f-a82342df44f3
 # ╟─52678bce-36c8-45e8-8677-6662cbd839ed
-# ╟─28111bf3-ad3d-4b09-a369-350bb54fef9c
 # ╟─e774a50b-d9c7-4bb1-b79a-012c280d20f8
 # ╟─14262cc5-3704-4aef-b447-9c1965eded3a
 # ╟─a1e1d6d1-849c-4fdb-9d12-49c1011443eb
@@ -3692,7 +3823,7 @@ version = "1.4.1+0"
 # ╟─c3099ffe-78e6-468e-93fe-291a40547596
 # ╟─478d2ba3-6950-49b0-bb21-aa1dba59c4cb
 # ╟─81973d1b-d022-4068-8afb-034abc9eedb4
-# ╠═42037da5-792c-407e-935f-534bf35a739b
+# ╟─42037da5-792c-407e-935f-534bf35a739b
 # ╟─350f2a70-405c-45dc-bfcd-913bc9a7de75
 # ╟─72f82376-2bf3-4314-bf7a-74f670ccc113
 # ╟─af7c985f-56f5-4e59-8a48-09f74ddb7635
@@ -3701,6 +3832,7 @@ version = "1.4.1+0"
 # ╟─09e61d12-f1f4-4050-acf4-ffe2a940f69e
 # ╠═8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
 # ╠═36e0cf8d-a0e3-4d17-bb4b-998c9ffabbad
+# ╟─5baffc43-62fe-4a20-a5d7-0c938d6ec7ee
 # ╟─77fed95d-7281-49cc-9f6d-388eb129a955
 # ╟─f65644e7-cb25-46ad-b146-87cf7de69f72
 # ╟─f8f34671-ef4c-4300-a983-10d42d43fb9f
