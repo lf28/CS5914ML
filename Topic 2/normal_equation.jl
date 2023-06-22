@@ -73,7 +73,7 @@ In this lecture, we are going to derive the normal equation from a **geometric**
 md"""
 
 
-## Recap: Matrix vector product ``\mathbf{Xw}``
+## Recap: matrix vector product ``\mathbf{Xw}``
 
 
 Note that ``\mathbf{X}`` is  a collection of ``\large m`` **column vectors**
@@ -104,9 +104,8 @@ Note that ``\mathbf{X}`` is  a collection of ``\large m`` **column vectors**
 
 !!! important "Matrix vector: linear combo view"	
 	```math
-	\large
 	\begin{align}
-	\mathbf{X}\mathbf{v} &=  \begin{bmatrix}
+	\mathbf{X}\mathbf{w} &=  \begin{bmatrix}
 	\vert & \vert &  & \vert\\
 	\mathbf{x}_1 & \mathbf{x}_2 & \ldots & \mathbf{x}_{m} \\
 	\vert & \vert & & \vert 
@@ -147,7 +146,7 @@ md"""
 Foldable("The column space", md"
 > The column space ?
 > 
->  ``\{v_1 \textcolor{red}{\mathbf{a}_1} + v_2 \textcolor{green}{\mathbf{a}_2}\}:`` the whole shaded **plane**
+>  ``\{w_1 \textcolor{red}{\mathbf{x}_1} + w_2 \textcolor{green}{\mathbf{x}_2}\}:`` the whole shaded **plane**
 
 ")
 
@@ -171,15 +170,6 @@ md"""
 ``w_2`` = $(@bind v₂_ Slider(-2:0.1:3, default=-.9, show_value=true))
 
 """
-
-# ╔═╡ be9922ff-4493-4e17-8229-dfbfadf23842
-aside(tip(md"If ``\mathbf{X}`` is **invertible**, the solution is simple
-
-```math
-\large
-\mathbf{w} = \mathbf{X}^{-1}\mathbf{y}
-```
-"))
 
 # ╔═╡ 69f63143-4486-4389-a6cc-ddb6408a3414
 md"""
@@ -206,6 +196,15 @@ md"""
 
 """
 
+# ╔═╡ be9922ff-4493-4e17-8229-dfbfadf23842
+aside(tip(md"If ``\mathbf{X}`` is **invertible**, the solution is simple
+
+```math
+\large
+\mathbf{w} = \mathbf{X}^{-1}\mathbf{y}
+```
+"))
+
 # ╔═╡ f7040d76-d664-4ae7-92db-29ca953e7c94
 md"""
 
@@ -214,18 +213,37 @@ md"""
 
 **Linear regression** is actually another example
 
-* but **without** exact solution as ``n > m``: ``\mathbf{X}`` not invertible
-
 
 ```math
 \Large
-\underbrace{\begin{bmatrix} y^{(1)} \\ y^{(1)} \\ \vdots \\ y^{(n)}\end{bmatrix}}_{\mathbf{y}} \approx  \begin{bmatrix}  \rule[.5ex]{2.5ex}{0.5pt} & (\mathbf{x}^{(1)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\\  \rule[.5ex]{2.5ex}{0.5pt} & (\mathbf{x}^{(2)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\\ & \vdots & \\  \rule[.5ex]{2.5ex}{0.5pt} &(\mathbf{x}^{(n)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\end{bmatrix} \begin{bmatrix} \vert \\ \mathbf{w} \\\vert\end{bmatrix} =\begin{bmatrix}  (\mathbf{x}^{(1)})^\top \mathbf{w}\\  (\mathbf{x}^{(2)})^\top \mathbf{w}\\  \vdots  \\ (\mathbf{x}^{(n)})^\top \mathbf{w}\end{bmatrix}
+{\begin{bmatrix} y^{(1)} \\ y^{(2)} \\ \vdots \\ y^{(n)}\end{bmatrix}} \approx  \begin{bmatrix}  \rule[.5ex]{2.5ex}{0.5pt} & (\mathbf{x}^{(1)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\\  \rule[.5ex]{2.5ex}{0.5pt} & (\mathbf{x}^{(2)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\\ & \vdots & \\  \rule[.5ex]{2.5ex}{0.5pt} &(\mathbf{x}^{(n)})^\top &  \rule[.5ex]{2.5ex}{0.5pt}\end{bmatrix}_{n>m} \begin{bmatrix} \vert \\ \mathbf{w} \\\vert\end{bmatrix} =\begin{bmatrix}  (\mathbf{x}^{(1)})^\top \mathbf{w}\\  (\mathbf{x}^{(2)})^\top \mathbf{w}\\  \vdots  \\ (\mathbf{x}^{(n)})^\top \mathbf{w}\end{bmatrix}
 ```
-
+* ``\mathbf{X}_{n\times m}``: ``n > m``, not invertible and **no** exact solution 
 * ``\Large \approx``: we want the prediction as close as possible
 * ideally, we want ``\Large =`` rather than ``\Large \approx``
 
 """
+
+# ╔═╡ 4a91da1c-fa3f-4926-a068-5b70a1c8e534
+Foldable("Example", md"""
+
+
+```math
+\Large
+\underbrace{\begin{bmatrix}1 & 3 \\ 3 & 0\\ 0 &0\end{bmatrix}}_{\mathbf{X}}\underbrace{\begin{bmatrix}v_1 \\ v_2 \end{bmatrix}}_{\mathbf{w}} = \underbrace{\begin{bmatrix}3 \\ 1 \\ 1\end{bmatrix}}_{\mathbf{y}}
+```
+
+
+```math
+\Large
+w_1 \begin{bmatrix}1  \\ 3 \\ 0 \end{bmatrix}_{\mathbf{x}_1} +w_2 \begin{bmatrix}3  \\ 0 \\ 0 \end{bmatrix}_{\mathbf{x}_2} = \begin{bmatrix}3 \\ 1 \\ 1\end{bmatrix}_{\mathbf{y}}
+```
+
+
+
+* ``\mathbf{y}`` does not live in the column space of ``\mathbf{X}``
+* can not be solved directly
+""")
 
 # ╔═╡ c488fa1d-8741-4136-bb35-9216314b89b9
 md"""
@@ -267,27 +285,6 @@ md"""
 
 
 """
-
-# ╔═╡ 4a91da1c-fa3f-4926-a068-5b70a1c8e534
-Foldable("Example", md"""
-
-In our example,
-
-```math
-\Large
-\underbrace{\begin{bmatrix}1 & 3 \\ 3 & 0\\ 0 &0\end{bmatrix}}_{\mathbf{A}}\underbrace{\begin{bmatrix}v_1 \\ v_2 \end{bmatrix}}_{\mathbf{v}} = \underbrace{\begin{bmatrix}3 \\ 1 \\ 1\end{bmatrix}}_{\mathbf{b}}
-```
-
-
-```math
-\Large
-v_1 \begin{bmatrix}1  \\ 3 \\ 0 \end{bmatrix}_{\mathbf{a}_1} +v_2 \begin{bmatrix}3  \\ 0 \\ 0 \end{bmatrix}_{\mathbf{a}_2} = \begin{bmatrix}3 \\ 1 \\ 1\end{bmatrix}_{\mathbf{b}}
-```
-
-
-
-* does ``\mathbf{b}`` live in the column space of ``\mathbf{A}``
-""")
 
 # ╔═╡ 64b14177-03ec-4b28-933c-d2a224ae1daa
 md"""
@@ -348,7 +345,7 @@ bp = [v₁,v₂,0];
 # ╔═╡ 8407339b-d366-4062-8c72-600b0b398cdf
 md"""
 
-## General projection
+## Recap: simple projection
 
 
 """
@@ -434,7 +431,7 @@ Or equivalently, by inner product
 >	\vert & \vert &  & \vert\\
 >	\mathbf{x}_1 & \mathbf{x}_2 & \ldots & \mathbf{x}_{m} \\
 >	\vert & \vert & & \vert 
->	\end{bmatrix} \Rightarrow (\mathbf{y} - \mathbf{Xw})^\top \mathbf{X} = \mathbf{0} 
+>	\end{bmatrix} =(\mathbf{y} - \mathbf{Xw})^\top \mathbf{X} = \mathbf{0} 
 > ```
 
 """
@@ -486,8 +483,25 @@ The projection of ``\mathbf{y}`` to ``\mathbf{X}`` is
 
 ```math
 \Large
-\boxed{
-\mathbf{y}_{\rm proj} = \mathbf{X}\hat{\mathbf{w}} = \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y}}
+
+\mathbf{y}_{\rm proj} = \mathbf{X}\colorbox{orange}{$\hat{\mathbf{w}}$} = \mathbf{X}\colorbox{orange}{$(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y}$}
+```
+
+"""
+
+# ╔═╡ 062668b9-3d8e-44ea-949a-155b2c1a6fc6
+md"""
+
+## General projection matrix
+
+
+The projection of ``\mathbf{y}`` to ``\mathbf{X}`` is 
+
+
+```math
+\Large
+
+\mathbf{y}_{\rm proj} = \mathbf{X}\colorbox{orange}{$\hat{\mathbf{w}}$} = \mathbf{X}\colorbox{orange}{$(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y}$}
 ```
 
 """
@@ -601,14 +615,18 @@ plt_proj_to_a = let
 end;
 
 # ╔═╡ 5b57849e-0491-4e94-9c77-d2481e643f2f
-TwoColumn(md"""Recall that we have studied the simple "_**single projection**_"
+TwoColumn(md"""
 \
+
+"_**single projection**_"
 \
-\
+
 
 > Project ``\mathbf{y}`` to a **single vector** ``\mathbf{x}``
 
-Now, the problem is to project to a space of **multiple** vectors
+\
+
+Now, the problem is more general: project to a space formed by **multiple** vectors
 
 
 ```math
@@ -682,10 +700,11 @@ For example, then ``\mathbf{Xw}`` is
 ```
 
 * ``\textcolor{red}{\mathbf{x}_1}, \textcolor{green}{\mathbf{x}_2}``: the ``\textcolor{red}{\rm red}`` and ``\textcolor{green}{\rm green}`` vectors
-> The column space of ``\mathbf{X}``
-> 
->  ``\{w_1 \textcolor{red}{\mathbf{x}_1} + w_2 \textcolor{green}{\mathbf{x}_2}\}:`` is ?
 
+ 
+>  ``\{w_1 \textcolor{red}{\mathbf{x}_1} + w_2 \textcolor{green}{\mathbf{x}_2}\}:`` is ?
+>
+> This is known as **column space**
 """, plt_av)
 
 # ╔═╡ 5f77775d-23cc-48e8-ad72-0d2d80f3fb40
@@ -788,7 +807,7 @@ In maths,
 
 ```math
 \large
-(\textcolor{blue}{\mathbf{y}} - \textcolor{purple}{\mathbf{Xw}}) \perp \{\textcolor{red}{\mathbf{x}_1}, \textcolor{green}{\mathbf{x}_2}, \ldots\}
+-\underbrace{(\textcolor{blue}{\mathbf{y}} - \textcolor{purple}{\mathbf{Xw}})}_{\color{brown}\text{error vec}} \perp \{\textcolor{red}{\mathbf{x}_1}, \textcolor{green}{\mathbf{x}_2}, \ldots\}
 ```
 
 
@@ -1953,12 +1972,12 @@ version = "1.4.1+0"
 # ╟─87f1d70f-51bb-4a72-9b2f-44142f26d040
 # ╟─ff4da64b-a12e-4e9a-93e0-77de49ab882e
 # ╟─7043fade-e50d-409c-b042-fdce489c5b2f
-# ╟─be9922ff-4493-4e17-8229-dfbfadf23842
 # ╟─69f63143-4486-4389-a6cc-ddb6408a3414
+# ╟─be9922ff-4493-4e17-8229-dfbfadf23842
 # ╟─f7040d76-d664-4ae7-92db-29ca953e7c94
+# ╟─4a91da1c-fa3f-4926-a068-5b70a1c8e534
 # ╟─c488fa1d-8741-4136-bb35-9216314b89b9
 # ╟─cb09c906-27c0-4e77-8941-b0043bf4edfe
-# ╟─4a91da1c-fa3f-4926-a068-5b70a1c8e534
 # ╟─5f77775d-23cc-48e8-ad72-0d2d80f3fb40
 # ╟─9c10528e-3738-4a19-a9c3-e8ec587c418d
 # ╟─64b14177-03ec-4b28-933c-d2a224ae1daa
@@ -1982,6 +2001,7 @@ version = "1.4.1+0"
 # ╟─60e79a25-ec65-452b-811d-9fbf4cfdbde7
 # ╟─e1dbd92e-f10c-4bd1-85ff-79276074fd7f
 # ╟─76ef200a-e658-4731-add3-93d9b0922384
+# ╟─062668b9-3d8e-44ea-949a-155b2c1a6fc6
 # ╟─2e51de20-c4f4-40be-9eca-28d2aa1ad04f
 # ╟─11632119-7792-41b3-92f2-161aa6b35447
 # ╟─84ccbf53-31d4-43c7-9da4-ac1e65fd2bf8

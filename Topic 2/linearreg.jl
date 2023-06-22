@@ -79,12 +79,12 @@ md"""
 ## Notations
 
 
-Super-index with brackets ``.^{(i)}``: ``i \in \{1,2,\ldots, n\}`` index for observations/data
+Superscript-index with brackets ``.^{(i)}``: ``i \in \{1,2,\ldots, n\}`` index for observations/data
 * ``n`` total number of observations
 * *e.g.* ``y^{(i)}`` the i-th observation's label
 * ``\mathbf{x}^{(i)}`` the i-th observation's predictor vector
 
-Feature/predictor index ``j \in \{1,2,,\ldots, m\} ``
+Subscript-index: feature/predictor ``j \in \{1,2,,\ldots, m\} ``
 * ``m`` total number of features
 * *e.g.* ``\mathbf{x}^{(i)}_2``: the second entry/predictor/feature of ``i``-th observation vector
 
@@ -129,7 +129,7 @@ end;
 # ╔═╡ 5216334f-16e7-401b-9dd7-e7fb48159edd
 begin
 	next1
-	topics = ["linear regression model - with matrix notation", "least square estimation", "the normal equation - geometric perspective", "fixed basis expansion: from linear to nonlinear"]
+	topics = ["linear regression model - with matrix notation", "least square estimation", "the normal equation - geometric perspective", "gradient descent"]
 	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
 end
 
@@ -160,7 +160,7 @@ md"""
 
 
 !!! note "Regression's objective"
-	**Predict** house price ``y_{test}`` with some test data ``\mathbf{x}_{test}``
+	**Predict** target variable ``y_{test}`` with some test data ``\mathbf{x}_{test}``
     * mathematically, we are _looking for_ a function ``h`` that compute
 
 	```math
@@ -197,6 +197,24 @@ The _House_ dataset has
 # ╔═╡ 8926d547-10b5-4adc-91bc-a1060df498a3
 first(df_house, 5)
 
+# ╔═╡ 1a32843e-452f-40b2-a309-389beaaac158
+Foldable("Input feature details", md"
+
+* CRIM - per capita crime rate by town
+* ZN - proportion of residential land zoned for lots over 25,000 sq.ft.
+* INDUS - proportion of non-retail business acres per town.
+* CHAS - Charles River dummy variable (1 if tract bounds river; 0 otherwise)
+* NOX - nitric oxides concentration (parts per 10 million)
+* RM - average number of rooms per dwelling
+* AGE - proportion of owner-occupied units built prior to 1940
+* DIS - weighted distances to five Boston employment centres
+* RAD - index of accessibility to radial highways
+* TAX - full-value property-tax rate per $10,000
+* PTRATIO - pupil-teacher ratio by town
+* LSTAT - % lower status of the population
+* MEDV - Median value of owner-occupied homes in $1000's
+")
+
 # ╔═╡ 2b4b8045-f931-48da-9c3d-66c8af12f6f2
 md"""
 ## 
@@ -208,7 +226,7 @@ Some selected **predictors**: `room`, `age`, `crime`
 @df df_house cornerplot([:rm :crim :age :target], label = ["room", "crime", "age", "price"], grid = false, compact=true)
 
 # ╔═╡ 65f28dfb-981d-4361-b37c-12af3c7995cd
-linear_reg_normal_eq(X, y) = X \y
+linear_reg_normal_eq(X, y) = X \y;
 
 # ╔═╡ 6bce7fb9-8b00-4351-bcf8-d5d1223df915
 TwoColumn(md"""
@@ -240,7 +258,7 @@ let
 	x_room_sq = x_room.^2
 	X_train_room = [ones(length(x_room)) x_room x_room_sq]
 	c, b, a = linear_reg_normal_eq(X_train_room, df_house.target)
-	plot!(3.5:0.5:9, (x) -> a* x^2 + b* x+ c, lw=3, label=L"h(\mathbf{x})", legend=:outerbottom)
+	plot!(3.5:0.2:9, (x) -> a* x^2 + b* x+ c, lw=3, label=L"h(\mathbf{x})", legend=:outerbottom)
 	scatter!([x_test_0], [0], c= 4, label=L"\mathbf{x}_{\textit{test}}")
 	plot!([x_test_0], [a*x_test_0^2 + b* x_test_0+ c], st=:sticks, line=:dash, c=:gray, lw=2, label="")
 end
@@ -269,7 +287,7 @@ TwoColumn(md"""
 	plot!(3.5:0.5:9, (x) -> b* x+ c, lw=3, label=L"h(x) = w_0 + w_1x")
 end)
 
-# ╔═╡ 24eb939b-9568-4cfd-bfe5-0191eada253a
+# ╔═╡ f4a1f7ab-e646-4cb0-846c-aaf030ffcb06
 md"""
 
 ## Multiple linear regression
@@ -285,6 +303,20 @@ md"""
 	\end{align}
 	```
 
+"""
+
+# ╔═╡ 5d96f623-9b30-49a4-913c-6dee65ae0d23
+md"""
+
+## Hyperplane ``h(\mathbf{x}) = \mathbf{w}^\top \mathbf{x}``
+
+
+"""
+
+# ╔═╡ 24eb939b-9568-4cfd-bfe5-0191eada253a
+md"""
+
+
 
 ## Multiple linear regression
 
@@ -296,27 +328,19 @@ md"""
 	\large
 	\begin{align}
 	h(\mathbf{x}) &= w_0 + w_1 x_{1} + w_2 x_2 + \ldots + w_m x_m \\
-	&=\begin{bmatrix}w_0 & w_1 & w_2 & \ldots & w_m \end{bmatrix}  \begin{bmatrix}\boxed{\textcolor{red}{1}}\\ x_1 \\ x_2 \\ \vdots\\ x_m \end{bmatrix}\\
+	&=\begin{bmatrix}w_0 & w_1 & w_2 & \ldots & w_m \end{bmatrix}  \begin{bmatrix}\colorbox{orange}{$1$}\\ x_1 \\ x_2 \\ \vdots\\ x_m \end{bmatrix}\\
 	&= \boxed{\mathbf{w}^\top\mathbf{x} }
 	\end{align}
 	```
 
 
-* for convenience, we add a ``\textcolor{red}{\rm dummy \, predictor\, 1}`` to ``\mathbf{x}``:
+* for convenience, we add a ``\textcolor{orange}{\rm dummy \, predictor\, 1}`` to ``\mathbf{x}``:
 
 ```math
-	\mathbf{x} =\begin{bmatrix}\boxed{\textcolor{red}{1}}\\ x_1 \\ x_2 \\ \vdots\\ x_m \end{bmatrix}
+	\mathbf{x} =\begin{bmatrix}\colorbox{orange}{$1$}\\ x_1 \\ x_2 \\ \vdots\\ x_m \end{bmatrix}
 ```
 
 * sometimes we write ``h(\mathbf{x}; \mathbf{w}) = \mathbf{w}^\top \mathbf{x}`` or ``h_{\mathbf{w}}(\mathbf{x})``
-
-"""
-
-# ╔═╡ 5d96f623-9b30-49a4-913c-6dee65ae0d23
-md"""
-
-## Hyperplane ``h(\mathbf{x}) = \mathbf{w}^\top \mathbf{x}``
-
 
 """
 
@@ -355,7 +379,7 @@ md"""
 
 In many ways, machine "**learning**" is 
 
-* _looking for_ some *good* ``\hat{h}(\mathbf{x})`` from a set of possible functions ``\{h_1, h_2, \ldots\}``
+* _looking for_ some *good* ``\hat{h}(\mathbf{x})`` from a set of  hypothesis candidates ``\{h_1, h_2, \ldots\}``
 
 * based on some *goodness* measure on the training data
 
@@ -371,7 +395,7 @@ TwoColumn(html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/mlgoo
 	ys = (w0 .+ Xs .* w1) .+ randn(n)/2
 	Xs = [Xs; 0.25]
 	ys = [ys; 3.5]
-	plt = plot(Xs, ys, st=:scatter, markersize=4, label="", xlabel=L"x", ylabel=L"y", size=(400,300))
+	plt = plot(Xs, ys, st=:scatter, markersize=4, label="", xlabel=L"x", ylabel=L"y", size=(400,300), framestyle=:semi)
 	plot!(-1:0.5:1.0, (x) -> w0 + w1 * x , lw=3, label=L"\hat{h}(x)", legend=:outerright)
 
 
@@ -397,7 +421,7 @@ One possible measure of the (_negative_) **goodness** is the sum of the squared 
 
 ```math
 \Large
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (\underbrace{\boxed{y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})}}_{\text{pred.  error of } y^{(i)}})^2
+L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (\underbrace{\colorbox{orange}{$y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w})$}}_{\text{pred.  error of } y^{(i)}})^2
 ```
 
 
@@ -434,12 +458,12 @@ md"""
 Given training data ``\mathcal{D}_{train} = \{\mathbf{x}^{(i)}, y^{(i)}\}``
 
 
-One possible measure of the (_negative_) **goodness** is the sum of the **squared errors**
+One possible measure of the (_negative_) **goodness** is the sum of the **squared errors** (SSE)
 
 
 ```math
 \Large
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n \boxed{(y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2}
+L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n \colorbox{orange}{$(y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2$}
 ```
 
 """
@@ -451,10 +475,7 @@ md" Move me: $(@bind iidx Slider(1:11, default=11, show_value=true))"
 begin
 	# define a function that returns a Plots.Shape
 	rectangle(w, h, x, y) = Shape(x .+ [0,w,w,0], y .+ [0,0,h,h])
-	
-	# plot(0:5,0:5)
-	# plot!(rectangle(3,2,0,0), opacity=.5)
-end
+end;
 
 # ╔═╡ c5e9d9ab-aa19-489c-a513-bef5f751e7d3
 let
@@ -504,7 +525,7 @@ And we aim to minimise the loss to achieve the best **goodness**
 \end{align}
 ```
 
-* optimisation: good old calculus!
+* **optimisation**: _good old calculus!_
 """
 
 # ╔═╡ 1efe5011-ffbb-4703-bb4a-eb7e310ab7e4
@@ -550,7 +571,6 @@ Four different hyperplanes ``h(\mathbf{x})``
   * bottom right -- seems perfect
 
 
-The learning objective is to find the hyperplane with the _least loss_: **Least Square Estimation** (LSE)
 """
 
 # ╔═╡ d550ec33-4e32-4711-8edc-1ac99ec08a13
@@ -592,6 +612,7 @@ TwoColumn(md"""
 
 # ╔═╡ e774a50b-d9c7-4bb1-b79a-012c280d20f8
 md"""
+##
 
 **Next** stack ``n`` training inputs ``\{\mathbf{x}^{(i)}\}`` to form a ``n\times m`` matrix ``\mathbf{X}``
 
@@ -636,6 +657,7 @@ md"""
 
 # ╔═╡ 153bc89d-f37d-4403-a6f1-bc726a5aac2d
 md"""
+##
 
 **Lastly**: ``\mathbf{y} - \mathbf{Xw}`` is
 
@@ -655,7 +677,7 @@ md"""
 
 ##
 
-And the inner product ``(\mathbf{y} - \mathbf{Xw})^\top (\mathbf{y} - \mathbf{Xw})`` is the sum of squared errors
+And the inner product ``(\mathbf{y} - \mathbf{Xw})^\top (\mathbf{y} - \mathbf{Xw})`` is the _sum of squared errors_ (SSE)
 
 ```math
 \large
@@ -671,6 +693,7 @@ And the inner product ``(\mathbf{y} - \mathbf{Xw})^\top (\mathbf{y} - \mathbf{Xw
 
 # ╔═╡ ce881537-04e5-4f0f-8f9b-5e257811df9e
 md"""
+##
 
 **In summary,**
 
@@ -696,14 +719,14 @@ md"""
 
 * use matrix is known as **vectorisation** 
 * way more efficient than loop!
-  * the underlying Linear Algebra packages are highly optimised
+  * the underlying Linear Algebra packages (e.g. `numpy` or `PyTorch`)are highly optimised
 
 
 """
 
 # ╔═╡ 6f2e09f4-f17a-4a2d-90d6-bd72347ed3a6
 md"""
-## Why bother using Matrix ?
+## Why bother using matrix ?
 
 
 Two implementations below
@@ -718,7 +741,7 @@ TwoColumn(md"
 # loss: vectorised
 function loss(w, X, y) 
 	error = y - X * w
-	return 0.5 * dot(error, error) / length(y)
+	return 0.5 * dot(error, error) 
 end
 ```
 ", md"
@@ -730,15 +753,19 @@ function loss_loop(w, X, y)
 	n = length(y) 
 	loss = 0
 	for i in 1:n
-		loss += (y[i] - dot(X[i,:], w))^2
+		li = (y[i] - dot(X[i,:], w))^2
+		loss += li
 	end
-	return .5 * loss / n
+	return .5 * loss 
 end
 ```
 ")
 
 # ╔═╡ 407f56fa-cbb0-4fc8-952d-7e0a8448ef46
-md"Benchmark **vectorised** loss:"
+md"
+
+##
+Benchmark **vectorised** loss:"
 
 # ╔═╡ c3bf685e-7f76-45a4-a9fd-8a61eb1d9eca
 md"Benchmark **loop** loss:"
@@ -789,16 +816,16 @@ let
 	gr()
 	Random.seed!(111)
 	num_features = 1
-	num_data = 500
-	true_w = [0,1]
+	num_data = 100
+	true_w = [1,2] 
 	# simulate the design matrix or input features
-	X_train_ = [ones(num_data) range(-1, 1; length=num_data)]
+	X_train_ = [ones(num_data) range(-.5, 1; length=num_data)]
 	# generate the noisy observations
-	y_train_ = X_train_ * true_w + randn(num_data)/100
-	xlength, ylength = 50, 100
-	plot(true_w[1]-xlength:1:true_w[1]+xlength,  true_w[2]-ylength:1:true_w[2]+ylength, (x,y) -> (loss([x, y], X_train_, y_train_)), st=:surface, nlevels=100, r=1, colorbar=false, xlabel=L"w_0", ylabel=L"w_1", zlabel="loss", title=L"L(\mathbf{w})")
-
-
+	y_train_ = X_train_ * true_w + randn(num_data) * 0.1
+	xlength, ylength = 80,100
+	plt1=plot(true_w[1]-xlength:1:true_w[1]+xlength,  true_w[2]-ylength:1:true_w[2]+ylength, (x,y) -> loss([x, y], X_train_, y_train_), st=:surface, colorbar=false, xlabel=L"w_0", ylabel=L"w_1",c=:jet, zlabel="loss", title=L"L(\mathbf{w})")
+	plt2=plot(true_w[1]-xlength:1:true_w[1]+xlength,  true_w[2]-ylength:1:true_w[2]+ylength, (x,y) -> loss([x, y], X_train_, y_train_), st=:contour, nlevels=20, r=1, colorbar=false, xlabel=L"w_0", ylabel=L"w_1", c=:jet, zlabel="loss", title=L"L(\mathbf{w})")
+	plot(plt1, plt2)
 end
 
 # ╔═╡ 309d2a24-3d6c-40f1-bb3c-8e04ab863fa5
@@ -833,7 +860,7 @@ where
 # ╔═╡ 4b3ed507-f66d-4c81-84e0-ef27c9935b50
 md"""
 
-## Recall some matrix calculus results
+## Recap: some matrix calculus results
 
 
 ```math
@@ -863,7 +890,7 @@ h'(w) = b
 # ╔═╡ a11fa3b0-2364-46c7-9ce7-0c79bc86c967
 md"""
 
-## Recall some matrix calculus results
+## Recap: some matrix calculus results
 
 
 ```math
@@ -871,25 +898,15 @@ md"""
 f(\mathbf{w}) = \mathbf{w}^\top \mathbf{Aw} + \mathbf{b}^\top \mathbf{w} + c
 ```
 
-* its gradients *w.r.t* ``\mathbf{w}`` is
-
-
-```math
-\boxed{
-\large
-\nabla_\mathbf{w} f(\mathbf{w}) = (\mathbf{A} +\mathbf{A}^\top)\mathbf{w} + \mathbf{b}}
-```
-
-
-* for symmetric ``\mathbf{A}``, the result is
+* its gradients *w.r.t* ``\mathbf{w}`` (symmetric ``\mathbf{A}``)
 
 ```math
 \boxed{
 \large
-\nabla_\mathbf{x} f(\mathbf{x}) = 2 \mathbf{A}\mathbf{w} + \mathbf{b}}
+\nabla_\mathbf{w} f(\mathbf{w}) = 2 \mathbf{A}\mathbf{w} + \mathbf{b}}
 ```
 
-* which is just generalisation of ``f(w) =aw^2+ bw +c``'s derivative:
+* which is just generalisation of ``f(w) =\underbrace{aw^2}_{w\cdot a\cdot w}+ bw +c``'s derivative:
 
 ```math
 f'(w) = 2aw +b
@@ -1202,7 +1219,7 @@ f(\mathbf{w}) = \mathbf{w}^\top \mathbf{Aw} + \mathbf{b}^\top \mathbf{w} + c
 ```math
 \boxed{
 \large
-\nabla_\mathbf{x} f(\mathbf{x}) = 2 \mathbf{A}\mathbf{w} + \mathbf{b}}
+\nabla_\mathbf{w} f(\mathbf{w}) = 2 \mathbf{A}\mathbf{w} + \mathbf{b}}
 ```
 
 
@@ -1250,7 +1267,7 @@ md"""
 # 	FiniteDifferences.grad(central_fdm(5,1), (w) -> loss(w, X_train, y_train), w_)[1] ≈ ∇L(w_, X_train, y_train)
 # end
 
-# ╔═╡ a86f734c-e0b0-4d41-905f-0e2b4566b62f
+# ╔═╡ 5103bea2-065b-43fd-87fd-0c24263661c7
 md"""
 
 
@@ -1262,6 +1279,35 @@ md"""
 ```math
 \large
 \mathbf{w}_{\text{LSE}} \leftarrow \arg\min_{\mathbf{w}} L(\mathbf{w})
+```
+
+
+* set the gradient to **zero** and solve it!
+
+
+```math
+\Large
+\begin{align}
+\nabla L(&\mathbf{w}) 
+= \mathbf{X}^\top(\mathbf{Xw}- \mathbf{y} ) = \mathbf{0} 
+\end{align}
+
+```
+
+"""
+
+# ╔═╡ a86f734c-e0b0-4d41-905f-0e2b4566b62f
+md"""
+
+
+## Least square estimation -- normal equation
+
+
+**Lastly,** the objective is to **minimise** the loss
+
+```math
+\large
+\hat{\mathbf{w}} \leftarrow \arg\min_{\mathbf{w}} L(\mathbf{w})
 ```
 
 
@@ -1287,18 +1333,29 @@ md"""
 md"""
 ## Implementation 
 
+
+```math
+\Large
+\begin{align}
+ \boxed{\hat{\mathbf{w}} = (\mathbf{X}^\top\mathbf{X})^{-1} \mathbf{X}^\top \mathbf{y}}
+\end{align}
+
+```
+
 In practice, we **DO NOT** directly invert ``\mathbf{X}^\top\mathbf{X}`` 
 
-* it is computational expensive for large models (a lot of features) ( inverting a ``m\times m`` matrix is expensive: ``O(m^3)``
+* it is computational expensive for large models (a lot of features)
+  * inverting a ``m\times m`` matrix is expensive: ``O(m^3)``
 * also not numerical stable
 
+##
 
-For **Python**+**Numpy**: we use `np.linalg.lstsq()`
+**Python**+**Numpy**: we use `np.linalg.lstsq()`
 * the least square method
 
 ```python
 # add dummy ones
-X_bias = np.concatenate([X, np.ones((X.shape[0],1))], axis=1)
+X_bias = np.concatenate([np.ones((X.shape[0],1)), X], axis=1)
 # NumPy shapes: w_fit is (M+1,) if X is (N,M+1) and yy is (N,)
 w_fit = np.linalg.lstsq(X_bias, yy, rcond=None)[0]
 ```
@@ -1308,468 +1365,25 @@ w_fit = np.linalg.lstsq(X_bias, yy, rcond=None)[0]
 # ╔═╡ 09e61d12-f1f4-4050-acf4-ffe2a940f69e
 md"""
 
-## Implementation in Julia/Matlab
+## Implementation in `Julia`/`Matlab`
 
-If you use more numerical programming language, the syntax is surprisingly simple
+If you use more numerical programming language, the syntax is very simple
+* `\`: `mldivide` (matrix left divide)
 
 ```julia
 # for both Julia and Matlab
-w_fit = X \ yy;
+X_bias = [ones(size(X, 1)) X]
+w_fit = X_bias \ yy;
 ```
 """
 
 # ╔═╡ 8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
 function least_square_est(X, y) # implement the method here!
 	X \ y
-end
+end;
 
 # ╔═╡ 5baffc43-62fe-4a20-a5d7-0c938d6ec7ee
 md"Estiamte: $(@bind estimate CheckBox(default=false))"
-
-# ╔═╡ f65644e7-cb25-46ad-b146-87cf7de69f72
-md"""
-
-## Polynomial regression
-
-The following function seems fitting the data better
-
-Indeed, it is a quadratic function:
-
-```math
-h(x) = w_0 + w_1 x + w_2 x^2
-```
-
-
-"""
-
-# ╔═╡ f8f34671-ef4c-4300-a983-10d42d43fb9f
-quadratic_fit=let
-	gr()
-	@df df_house scatter(:rm, :target, xlabel="room", ylabel="price", label="", title="House price prediction: non-linear regression")
-	x_room = df_house[:, :rm]
-	x_room_sq = x_room.^2
-	X_train_room = [ones(length(x_room)) x_room x_room_sq]
-	c, b, a = linear_reg_normal_eq(X_train_room, df_house.target)
-
-	plot!(3.5:0.5:9, (x) -> a* x^2 + b* x+ c, lw=3, label=L"h(\mathbf{x})", legend=:outerbottom)
-end
-
-# ╔═╡ 22cbb1aa-c53f-45d6-891a-90c6f2b9e886
-md"""
-
-## Free lunch -- fixed basis expansion
-
-
-The simplest method to do polynomial regression is 
-
-* expand input ``x^{(i)}``
-
-
-For each ``x^{(i)}``, input room, we add another feature ``(x^{(i)})^2``
-
-The expanded input matrix becomes
-
-```math
-
-\mathbf{X} = \begin{bmatrix}1 & x^{(1)} & (x^{(1)})^2 \\
-1 & x^{(2)} & (x^{(2)})^2 \\
-\vdots & \vdots & \vdots \\
-1 & x^{(n)} & (x^{(n)})^2
-\end{bmatrix}
-
-```
-
-
-
-Just regress with the expanded design matrix (now a ``n \times 3`` matrix)
-
-```math
-\hat{\mathbf{w}} \leftarrow \arg\min_{\mathbf{w}} \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h({x}^{(i)}; \mathbf{w}))^2,
-```
-
-where 
-
-$$h(x) = w_0 + w_1 x + w_2 x^2$$
-"""
-
-# ╔═╡ bd2a3243-049d-4b4e-9a7c-9600f7716687
-md"Example: "
-
-# ╔═╡ ce35ddcb-5018-4cb9-b0c9-01fb4b14be40
-begin
-	x_room = df_house[:, :rm]
-	x_room_sq = x_room.^2 # squared x_room^2
-	X_room_expanded = [ones(length(x_room)) x_room x_room_sq]
-end
-
-# ╔═╡ 59a3e04f-c842-4b6d-b067-0525c9dda70b
-md"Then fit with normal equation:"
-
-# ╔═╡ 660b612b-fbc6-434a-b8ae-69f1213dfad4
-(X_room_expanded' * X_room_expanded)^(-1) * X_room_expanded' * df_house.target
-
-# ╔═╡ f3e404b7-3419-43e7-affa-217324a65534
-quadratic_fit
-
-# ╔═╡ 2cdd8751-7ec8-47b0-a174-fdc23e176921
-md"""
-
-## Higher orders?
-
-
-```math
-h(x) = w_0 + w_1 x + w_2 x^2 +\ldots + w_p w^p
-```
- * still free lunch: regress with a ``n\times (p+1)`` matrix
-
-"""
-
-# ╔═╡ 720774c4-9aec-4329-bc90-51350fea0191
-md"""
-
-```math
-\mathbf{X} = \begin{bmatrix}1 & x^{(1)} & (x^{(1)})^2  & \ldots & (x^{(1)})^p \\
-1 & x^{(2)} & (x^{(2)})^2 & \ldots &(x^{(2)})^p\\
-\vdots & \vdots & \vdots & \ddots & \vdots \\
-1 & x^{(n)} & (x^{(n)})^2 & \ldots & (x^{(n)})^p
-\end{bmatrix}
-```
-"""
-
-# ╔═╡ edc245bc-6571-4e65-a50c-0bd4b8d63b74
-function poly_expand(x; order = 2) # expand the design matrix to the pth order
-	n = length(x)
-	return hcat([x.^p for p in 0:order]...)
-end
-
-# ╔═╡ 4154585d-4eff-4ee9-8f33-dad0dfdd143c
-function poly_reg(x, y; order = 2) # fit a polynomial regression to the input x; x is assumed a vector
-	X = poly_expand(x; order=order)
-	w = linear_reg_normal_eq(X, y)
-	l = loss(w, X, y)
-	return w, l
-end
-
-# ╔═╡ d5cc7ea6-d1a0-46e1-9fda-b7f7092eb73c
-poly_reg(x_room, df_house.target; order=3)
-
-# ╔═╡ f90957ea-4123-461f-9a3e-ae23a2848264
-md"The polynomial order:"
-
-# ╔═╡ 8b596e98-4d0c-471e-bb25-20f492a9199b
-@bind poly_order Slider(0:10, default =2, show_value=true)
-
-# ╔═╡ 72440a56-7a47-4a32-9244-cb0424a6fd79
-md"Recall the loss here is the training loss: sum of squared error on the training data
-" 
-
-# ╔═╡ 46180264-bddc-47d8-90a7-a16d0ea87cfe
-poly_fun(x, w) = sum([x^p for p in 0:length(w)-1] .* w)
-
-# ╔═╡ 9aff2235-7da4-41a9-9926-4fe291d9a638
-let
-	gr()
-	w, l = poly_reg(x_room, df_house.target; order=poly_order)
-	@df df_house scatter(:rm, :target, xlabel="room", ylabel="price", label="", title="Poly-regression order: "* L"%$(poly_order)" *"; training loss = "*L"%$(round(l/length(df_house.target); digits=2))")
-	plot!(3:0.1:9, (x) -> poly_fun(x, w), lw=2, label=L"h(\mathbf{x})", legend=:outerbottom, ylim=[-5, 65])
-end
-
-# ╔═╡ 882da1c1-1358-4a40-8f69-b4d7cbc9387e
-md"""
-
-## Another dataset
-
-
-The true function is a quadratic:
-
-```math
-h(x) = -2 x + 2 x^2
-```
-"""
-
-# ╔═╡ 0dff10ec-dd13-4cc2-b092-9e72454763cc
-begin
-	gr()
-	Random.seed!(123)
-	x_poly = [range(-1.3, -0.5, length=8)... range(.5, 1.3, length=8)...][:]
-	x_poly_test = -2 : 0.1: 2
-	w_poly = [0,-2,2]
-	y_poly = [poly_fun(x, w_poly) for x in x_poly] + randn(length(x_poly))
-	y_poly_test = [poly_fun(x, w_poly) for x in x_poly_test] + randn(length(x_poly_test))
-	plot(x_poly, y_poly, st=:scatter, label="training data")
-
-	plot!(x_poly_test, y_poly_test, st=:scatter, lc=2, alpha= .5, label="testing data")
-	plot!(-2:0.1:2, (x) -> poly_fun(x, w_poly), label="true "*L"h(x)", lw=2, lc=2, size=(600, 400))
-end
-
-# ╔═╡ 726a1008-26e6-417d-a73a-57e32cb224b6
-md"""
-
-## Overfitting
-
-Fit polynomial regression with orders: ``p = 1, 2, 4, 7, 10, 15``
-"""
-
-# ╔═╡ 8cc45465-78e7-4777-b0c7-bb842e4e51a8
-let
-	gr()
-	poly_order = [1, 2, 4, 7, 10, 15]
-
-	plots_ =[]
-	for p in poly_order
-		plt = plot(x_poly, y_poly, st=:scatter, label="")
-		w, loss = poly_reg(x_poly, y_poly; order=p)
-		plot!(-1.5:0.02:1.5, (x) -> poly_fun(x, w), lw=2, lc=:red,  label="Order: "*L"p=%$(p)", legend=:outerbottom, ylim=[-1, 7], title="training loss: "*L"%$(round(loss; digits=2))")
-		push!(plots_, plt)
-	end
-	plot(plots_..., size=(900, 600))
-end
-
-# ╔═╡ fc2206f4-fd0f-44f8-ae94-9dae77022fab
-md"""
-
-
-!!! note "Overfitting"
-	Higher-order models lead to overly complicated models
-    * checking training errors only does not help
-    * training error favours complicated models
-"""
-
-# ╔═╡ c91fc381-613c-4c9b-98b6-f4dd897a69a5
-md"""
-## Testing performance
-
-
-Now check the performance on the reserved test data
-
-For ``({x}^i, y^i) \in \mathcal{D}_{test}``:
-```math
-L_{test}(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \hat{\mathbf{w}}))^2
-```
-where ``\hat{\mathbf{w}}`` is estimated by the least squared method
-"""
-
-# ╔═╡ 21b6b547-66ed-4231-830b-1a09adaf400c
-let
-	gr()
-	poly_order = [1, 2, 4, 7, 10, 15]
-
-
-	plots_ =[]
-	for p in poly_order
-		plt = plot(x_poly, y_poly, st=:scatter, ms=3, mc=1,alpha=0.5, label="train data")
-		plot!(x_poly_test, y_poly_test, st=:scatter, ms=3, mc=2,alpha=0.5,  label="test data")
-		w, loss = poly_reg(x_poly, y_poly; order=p)
-		loss_test = norm([poly_fun(x, w) for x in x_poly_test] - y_poly_test)/length(y_poly_test)
-		plot!(-1.5:0.01:1.5, (x) -> poly_fun(x, w), lw=2, lc=:red,  label="Order: "*L"p=%$(p)", legend=:outerbottom, ylim=[-1, 7], title="test loss: "*L"%$(round(loss_test; digits=2))")
-		push!(plots_, plt)
-	end
-	plot(plots_..., size=(900, 600))
-end
-
-# ╔═╡ ce8cd98f-da70-476c-817c-026365b982c0
-md"""
-
-## Regularisation
-
-
-
-One technique to avoid overfitting is **regularisation**
-
-* add a penalty term to the normal loss function
-
-
-```math
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2 + \frac{\lambda}{2} \sum_{j=1}^{m} w_j^2
-```
-* ``\lambda \geq 0`` is a hyperparameter
-
-
-How it works ?
-* large ``w_j`` is penalised
-* large ``\|\mathbf{w}\| = \sqrt{ \mathbf{w}^\top \mathbf{w}}`` implies very wiggly prediction function
-
-Note that ``\mathbf{w}^\top \mathbf{w} = \sum_j w_j^2``
-
-The regularised loss for linear regression can be written in matrix notation
-
-```math
-L(\mathbf{w}) = \frac{1}{2}  (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw}) + \frac{\lambda}{2} \mathbf{w}^\top \mathbf{w}
-```
-
-This is called **ridge regression**.
-"""
-
-# ╔═╡ 8436c5ce-d7be-4c02-9e89-7da701303263
-aside(tip(md"""
-
-Recall 
-
-```math
-\nabla_{\mathbf{w}} \mathbf{w}^\top\mathbf{w} = 2 \mathbf{w}
-```
-
-"""))
-
-# ╔═╡ 6a9e0bd9-8a2a-40f0-aaac-bf32d39ffac8
-md"""
-## Ridge regression
-
-The problem now is to optimise the regularised loss
-
-```math
-
-\mathbf{w}_{ridge} \leftarrow \arg\min_{\mathbf{w}} \frac{1}{2}  (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw}) + \frac{\lambda}{2} \mathbf{w}^\top \mathbf{w}
-```
-
-Its gradient is 
-
-
-```math
-\nabla L(\mathbf{w}) = \mathbf{X}^\top(\mathbf{Xw}- \mathbf{y} ) + \lambda\mathbf{w}
-```
-"""
-
-# ╔═╡ df62e796-d711-4ea1-a0c2-e3ec6c501a78
-md"""
-
-Set the gradient to zero, and solve it
-
-
-!!! hint "Hint"
-	```math
-		\lambda \mathbf{w} = \lambda \mathbf{Iw},
-	```
-	where ``\mathbf{I}`` is the identity matrix.
-
-!!! note "Ridge regression solution"
-	```math
-		\mathbf{w}_{ridge} = (\mathbf{X}^\top\mathbf{X} +\lambda \mathbf{I})^{-1} \mathbf{X}^\top\mathbf{y}
-	```
-
-"""
-
-# ╔═╡ 8493d307-9158-4821-bf3b-c368d9cd5fc5
-ridge_reg(X, y; λ = 1) = (X' * X + λ *I)^(-1) * X' * y
-
-# ╔═╡ 88d98d87-f3cf-42f4-9282-1e6f383934cd
-md"""
-
-## Effect of hyperparameter
-
-
-Polynomial ridge regressions (polynomial order is ``10``) with different hyperparameters
-
-```math
-\lambda = [ 0, 1, 5, 10, 20, e^{20}]
-```
-
-
-```math
-e^{20} \approx 4.8 \times 10^8
-```
-
-"""
-
-# ╔═╡ 0e60180d-c4eb-4c83-9301-e3151ab828d5
-let
-	gr()
-	poly_order = 10
-	λs = [0, 1, 5, 10, 20, exp(20)]
-	plots_ =[]
-	for λ in λs
-		plt = plot(x_poly, y_poly, st=:scatter, ms=3, mc=1,alpha=0.5, label="train data")
-		plot!(x_poly_test, y_poly_test, st=:scatter, ms=3, mc=2,alpha=0.5,  label="test data")
-		x_p = poly_expand(x_poly; order = poly_order)
-		w = ridge_reg(x_p, y_poly; λ = λ)
-		loss_test = norm([poly_fun(x, w) for x in x_poly_test] - y_poly_test)/length(y_poly_test)
-		plot!(-2:0.05:2, (x) -> poly_fun(x, w), lw=2, lc=:red,  label="", legend=:outerbottom, ylim=[-1, 7], title="test loss: "*L"%$(round(loss_test; digits=2));\;" * L"\lambda=%$(round(λ;digits=1))")
-		push!(plots_, plt)
-	end
-	plot(plots_..., size=(900, 600))
-end
-
-# ╔═╡ 58d6a11e-a375-4f0b-84d7-b95e7cfd3033
-md"""
-
-## Question 
-
-
-
-!!! question "Question"
-	What is the optimisation result?
-	```math
-	\mathbf{w} \leftarrow \arg\min_{\mathbf{w}} \frac{1}{2}  (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw}) + \frac{e^{20}}{2} (\mathbf{w} - \mathbf{1})^\top (\mathbf{w} - \mathbf{1})
-	```
-
-"""
-
-# ╔═╡ 88ef37e0-d6e9-4cb6-b765-31b5270a5f89
-md"""
-
-## How to set hyperparameter ``\lambda``
-
-
-
-!!! question "Question"
-	Can we optimise ``\lambda`` (note that ``\lambda \geq 0``) by minimising the loss with training data? *i.e.*
-
-	```math
-	\lambda \leftarrow \arg\min_{\lambda} \frac{1}{2}  (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw}) + \frac{\lambda}{2} \mathbf{w}^\top \mathbf{w}
-	```
-
-"""
-
-# ╔═╡ 979d7298-b58e-40ed-84d2-580118f1c41d
-md"""
-
-## How to set hyperparameter ``\lambda`` -- cross-validation
-
-
-Cross-validation (CV) is an empirical method 
-* to compare models in general
-* as well as setting hyperparameters (also a form of model comparison)
-
-
-``K``--fold cross-validation: (``K=5``)
-* split the data to ``K`` folds
-
-"""
-
-# ╔═╡ b38627c8-01be-4b2b-a4ff-590de8e9d337
-html"<center><img src='https://scikit-learn.org/stable/_images/grid_search_cross_validation.png' width = '500' /></center>"
-
-# ╔═╡ af4be079-8461-4c62-9e23-222c0dd1a738
-md"""
-
-* a model is trained using  ``K-1`` of the folds as training data;
-* the resulting model is validated on the remaining part of the data as test data
-
-
-Therefore, each model is fitted ``K`` times, and the aggregated performance is used to compare the models
-* very computationally intensive!
-* discretisation method for continuous ``\lambda``: not ideal
-
-## Why CV?
-
-Why fit ``K`` times rather than just one?
-* repeated measurements give us more reliable performance estimation
-  * we not only have a mean estimator but also error bars
-* cross-validation is like a repeated controlled experiment 
-  * the effect of random sampling error (of the training-testing data) is minimised
-"""
-
-# ╔═╡ fac1b011-d1bd-4c0f-9d82-a8e46d68b8c4
-md"""
-
-## Exercise
-
-
-!!! exercise "Exercise"
-	Implement a ``K=5`` CV method to find the optimal ``\lambda`` for the ridge regression
-	* choose ``\lambda \in [0,1,2,3,\ldots, 20]``
-
-"""
 
 # ╔═╡ 974f1b58-3ec6-447a-95f2-6bbeda43f12f
 md"""
@@ -1812,9 +1426,6 @@ let
 	
 	plot(plots_frames..., layout=4)
 end
-
-# ╔═╡ 36e0cf8d-a0e3-4d17-bb4b-998c9ffabbad
-least_square_est(X_train, y_train)
 
 # ╔═╡ 77fed95d-7281-49cc-9f6d-388eb129a955
 let
@@ -3760,12 +3371,14 @@ version = "1.4.1+0"
 # ╟─85934ff7-4cb5-4ba0-863e-628f8770f8d8
 # ╟─074124b1-96da-4b96-aa0e-a434e4d54692
 # ╟─8926d547-10b5-4adc-91bc-a1060df498a3
+# ╟─1a32843e-452f-40b2-a309-389beaaac158
 # ╟─2b4b8045-f931-48da-9c3d-66c8af12f6f2
 # ╟─378c10c8-d4be-4337-ac48-b5c534799973
 # ╟─65f28dfb-981d-4361-b37c-12af3c7995cd
-# ╟─24eb939b-9568-4cfd-bfe5-0191eada253a
+# ╟─f4a1f7ab-e646-4cb0-846c-aaf030ffcb06
 # ╟─5d96f623-9b30-49a4-913c-6dee65ae0d23
 # ╟─69005e98-5ef3-4376-9eed-919580e5de53
+# ╟─24eb939b-9568-4cfd-bfe5-0191eada253a
 # ╟─672ca2c6-515c-4e2f-b518-fb9bb662ec0d
 # ╟─fbc1a2ed-2eea-4981-9153-87f55fa6a464
 # ╟─616c47fd-879d-40a7-a166-23834c4a7bb8
@@ -3777,7 +3390,6 @@ version = "1.4.1+0"
 # ╟─b1ec11d0-48dc-4c48-a2c0-a891d4343b4d
 # ╟─f6408f52-bd75-4147-87a3-4b701629b150
 # ╟─c5e9d9ab-aa19-489c-a513-bef5f751e7d3
-# ╟─39d89313-17d8-445f-a0d0-5a241c0e6c13
 # ╟─dead4d31-8ed4-4599-a3f7-ff8b7f02548c
 # ╟─1efe5011-ffbb-4703-bb4a-eb7e310ab7e4
 # ╟─d70102f1-06c0-4c5b-8dfd-e41c4a455181
@@ -3827,52 +3439,15 @@ version = "1.4.1+0"
 # ╟─350f2a70-405c-45dc-bfcd-913bc9a7de75
 # ╟─72f82376-2bf3-4314-bf7a-74f670ccc113
 # ╟─af7c985f-56f5-4e59-8a48-09f74ddb7635
+# ╟─5103bea2-065b-43fd-87fd-0c24263661c7
 # ╟─a86f734c-e0b0-4d41-905f-0e2b4566b62f
 # ╟─cdc893d4-07ff-410f-989d-eca5832f2ba9
 # ╟─09e61d12-f1f4-4050-acf4-ffe2a940f69e
 # ╠═8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
-# ╠═36e0cf8d-a0e3-4d17-bb4b-998c9ffabbad
 # ╟─5baffc43-62fe-4a20-a5d7-0c938d6ec7ee
 # ╟─77fed95d-7281-49cc-9f6d-388eb129a955
-# ╟─f65644e7-cb25-46ad-b146-87cf7de69f72
-# ╟─f8f34671-ef4c-4300-a983-10d42d43fb9f
-# ╟─22cbb1aa-c53f-45d6-891a-90c6f2b9e886
-# ╟─bd2a3243-049d-4b4e-9a7c-9600f7716687
-# ╠═ce35ddcb-5018-4cb9-b0c9-01fb4b14be40
-# ╟─59a3e04f-c842-4b6d-b067-0525c9dda70b
-# ╠═660b612b-fbc6-434a-b8ae-69f1213dfad4
-# ╟─f3e404b7-3419-43e7-affa-217324a65534
-# ╟─2cdd8751-7ec8-47b0-a174-fdc23e176921
-# ╟─720774c4-9aec-4329-bc90-51350fea0191
-# ╟─edc245bc-6571-4e65-a50c-0bd4b8d63b74
-# ╟─4154585d-4eff-4ee9-8f33-dad0dfdd143c
-# ╟─d5cc7ea6-d1a0-46e1-9fda-b7f7092eb73c
-# ╟─f90957ea-4123-461f-9a3e-ae23a2848264
-# ╟─8b596e98-4d0c-471e-bb25-20f492a9199b
-# ╟─9aff2235-7da4-41a9-9926-4fe291d9a638
-# ╟─72440a56-7a47-4a32-9244-cb0424a6fd79
-# ╟─46180264-bddc-47d8-90a7-a16d0ea87cfe
-# ╟─882da1c1-1358-4a40-8f69-b4d7cbc9387e
-# ╟─0dff10ec-dd13-4cc2-b092-9e72454763cc
-# ╟─726a1008-26e6-417d-a73a-57e32cb224b6
-# ╟─8cc45465-78e7-4777-b0c7-bb842e4e51a8
-# ╟─fc2206f4-fd0f-44f8-ae94-9dae77022fab
-# ╟─c91fc381-613c-4c9b-98b6-f4dd897a69a5
-# ╟─21b6b547-66ed-4231-830b-1a09adaf400c
-# ╟─ce8cd98f-da70-476c-817c-026365b982c0
-# ╟─8436c5ce-d7be-4c02-9e89-7da701303263
-# ╟─6a9e0bd9-8a2a-40f0-aaac-bf32d39ffac8
-# ╟─df62e796-d711-4ea1-a0c2-e3ec6c501a78
-# ╠═8493d307-9158-4821-bf3b-c368d9cd5fc5
-# ╟─88d98d87-f3cf-42f4-9282-1e6f383934cd
-# ╟─0e60180d-c4eb-4c83-9301-e3151ab828d5
-# ╟─58d6a11e-a375-4f0b-84d7-b95e7cfd3033
-# ╟─88ef37e0-d6e9-4cb6-b765-31b5270a5f89
-# ╟─979d7298-b58e-40ed-84d2-580118f1c41d
-# ╟─b38627c8-01be-4b2b-a4ff-590de8e9d337
-# ╟─af4be079-8461-4c62-9e23-222c0dd1a738
-# ╟─fac1b011-d1bd-4c0f-9d82-a8e46d68b8c4
 # ╟─974f1b58-3ec6-447a-95f2-6bbeda43f12f
+# ╟─39d89313-17d8-445f-a0d0-5a241c0e6c13
 # ╟─238e7b56-fb3a-4e9b-9c31-09c1f4a1df2a
 # ╟─cb02aee5-d082-40a5-b799-db6b4af557f7
 # ╟─8deb1b8c-b67f-4d07-8986-2333dbadcccc

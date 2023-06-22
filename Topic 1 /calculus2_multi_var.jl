@@ -266,12 +266,15 @@ The quadratic form
 
 ```math
 \large
-\mathbf{x}^\top \mathbf{A}\mathbf{x} = \begin{bmatrix} x_1& x_2& \ldots& x_n\end{bmatrix} \begin{bmatrix}
+\begin{align}
+\mathbf{x}^\top \mathbf{A}\mathbf{x} &= \begin{bmatrix} x_1& x_2& \ldots& x_n\end{bmatrix} \begin{bmatrix}
 a_{11} & a_{12} & \ldots & a_{1n}\\
 a_{21} & a_{22} & \ldots & a_{2n} \\
 \vdots & \vdots &\ddots & \vdots \\
 a_{n1} & a_{n2} & \ldots & a_{nn}
-\end{bmatrix}  \begin{bmatrix}x_1 \\ x_2 \\ \vdots \\ x_n \end{bmatrix} = \sum_{i=1}^n\sum_{j=1}^n a_{ij} x_i  x_j
+\end{bmatrix}  \begin{bmatrix}x_1 \\ x_2 \\ \vdots \\ x_n \end{bmatrix}\\
+&= \boxed{\sum_{i=1}^n\sum_{j=1}^n a_{ij} x_i  x_j}
+\end{align}
 ```
 
 

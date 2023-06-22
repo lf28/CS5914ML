@@ -103,40 +103,10 @@ md"""
 
 """
 
-# ╔═╡ 44934a60-e98d-47f9-80c7-b3119091cb98
-md"""
-
-## Topics 
-"""
-
-# ╔═╡ 625827f8-41a1-444b-823a-a2bc7c12b0bc
-aside((md"""$(@bind next1 Button("next")) 
-$(@bind init1 Button("init"))
-	"""))
-
-# ╔═╡ b59aa80b-9d94-4d01-90b7-12db4db95339
-begin
-	init1
-	next_idx = [0];
-end;
-
-# ╔═╡ 5216334f-16e7-401b-9dd7-e7fb48159edd
-begin
-	next1
-	topics = ["linear regression model - with matrix notation", "least square estimation", "the normal equation - geometric perspective", "fixed basis expansion: from linear to nonlinear"]
-	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
-end
-
-# ╔═╡ 56607bd6-4b6e-4084-a76f-1643c077c994
-let
-	next1
-	next_idx[1] += 1
-end;
-
 # ╔═╡ d2ea21da-08f2-4eb1-b763-c69f8d714652
 md"""
 
-## What is regression ?
+## Recap: regression 
 
 """
 
@@ -178,7 +148,7 @@ end;
 # ╔═╡ 8b479e5c-8151-4769-9d27-b5661285b497
 md"""
 
-## _Linear_ regression 
+## Recap: _linear_ regression 
 """
 
 # ╔═╡ 55fbb81b-8323-4405-beb9-acd557e6d9f3
@@ -212,12 +182,27 @@ md"""
 ## Non-linear ``h(\mathbf{x})``
 
 
-However, it seems a quadratic ``h(x)`` fits the data **better**
+**However**, real life data-relationship is **rarely linear**
+
+
+
+_For example_, it seems a quadratic ``h(x)`` fits the house data **better**
 
 ```math
 \Large
 h(x_{\rm room}) = w_0 + w_1 x_{\rm room} + w_2 x_{\rm room}^2
 ```
+
+"""
+
+# ╔═╡ 577686b7-ec21-4888-bf49-64c278248aca
+md"""
+
+The **M**ean **S**quared **E**rror (MSE) loss: ``\frac{1}{2n} \sum_{i=1}^n (y^{(i)} -h(x^{(i)}))^2``
+
+| | ``w_0 +w_1x`` | ``w_0+w_1x+w_2x^2`` |
+|:---:| :---:| :---:|
+|Mean Squared Error| 21.8 | **19.06** |
 
 """
 
@@ -233,14 +218,17 @@ quadratic_fit = let
 	c_, b_ = linear_reg_normal_eq(X_train_room_, df_house.target)
 	sse = loss([c, b, a] , X_train_room, df_house.target)/ length(df_house.target)
 	sse_ = loss([c_, b_] , X_train_room_, df_house.target)/ length(df_house.target)
-	plot!(3.5:0.1:9, (x) -> a* x^2 + b* x+ c, lw=3, label=L"h(\mathbf{x}) = w_0+ w_1 x+ w_2 x^2;"*" loss = "*L"%$(round(sse; digits=2))", legend=:outerbottom)
-	plot!(3.5:0.5:9, (x) -> b_* x+ c_, lw=3, label=L"h(\mathbf{x}) = w_0 + w_1x;"*" loss = "*L"%$(round(sse_; digits=2))", legend=:outerbottom)
-end
+	plot!(3.5:0.1:9, (x) -> a* x^2 + b* x+ c, lw=3, label=L"h(\mathbf{x}) = w_0+ w_1 x+ w_2 x^2;\;"*L"\mathbf{loss}=%$(round(sse; digits=2))", legend=:outerbottom, legendfontsize=12)
+	plot!(3.5:0.5:9, (x) -> b_* x+ c_, lw=3, label=L"h(\mathbf{x}) = w_0 + w_1x;\;"*L"\mathbf{loss}=%$(round(sse_; digits=2))", legend=:outerbottom)
+end;
+
+# ╔═╡ b19f81c4-e555-4dd1-affb-a6729c638bbd
+quadratic_fit
 
 # ╔═╡ 8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
 function least_square_est(X, y) # implement the method here!
 	X \ y
-end
+end;
 
 # ╔═╡ f65644e7-cb25-46ad-b146-87cf7de69f72
 md"""
@@ -277,54 +265,111 @@ md"""
 ## Free lunch -- fixed basis expansion
 
 
-> The simplest method to do polynomial regression is to
-> 
-> **Expand the input** ``x^{(i)}``
+> Polynomial regression solution: **Expand the input** ``x^{(i)}``
 >
-> which is known as polynomial fixed basis expansion
+> * which is known as polynomial fixed basis expansion
 
 
 ##
 
-For each ``x^{(i)}``, input room, we expand the input with another feature ``(x^{(i)})^2``
+For each ``x``， **expand** ``\mathbf{x}`` an additional **engineered** feature ``\colorbox{salmon}{$x^2$}``
 
-* the expanded input matrix becomes
+* and the expanded input becomes
 
 ```math
-\large 
-\mathbf{X} = \begin{bmatrix}1 & x^{(1)} & (x^{(1)})^2 \\
-1 & x^{(2)} & (x^{(2)})^2 \\
-\vdots & \vdots & \vdots \\
-1 & x^{(n)} & (x^{(n)})^2
+\large
+\tilde{\mathbf{x}} = \begin{bmatrix}1 & x & \colorbox{salmon}{$x^2$}
 \end{bmatrix}
-
 ```
 
 
+
+"""
+
+# ╔═╡ 5148115c-4b3d-4845-97fa-02b68d09ddaa
+md"""
+
+## Free lunch -- fixed basis expansion
+
+
+> Polynomial regression solution: **Expand the input** ``x^{(i)}``
+>
+> * which is known as polynomial fixed basis expansion
+
+
+##
+
+For each ``x``， **expand** with an additional **engineered** feature ``\colorbox{salmon}{$x^2$}``
+
+* and the expanded input becomes
+
+```math
+\large
+\mathbf{x} = \begin{bmatrix}1 & x & \colorbox{salmon}{$x^2$}
+\end{bmatrix}
+```
+
+
+* for weight ``\mathbf{w} =[w_0, w_1, w_2]^\top``, the _regression function_ becomes
+
+```math
+\large
+h(x) =\begin{bmatrix}w_0 & w_1 & w_2\end{bmatrix}  \begin{bmatrix}1 \\ x \\ \colorbox{salmon}{$x^2$} 
+\end{bmatrix} = w_0 + w_1 x + \colorbox{salmon}{$w_2x^2$}
+```
+
+
+"""
+
+# ╔═╡ ec41e396-5d30-4b07-9520-6f7a9c5da73b
+md"""
+
+## Free lunch -- fixed basis expansion
+
+
+> Polynomial regression solution: **Expand the input** ``x^{(i)}``
+>
+> * which is known as polynomial fixed basis expansion
+
+
+##
+
+For each ``x``， **expand** with an additional **engineered** feature ``\colorbox{salmon}{$x^2$}``
+
+* and the expanded input becomes
+
+```math
+\large
+\mathbf{x} = \begin{bmatrix}1 & x & \colorbox{salmon}{$x^2$}
+\end{bmatrix}
+```
+
+
+* for weight ``\mathbf{w} =[w_0, w_1, w_2]^\top``, the _regression function_ becomes
+
+```math
+\large
+h(x) =\begin{bmatrix}w_0 & w_1 & w_2\end{bmatrix}  \begin{bmatrix}1 \\ x \\ \colorbox{salmon}{$x^2$} 
+\end{bmatrix} = w_0 + w_1 x + \colorbox{salmon}{$w_2x^2$}
+```
+
+* we can re-use the ordinary **least square estimation** 
+
+```math
+\mathbf{w}\leftarrow \arg\min_{\mathbf{w}} \frac{1}{2} (\mathbf{y} -\mathbf{h})^\top(\mathbf{y} -\mathbf{h})
+```
 """
 
 # ╔═╡ dd162f70-73b7-4f1a-beab-6fa26b2b11b1
 md"""
 
-## Free lunch -- fixed basis expansion
+## To be more specific
 
-
-> The simplest method to do polynomial regression is to
-> 
-> **Expand the input** ``x^{(i)}``
->
-> which is known as polynomial fixed basis expansion
-
-
-##
-
-For each ``x^{(i)}``, input room, we expand the input with another feature ``(x^{(i)})^2``
-
-* the expanded input matrix becomes
+**Expanded input matrix**:
 
 ```math
 \large 
-\mathbf{X} = \begin{bmatrix}1 & x^{(1)} & (x^{(1)})^2 \\
+\tilde{\mathbf{X}} = \begin{bmatrix}1 & x^{(1)} & \columncolor{salmon}(x^{(1)})^2 \\
 1 & x^{(2)} & (x^{(2)})^2 \\
 \vdots & \vdots & \vdots \\
 1 & x^{(n)} & (x^{(n)})^2
@@ -332,37 +377,21 @@ For each ``x^{(i)}``, input room, we expand the input with another feature ``(x^
 
 ```
 
-* for ``\mathbf{w} =[w_0, w_1, w_2]^\top``, for the ``i``th--house's prediction becomes
 
-```math
-h(x^{(i)}) = \begin{bmatrix}1 & x^{(i)} & (x^{(i)})^2 
-\end{bmatrix}\begin{bmatrix}w_0\\w_1 \\ w_2\end{bmatrix} = w_0 + w_1 x^{(i)} +w_2 (x^{(i)})^2
-```
+
 
 """
 
-# ╔═╡ 0a661464-3080-4105-a0d8-e20334a722d9
+# ╔═╡ a495ee86-e78b-46e5-9be4-c4bbfad165f8
 md"""
 
-## Free lunch -- fixed basis expansion
+## To be more specific
 
-
-> The simplest method to do polynomial regression is to
-> 
-> **Expand the input** ``x^{(i)}``
->
-> which is known as polynomial fixed basis expansion
-
-
-##
-
-For each ``x^{(i)}``, input room, we expand the input with another feature ``(x^{(i)})^2``
-
-* the expanded input matrix becomes
+**Expanded input matrix**:
 
 ```math
 \large 
-\mathbf{X} = \begin{bmatrix}1 & x^{(1)} & (x^{(1)})^2 \\
+\tilde{\mathbf{X}} = \begin{bmatrix}1 & x^{(1)} & \columncolor{salmon}(x^{(1)})^2 \\
 1 & x^{(2)} & (x^{(2)})^2 \\
 \vdots & \vdots & \vdots \\
 1 & x^{(n)} & (x^{(n)})^2
@@ -370,21 +399,62 @@ For each ``x^{(i)}``, input room, we expand the input with another feature ``(x^
 
 ```
 
-* for ``\mathbf{w} =[w_0, w_1, w_2]^\top``, for the ``i``th--house's prediction becomes
-
-```math
-h(x^{(i)}) = \begin{bmatrix}1 & x^{(i)} & (x^{(i)})^2 
-\end{bmatrix}\begin{bmatrix}w_0\\w_1 \\ w_2\end{bmatrix} = w_0 + w_1 x^{(i)} +w_2 (x^{(i)})^2
-```
-
-
-
-* then regress with the expanded design matrix (now a ``n \times 3`` matrix) with the ordinary least square method
+The **predictions** are
 
 ```math
 \large
-\hat{\mathbf{w}} \leftarrow \arg\min_{\mathbf{w}} \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h({x}^{(i)}; \mathbf{w}))^2,
+\mathbf{h} = \tilde{\mathbf{X}} \mathbf{w} = \begin{bmatrix}w_0 + w_1 x^{(1)} + w_2(x^{(1)})^2 \\
+w_0 + w_1x^{(2)} +w_2 (x^{(2)})^2 \\
+\vdots \\
+w_0 + w_1x^{(n)} +w_2 (x^{(n)})^2
+\end{bmatrix}
 ```
+
+
+"""
+
+# ╔═╡ d37f5e8f-63a6-440e-b6c0-ae283ded1eb9
+md"""
+
+## To be more specific
+
+**Expanded input matrix**:
+
+```math
+\large 
+\tilde{\mathbf{X}} = \begin{bmatrix}1 & x^{(1)} & \columncolor{salmon}(x^{(1)})^2 \\
+1 & x^{(2)} & (x^{(2)})^2 \\
+\vdots & \vdots & \vdots \\
+1 & x^{(n)} & (x^{(n)})^2
+\end{bmatrix}_{n\times 3}
+
+```
+
+The **predictions** are
+
+```math
+\large
+\mathbf{h} = \tilde{\mathbf{X}} \mathbf{w} = \begin{bmatrix}w_0 + w_1 x^{(1)} + w_2(x^{(1)})^2 \\
+w_0 + w_1x^{(2)} +w_2 (x^{(2)})^2 \\
+\vdots \\
+w_0 + w_1x^{(n)} +w_2 (x^{(n)})^2
+\end{bmatrix}_{n\times 1}
+```
+
+
+
+
+Lastly, use least square method to **regress** with the expanded design matrix (now a ``n \times 3`` matrix)
+
+```math
+\large
+\begin{align}
+\hat{\mathbf{w}} &\leftarrow \arg\min_{\mathbf{w}} \frac{1}{2}(\mathbf{y} -\mathbf{h})^\top(\mathbf{y}-\mathbf{h})\\
+&\;\; \hat{\mathbf{w}} = (\tilde{\mathbf{X}} ^\top\tilde{\mathbf{X}} )^{-1}\tilde{\mathbf{X}}^\top \mathbf{y}
+
+\end{align}
+```
+
 
 """
 
@@ -403,9 +473,10 @@ md"""
 
 ```math
 \Large
-h(x) = w_0 + w_1 x + w_2 x^2 +\ldots + w_p w^p
+\boxed{
+h(x) = w_0 + w_1 x + w_2 x^2 +\ldots + w_p w^p}
 ```
- * still _free lunch_: regress with a ``n\times (p+1)`` matrix
+ * still _**free lunch**_: regress with a ``n\times \textcolor{red}{(p+1)}`` matrix
 
 """
 
@@ -414,11 +485,11 @@ md"""
 
 ```math
 \large
-\mathbf{X} = \begin{bmatrix}1 & x^{(1)} & (x^{(1)})^2  & \ldots & (x^{(1)})^p \\
+\tilde{\mathbf{X}} = \begin{bmatrix}1 & x^{(1)} & (x^{(1)})^2  & \ldots & (x^{(1)})^p \\
 1 & x^{(2)} & (x^{(2)})^2 & \ldots &(x^{(2)})^p\\
 \vdots & \vdots & \vdots & \ddots & \vdots \\
 1 & x^{(n)} & (x^{(n)})^2 & \ldots & (x^{(n)})^p
-\end{bmatrix}
+\end{bmatrix}_{n\times (p+1)}
 ```
 """
 
@@ -450,16 +521,524 @@ let
 	plot!(3:0.1:9, (x) -> poly_fun(x, w), lw=2, label=L"h(\mathbf{x})", legend=:outerbottom, ylim=[-5, 65])
 end
 
+# ╔═╡ a59c0d8f-1f6a-4576-b73a-b2314c254d26
+md"""
+
+## Fixed basis expansion
+
+"""
+
+# ╔═╡ 0335b7f0-cbd1-4688-816e-5f9b057c87ce
+md"""
+
+More **generally**, **fixed basis expansion** method expands via a set of ``K`` **basis functions**
+
+```math
+\large
+\Phi=\;\;\;\;\;\;\{\textcolor{lightblue}{\phi_0(\mathbf{x})},
+\;\;\;\;\;\;\;\textcolor{orange}{\phi_1(\mathbf{x})},\;\;\;\;\;\; \textcolor{green}{\phi_2(\mathbf{x})},\;\;\;\; \ldots,\;\;\;\textcolor{magenta}{\phi_K(\mathbf{x})}\}
+```
+
+The **expanded** input matrix is a ``n \times K+1`` matrix: ``\mathbf{X} \rightarrow_{{\Phi}} \boldsymbol{\Phi}``
+
+```math
+\large
+\boldsymbol{\Phi} = \begin{bmatrix}\columncolor{lightblue}\phi_0(\mathbf{x}^{(1)}) & \columncolor{orange}\phi_1(\mathbf{x}^{(1)}) & \columncolor{lightgreen}\phi_2(\mathbf{x}^{(1)})  & \ldots & \columncolor{magenta}\phi_p(\mathbf{x}^{(1)}) \\
+\phi_0(\mathbf{x}^{(2)}) & \phi_1(\mathbf{x}^{(2)}) & \phi_2(\mathbf{x}^{(2)}) & \ldots & \phi_p(\mathbf{x}^{(2)})\\
+\vdots & \vdots & \vdots & \ddots & \vdots \\
+\phi_0(\mathbf{x}^{(n)}) & \phi_1(\mathbf{x}^{(n)}) & \phi_2(\mathbf{x}^{(n)}) & \ldots & \phi_p(\mathbf{x}^{(n)})
+\end{bmatrix}
+```
+"""
+
+# ╔═╡ e46303c4-fc28-4a2c-8f6a-11ca84188553
+md"""
+
+## For example
+
+
+**Polynomial regression** is a specific case, where
+
+
+```math
+\large
+\colorbox{lightblue}{$\phi_0(x) = 1$}
+```
+
+
+```math
+\large
+\boldsymbol{\Phi}  = \begin{bmatrix}\columncolor{lightblue}1 & \;\cdot\; & \;\;\;\cdot\;\;\;  & \ldots & \;\;\;\cdot\;\;\; \\
+1 & \;\;\;\cdot\;\;\; & \;\;\;\cdot\;\;\; & \ldots & \;\;\;\cdot\;\;\;\\
+\vdots & \vdots & \vdots & \ddots & \vdots \\
+1 & \;\cdot\; & \;\;\;\cdot\;\;\; & \ldots & \;\;\;\cdot\;\;\;
+\end{bmatrix}
+```
+
+"""
+
+# ╔═╡ a428e3d2-090e-4444-8486-b98137baf2c6
+md"""
+
+## For example
+
+
+**Polynomial regression** is a specific case, where
+
+
+```math
+\large
+\colorbox{lightblue}{$\phi_0(x) = 1$}\, \colorbox{orange}{$\phi_1(x) =x $}
+```
+
+
+```math
+\large
+\boldsymbol{\Phi}  = \begin{bmatrix}\columncolor{lightblue}1 & \columncolor{orange}{x}^{(1)} & \;\;\cdot\;\;  & \ldots & \;\;\cdot\;\;\\
+1 & {x}^{(2)} & \;\;\cdot\;\; & \ldots & \;\;\cdot\;\;\\
+\vdots & \vdots & \vdots & \ddots & \vdots \\
+1 & {x}^{(n)} & \;\;\cdot\;\; & \ldots &\;\;\cdot\;\;
+\end{bmatrix}
+```
+
+"""
+
+# ╔═╡ cb07a067-d437-47bc-b2b5-73dd07755a8e
+md"""
+
+## For example
+
+
+**Polynomial regression** is a specific case, where
+
+
+```math
+\large
+\colorbox{lightblue}{$\phi_0(x) = 1$}\, \colorbox{orange}{$\phi_1(x) =x $}\, \colorbox{lightgreen}{$\phi_2(x) = x^2 $}
+```
+
+```math
+\large
+\boldsymbol{\Phi}  = \begin{bmatrix}\columncolor{lightblue}1 & \columncolor{orange}{x}^{(1)} & \columncolor{lightgreen}({x}^{(1)})^2  & \ldots & \;\;\cdot\;\;\\
+1 & {x}^{(2)} & ({x}^{(2)})^2 & \ldots & \;\;\cdot\;\;\\
+\vdots & \vdots & \vdots & \ddots & \vdots \\
+1 & {x}^{(n)} & ({x}^{(n)})^2 & \ldots &\;\;\cdot\;\;
+\end{bmatrix}
+```
+
+"""
+
+# ╔═╡ a3f19da3-a51c-4997-87e1-e3976c220b27
+md"""
+
+## For example
+
+
+**Polynomial regression** is a specific case, where
+
+```math
+\large
+\colorbox{lightblue}{$\phi_0(x) = 1$}\, \colorbox{orange}{$\phi_1(x) =x $}\, \colorbox{lightgreen}{$\phi_2(x) = x^2 $}\, \ldots\, \colorbox{magenta}{$\phi_p(x) = x^p$}
+```
+
+```math
+\large
+\tilde{\mathbf{X}} = \begin{bmatrix}\columncolor{lightblue}1 & \columncolor{orange}{x}^{(1)} & \columncolor{lightgreen}({x}^{(1)})^2  & \ldots & \columncolor{magenta} ({x}^{(1)})^p\\
+1 & {x}^{(2)} & ({x}^{(2)})^2 & \ldots & ({x}^{(2)})^p\\
+\vdots & \vdots & \vdots & \ddots & \vdots \\
+1 & {x}^{(n)} & ({x}^{(n)})^2 & \ldots &({x}^{(n)})^p\;
+\end{bmatrix}
+```
+
+
+
+or *i.e.* simply the basis functions are 
+
+$\boxed{\Large \phi_k(x) = x^k}$
+"""
+
+# ╔═╡ 0c2c15cb-8bbb-496c-b561-033197c9da5e
+md"""
+## Polynomial basis functions
+
+
+
+The polynormial basis functions 
+
+$\boxed{\Large \phi_k(x) = x^k, \;\; \text{for }k = 0,1,\ldots, K}$
+
+are **NOT** **location** based
+
+* it only depends on the power ``k``
+* does not depend on *e.g.* ``x``'s range
+"""
+
+# ╔═╡ 78daf3d9-8070-43ea-a9a1-970e317c3006
+let
+		plt = plot(title="Polynomial basis functions", legend=:outerright)
+		for k in 1:10
+			plot!(-1:0.01:1, (x) -> x^k, label=L"\phi_{%$(k)} = x^{%$(k)}", lw=2)
+		end
+	plt
+end
+
+# ╔═╡ 8c239067-7046-4eaf-9b68-b92f98bf9aeb
+md"""
+
+## Other basis function -- radian basis functions
+
+
+More commonly used basis functions are **location-aware**
+
+* ``\phi`` depends on an extra expansion location parameter ``\mu``
+
+**For example**, the **radian-basis-function (rbf)**
+
+
+```math
+\large
+\phi(x; \mu)=\text{rbf}(x;\mu) = \exp\left\{ -\frac{1}{2s} (x-\mu)^2\right\}
+```
+* ``\mu``: the expansion location
+* ``s>0``: scale parameter
+
+
+"""
+
+# ╔═╡ 51efd68e-175d-4008-bbba-0e6d4d32d1b4
+aside(tip(md"For multi-dimensional input, 
+
+
+```math
+\phi(\mathbf{x}; \boldsymbol{\mu}) = \exp\left\{ -\frac{1}{2s} (\mathbf{x}-\boldsymbol{\mu})^\top(\mathbf{x}-\boldsymbol{\mu})\right\}
+
+```
+"))
+
+# ╔═╡ ca328eb5-c51f-4d95-91ad-685741eaeb2e
+md"Select ``\mu``: $(@bind μ_ Slider(-1.5:0.2:1.5; show_value=true)),
+Select ``s``: $(@bind s_ Slider(0.01:0.01:1; default=.25, show_value=true))"
+
+# ╔═╡ f795f280-26c6-4356-b886-98d577cfeac8
+let
+	plt_rbf_basis = plot(title="RBF basis functions", framestyle=:origin)
+	s = s_
+	for μ in -1.5:0.2:1.5
+		plot!(-2:0.01:2, (x) -> exp(-(x-μ)^2/(2*s^2)), lw=1, lc=:gray, label="")
+	end
+
+	plot!(-2:0.01:2, (x) -> exp(-(x-μ_)^2/(2*s^2)), lw=4, lc=2, label=L"\phi(x; \mu = %$(μ_))", legend=:outerright)
+	plt_rbf_basis
+end
+
+# ╔═╡ f5636856-dee0-4de6-b0c0-7c98bdc83524
+md"""
+
+## Other basis function -- logistic
+
+
+More commonly used basis functions are **location-aware**
+
+* ``\phi`` depends on an extra expansion location parameter ``\mu``
+
+**For example**, the **logistic** function (aka sigmoid)
+
+
+
+```math
+\phi(x; \mu) = \frac{1}{1+ e^{-\frac{(x-\mu)}{s}}}
+```
+
+* a squash function: squeeze to ``(0, 1)``
+
+"""
+
+# ╔═╡ 23b9ee29-f5c5-485c-8d3e-870b5407a5ae
+# aside(tip(md"For multi-dimensional input, 
+
+
+# ```math
+# \phi(\mathbf{x}; \boldsymbol{\mu}, \mu_0) = \frac{1}{1+ e^{-(\boldsymbol{\mu}^\top\mathbf{x}+\mu_0)}}
+
+
+# ```
+# "))
+
+# ╔═╡ 49d1585d-9c37-43bb-80d5-a854290534a5
+md"Select ``\mu``: $(@bind μl_ Slider(-1.5:0.01:1.5; default=0, show_value=true)),
+Select ``s``: $(@bind sl_ Slider(0.01:0.01:1; default=.25, show_value=true))"
+
+# ╔═╡ a9f1428c-2ea0-4903-b1e2-18f946252451
+let
+	plt_sigmoid_basis = plot(title="Logistic basis functions", framestyle=:origin)
+	s_sig = sl_
+	for μ in -1:0.1:1
+		plot!(-1.5:0.01:1.5, (x) -> logistic((x-μ)/s_sig),ylim=[-0.3, 1.3], lw =1,lc=:gray, label="")
+	end
+
+	plot!(-1.5:0.01:1.5, (x) -> logistic((x -μl_)/s_sig), lw =3,lc=:red, label=L"\phi(x; \mu = %$(μl_))", legend=:outerbottom)
+
+	plot!(-1.5:0.1:1.5, (x) -> 1, lw=2, ls=:dash,lc=:black, label="")
+	plot!(-1.5:0.1:1.5, (x) -> 0, lw=2, ls=:dash,lc=:black, label="")
+	plt_sigmoid_basis
+end
+
+# ╔═╡ db1b3894-a92d-4b38-bb7d-4ab5c5469549
+md"""
+
+## Other basis function -- ReLu
+
+
+More commonly used basis functions are **location-aware**
+
+* ``\phi`` depends on an extra expansion location parameter ``\mu``
+
+**For example**, the **re**ctified **l**inear **u**nit  (or **ReLu** function )
+
+
+```math
+\phi(x; \mu)=\text{Relu}(x;\mu) = \begin{cases} 
+x-\mu & x > \mu\\
+0 & x \leq \mu
+\end{cases}
+```
+
+
+
+
+"""
+
+# ╔═╡ dc801bff-89c8-49b7-8b3c-123f240f4184
+md"Select ``\mu``: $(@bind μr_ Slider(-5:0.05:5; default=0, show_value=true)),
+add other $(@bind add_others_relu CheckBox(default=false))
+"
+
+# ╔═╡ 254fb3d0-a1ac-43cb-bc12-3d512aa6184e
+let
+	plt_relu_basis = plot(title="ReLu basis functions")
+	plot!(-6:0.05:6, (x) -> max(0,x-μr_), lw=2,label="", lc=:red, framestyle=:origin)
+
+	if add_others_relu
+		for μ in -5:1:5
+			plot!(-6:0.05:6, (x) -> max(0,x-μ), lw=1,  label="", lc=:gray)
+		end
+	end
+
+	plt_relu_basis
+end
+
+# ╔═╡ c83c7e50-532c-4fb2-8c6d-5f3af32d205e
+md"""
+
+## Summary
+"""
+
+# ╔═╡ 80cdaf0c-c863-49db-86df-71413068e5f4
+begin
+	plt_poly_basis = plot(title="Polynomial basis functions")
+	for k in 1:10
+		plot!(-1:0.05:1, (x) -> x^k, label="")
+	end
+
+
+	plt_rbf_basis = plot(title="RBF basis functions")
+	s = 0.25
+	for μ in -1:0.2:1
+		plot!(-1:0.01:1, (x) -> exp(-(x-μ)^2/(2*s^2)), label="")
+	end
+
+
+
+	plt_sigmoid_basis = plot(title="Logistic basis functions")
+	s_sig = 0.1
+	for μ in -1:0.2:1
+		plot!(-1:0.01:1, (x) -> logistic((x-μ)/s_sig), label="")
+	end
+
+
+	plt_relu_basis = plot(title="ReLu basis functions")
+	for μ in -1:0.2:1
+		plot!(-1:0.01:1, (x) -> max(0,x-μ), label="")
+	end
+	plot(plt_poly_basis, plt_rbf_basis, plt_sigmoid_basis, plt_relu_basis)
+end
+
+# ╔═╡ 2f19637e-80a2-4855-a7b7-2d70b25e188c
+md"""
+
+## Demonstration -- sinusoid function
+
+"""
+
+# ╔═╡ bc513037-c689-4eca-865d-d94a6a8aa997
+begin
+	Random.seed!(123)
+	true_f(x) = sin(x)
+	nobs_ = 25
+	xs_q4 = collect(range(0, 2π, nobs_))
+	ys_q4 = true_f.(xs_q4) + randn(nobs_)/4
+
+end;
+
+# ╔═╡ 88c1bb3e-dab8-459a-b2d0-ebc2496f5b19
+md"Add true function: $(@bind addsin CheckBox(default=false))"
+
+# ╔═╡ 3bfb67fe-0d00-4bcd-80f0-aee3b9bd6bc4
+let
+	plt = plot(xs_q4, ys_q4, st=:scatter, label="training data", title="Regression training data")
+	if addsin
+		plot!(0:0.1:2π, true_f, label="true signal", lw=2, title=L"\sin(x)")
+	end
+	plt
+end
+
+# ╔═╡ d892fc55-3d19-4c12-a275-ba94e2fbaba0
+md"""
+
+## Fixed basis expansion regression
+
+
+
+"""
+
+# ╔═╡ 718f99ce-640c-47c4-bc91-9b650eb88a36
+md"Number of basis: $(@bind n_basis Slider(1:1:15; default=1, show_value=true))"
+
+# ╔═╡ 1557a74b-be97-461e-b9d7-d31f2728120f
+md"Add fixed basis regression: $(@bind add_fixed_fit CheckBox(default=false))"
+
+# ╔═╡ 64984c2c-bc17-41c3-a543-19b4d7b3bdb2
+begin
+	rbf(s=1) = (z) -> exp(-.5 * z^2/s)
+	relu(s=1) = (z) -> max(z, 0)
+	sigmoid(s=1) = (z) -> logistic(z/s)
+end;
+
+# ╔═╡ e9bfad75-eb43-4212-a141-0e0655c48758
+md"Basis function: $(@bind ϕ Select([rbf, relu, sigmoid])), 
+Scale parameter ``s`` (if applied): $(@bind scale_ Slider(0.01:0.01:3.0;default=1.0, show_value=true))
+"
+
+# ╔═╡ a680773b-b385-4938-ada5-348299a29f02
+function basis_expansion(xs, μs, σ::Function; intercept=true)
+	n = length(xs)
+	p = length(μs) 
+	Φ = zeros(n, p)
+	for (j, μ) in enumerate(μs)
+		Φ[:, j] = σ.(xs .- μ)
+	end
+	if intercept 
+		return [ones(n) Φ]
+	else
+		Φ
+	end
+end;
+
+# ╔═╡ f1c90208-4222-49d3-9f07-c19fec64cef4
+begin
+	Random.seed!(111)
+	n_fixed_basis = n_basis
+	μs = range((extrema(xs_q4) .+ (-.5, .5))..., n_fixed_basis+2)[2:end-1]
+end;
+
+# ╔═╡ ce4f4d96-3f01-46d2-ba1e-6108a7af9141
+linear_reg(Φ, y; λ = 1e-10) =  Φ \ y;
+
+# ╔═╡ 852d5317-3f62-4ac8-9b8a-ab0b7869b269
+let
+	basis_fun = ϕ(scale_)
+	plt = plot(xs_q4, ys_q4, st=:scatter, label="training data", ylim=[-1.25, 1.25], framestyle=:origin)
+	for (j, μ) in enumerate(μs)
+		if j == 1
+			plot!(-.5:0.1:2π+.5, (x) -> basis_fun(x-μ), lw=1, ls=:dash, lc=:gray, label="basis functions")
+		else
+			plot!(-.5:0.1:2π+.5, (x) -> basis_fun(x-μ), lw=1, ls=:dash, lc=:gray, label="")
+		end
+	end
+	
+	plot!(-.5:0.1:(2π+.5), true_f, label="true signal", lc =:blue, lw=1.5, title="Fixed basis expansion regression dataset", legend=:bottomleft)
+
+	if add_fixed_fit
+		Φ = basis_expansion(xs_q4, μs, basis_fun; intercept=false)
+		w = linear_reg(Φ, ys_q4; λ = 0.0)
+		plot!(-0.5:0.1:2π+.5, (x) -> (basis_expansion([x], μs, basis_fun;  intercept=false) * w)[1] , label="fixed basis regression", lw=3, lc=2, ylim=[-1.25, 1.25])
+	end
+
+
+	plt
+end
+
+# ╔═╡ 51d84692-edfa-4226-93ce-50f999a347cb
+md"""
+
+## Summary
+
+
+All regressions are fit with ``K=8`` basis expansions
+
+"""
+
+# ╔═╡ 87ccd668-2350-4cd9-aa11-8386a3aecc4d
+let
+	n_basis = 8
+	μs = range((extrema(xs_q4) .+ (-.5, .5))..., n_basis+2)[2:end-1]
+	plt_rbf = plot(title="Rbf basis regression")
+	basis_fun = rbf(1.0)
+	plot!(xs_q4, ys_q4, st=:scatter, label="", ylim=[-1.25, 1.25], framestyle=:origin)
+	Φ = basis_expansion(xs_q4, μs, basis_fun)
+	w = linear_reg(Φ, ys_q4; λ = 0.0)
+	plot!(-0.5:0.1:2π+.5, (x) -> (basis_expansion([x], μs, basis_fun) * w)[1] , label="", lw=3, lc=2, ylim=[-1.25, 1.25])
+
+
+
+
+	plt_sigmoid = plot(title="Sigmoid basis regression")
+	basis_fun = sigmoid(1.0)
+	plot!(xs_q4, ys_q4, st=:scatter, label="training data", ylim=[-1.25, 1.25], framestyle=:origin)
+	Φ = basis_expansion(xs_q4, μs, basis_fun)
+	w = linear_reg(Φ, ys_q4; λ = 0.0)
+	plot!(-0.5:0.1:2π+.5, (x) -> (basis_expansion([x], μs, basis_fun) * w)[1] , label="", lw=3, lc=2, ylim=[-1.25, 1.25])
+
+
+
+	plt_relu = plot(title="ReLu basis regression")
+	basis_fun = relu(1.0)
+	plot!(xs_q4, ys_q4, st=:scatter, label="training data", ylim=[-1.25, 1.25], framestyle=:origin)
+	Φ = basis_expansion(xs_q4, μs, basis_fun)
+	w = linear_reg(Φ, ys_q4; λ = 0.0)
+	plot!(-0.5:0.1:2π+.5, (x) -> (basis_expansion([x], μs, basis_fun) * w)[1] , label="", lw=3, lc=2, ylim=[-1.25, 1.25])
+
+
+
+	
+	plt_poly = plot(title="Polynomial basis regression")
+	w, l = poly_reg(xs_q4, ys_q4; order=n_basis)
+	plot!(xs_q4, ys_q4, st=:scatter, label="training data", ylim=[-1.25, 1.25], framestyle=:origin)
+	# Φ = basis_expansion(xs_q4, μs, basis_fun)
+	# w = linear_reg(Φ, ys_q4; λ = 0.0)
+	plot!(-0.5:0.1:2π+.5, (x) ->  poly_fun(x, w) , label="", lw=3, lc=2, ylim=[-1.25, 1.25])
+
+
+	plot(plt_poly, plt_rbf, plt_sigmoid, plt_relu)
+
+end
+
+# ╔═╡ 9e8ef52f-a9bc-4754-bb6e-98979384da23
+md"""
+
+# Overfit & Underfit
+"""
+
 # ╔═╡ 882da1c1-1358-4a40-8f69-b4d7cbc9387e
 md"""
 
 ## Another dataset
 
 
-The true function is a quadratic:
+The true function is a 4-th power polynomial:
 
 ```math
-h(x) = -2 x + 2 x^2
+h(x) = -10 x + 2 x^2 + 3 x^3 - x^4
 ```
 """
 
@@ -467,12 +1046,12 @@ h(x) = -2 x + 2 x^2
 begin
 	gr()
 	Random.seed!(123)
-	x_poly = [range(-1.3, -0.5, length=8)... range(.5, 1.3, length=8)...][:]
+	x_poly = [range(-1.8, -0.5, length=8)... range(.5, 1.8, length=8)...][:]
 	x_poly_test = -2 : 0.1: 2
-	w_poly = [0,-2,2]
+	w_poly = [0.0, -5, 5, 2, -2]
 	y_poly = [poly_fun(x, w_poly) for x in x_poly] + randn(length(x_poly))
 	y_poly_test = [poly_fun(x, w_poly) for x in x_poly_test] + randn(length(x_poly_test))
-	plot(x_poly, y_poly, st=:scatter, label="training data")
+	plot(x_poly, y_poly, st=:scatter, label="training data", xlabel=L"x", ylabel=L"y")
 
 	plot!(x_poly_test, y_poly_test, st=:scatter, lc=2, alpha= .5, label="testing data")
 	plot!(-2:0.1:2, (x) -> poly_fun(x, w_poly), label="true "*L"h(x)", lw=2, lc=2, size=(600, 400))
@@ -481,7 +1060,7 @@ end
 # ╔═╡ 726a1008-26e6-417d-a73a-57e32cb224b6
 md"""
 
-## Overfitting
+## Underfitting 
 
 Fit polynomial regression with orders: ``p = 1, 2, 4, 7, 10, 15``
 """
@@ -489,13 +1068,14 @@ Fit polynomial regression with orders: ``p = 1, 2, 4, 7, 10, 15``
 # ╔═╡ 8cc45465-78e7-4777-b0c7-bb842e4e51a8
 let
 	gr()
-	poly_order = [1, 2, 4, 7, 10, 15]
-
+	poly_order = [1, 2, 3, 7, 10, 15]
+	ylim = [extrema(y_poly)...;]
+	ylim += [-1.0, 1.0]
 	plots_ =[]
 	for p in poly_order
 		plt = plot(x_poly, y_poly, st=:scatter, label="")
 		w, loss = poly_reg(x_poly, y_poly; order=p)
-		plot!(-1.5:0.02:1.5, (x) -> poly_fun(x, w), lw=2, lc=:red,  label="Order: "*L"p=%$(p)", legend=:outerbottom, ylim=[-1, 7], title="training loss: "*L"%$(round(loss; digits=2))")
+		plot!(-2:0.02:2, (x) -> poly_fun(x, w), lw=2, lc=:red,  label="Order: "*L"p=%$(p)", legend=:outerbottom, ylim=ylim, title="training loss: "*L"%$(round(loss; digits=2))")
 		push!(plots_, plt)
 	end
 	plot(plots_..., size=(900, 600))
@@ -504,6 +1084,9 @@ end
 # ╔═╡ fc2206f4-fd0f-44f8-ae94-9dae77022fab
 md"""
 
+!!! note "Underfitting"
+	Lower-order models lead to overly simplified models
+    * the performance is not adequate
 
 !!! note "Overfitting"
 	Higher-order models lead to overly complicated models
@@ -2655,11 +3238,6 @@ version = "1.4.1+0"
 # ╟─9bd2e7d6-c9fb-4a67-96ef-049f713f4d53
 # ╟─cf9c3937-3d23-4d47-b329-9ecbe0006a1e
 # ╟─dfcfd2c0-9f51-48fb-b91e-629b6934dc0f
-# ╟─44934a60-e98d-47f9-80c7-b3119091cb98
-# ╟─625827f8-41a1-444b-823a-a2bc7c12b0bc
-# ╟─5216334f-16e7-401b-9dd7-e7fb48159edd
-# ╟─56607bd6-4b6e-4084-a76f-1643c077c994
-# ╟─b59aa80b-9d94-4d01-90b7-12db4db95339
 # ╟─d2ea21da-08f2-4eb1-b763-c69f8d714652
 # ╟─6bce7fb9-8b00-4351-bcf8-d5d1223df915
 # ╟─c4e497fc-cfbf-4d0b-9a0c-1071f2f43a98
@@ -2668,13 +3246,18 @@ version = "1.4.1+0"
 # ╟─8b479e5c-8151-4769-9d27-b5661285b497
 # ╟─55fbb81b-8323-4405-beb9-acd557e6d9f3
 # ╟─86f09ee8-087e-47ac-a81e-6f8c38566774
+# ╟─b19f81c4-e555-4dd1-affb-a6729c638bbd
+# ╟─577686b7-ec21-4888-bf49-64c278248aca
 # ╟─f8f34671-ef4c-4300-a983-10d42d43fb9f
 # ╟─8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
 # ╟─f65644e7-cb25-46ad-b146-87cf7de69f72
 # ╟─22cbb1aa-c53f-45d6-891a-90c6f2b9e886
+# ╟─5148115c-4b3d-4845-97fa-02b68d09ddaa
+# ╟─ec41e396-5d30-4b07-9520-6f7a9c5da73b
 # ╟─dd162f70-73b7-4f1a-beab-6fa26b2b11b1
-# ╟─0a661464-3080-4105-a0d8-e20334a722d9
-# ╠═ce35ddcb-5018-4cb9-b0c9-01fb4b14be40
+# ╟─a495ee86-e78b-46e5-9be4-c4bbfad165f8
+# ╟─d37f5e8f-63a6-440e-b6c0-ae283ded1eb9
+# ╟─ce35ddcb-5018-4cb9-b0c9-01fb4b14be40
 # ╟─2cdd8751-7ec8-47b0-a174-fdc23e176921
 # ╟─720774c4-9aec-4329-bc90-51350fea0191
 # ╟─8b596e98-4d0c-471e-bb25-20f492a9199b
@@ -2682,6 +3265,43 @@ version = "1.4.1+0"
 # ╟─edc245bc-6571-4e65-a50c-0bd4b8d63b74
 # ╟─4154585d-4eff-4ee9-8f33-dad0dfdd143c
 # ╟─46180264-bddc-47d8-90a7-a16d0ea87cfe
+# ╟─a59c0d8f-1f6a-4576-b73a-b2314c254d26
+# ╟─0335b7f0-cbd1-4688-816e-5f9b057c87ce
+# ╟─e46303c4-fc28-4a2c-8f6a-11ca84188553
+# ╟─a428e3d2-090e-4444-8486-b98137baf2c6
+# ╟─cb07a067-d437-47bc-b2b5-73dd07755a8e
+# ╟─a3f19da3-a51c-4997-87e1-e3976c220b27
+# ╟─0c2c15cb-8bbb-496c-b561-033197c9da5e
+# ╟─78daf3d9-8070-43ea-a9a1-970e317c3006
+# ╟─8c239067-7046-4eaf-9b68-b92f98bf9aeb
+# ╟─51efd68e-175d-4008-bbba-0e6d4d32d1b4
+# ╟─ca328eb5-c51f-4d95-91ad-685741eaeb2e
+# ╟─f795f280-26c6-4356-b886-98d577cfeac8
+# ╟─f5636856-dee0-4de6-b0c0-7c98bdc83524
+# ╟─23b9ee29-f5c5-485c-8d3e-870b5407a5ae
+# ╟─49d1585d-9c37-43bb-80d5-a854290534a5
+# ╟─a9f1428c-2ea0-4903-b1e2-18f946252451
+# ╟─db1b3894-a92d-4b38-bb7d-4ab5c5469549
+# ╟─dc801bff-89c8-49b7-8b3c-123f240f4184
+# ╟─254fb3d0-a1ac-43cb-bc12-3d512aa6184e
+# ╟─c83c7e50-532c-4fb2-8c6d-5f3af32d205e
+# ╟─80cdaf0c-c863-49db-86df-71413068e5f4
+# ╟─2f19637e-80a2-4855-a7b7-2d70b25e188c
+# ╟─bc513037-c689-4eca-865d-d94a6a8aa997
+# ╟─88c1bb3e-dab8-459a-b2d0-ebc2496f5b19
+# ╟─3bfb67fe-0d00-4bcd-80f0-aee3b9bd6bc4
+# ╟─d892fc55-3d19-4c12-a275-ba94e2fbaba0
+# ╟─718f99ce-640c-47c4-bc91-9b650eb88a36
+# ╟─e9bfad75-eb43-4212-a141-0e0655c48758
+# ╟─1557a74b-be97-461e-b9d7-d31f2728120f
+# ╟─852d5317-3f62-4ac8-9b8a-ab0b7869b269
+# ╟─64984c2c-bc17-41c3-a543-19b4d7b3bdb2
+# ╟─a680773b-b385-4938-ada5-348299a29f02
+# ╟─f1c90208-4222-49d3-9f07-c19fec64cef4
+# ╟─ce4f4d96-3f01-46d2-ba1e-6108a7af9141
+# ╟─51d84692-edfa-4226-93ce-50f999a347cb
+# ╟─87ccd668-2350-4cd9-aa11-8386a3aecc4d
+# ╟─9e8ef52f-a9bc-4754-bb6e-98979384da23
 # ╟─882da1c1-1358-4a40-8f69-b4d7cbc9387e
 # ╟─0dff10ec-dd13-4cc2-b092-9e72454763cc
 # ╟─726a1008-26e6-417d-a73a-57e32cb224b6
