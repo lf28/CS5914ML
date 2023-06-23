@@ -489,7 +489,7 @@ Difference: probabilistic linear regression has one additional parameter $\sigma
 ```math
 \large
 \begin{align}
-&\;\;\;\;\;\,{\mathbf{w}}_{\text{MLE}},{\sigma^2}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}} -\ell (\mathbf{w}, \sigma^2) 
+&\;\;\;\;\;\,{\mathbf{w}}_{\text{MLE}},{\sigma^2}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}, \sigma^2} -\ell (\mathbf{w}, \sigma^2) 
 \end{align}
 ```
 

@@ -1,0 +1,118 @@
+\documentclass[xcolor={dvipsnames,rgb}, preview, aspectratio = 1609]{beamer}
+% xcolor: e.g. provides \colorlet
+% dvipsnames option: extra named colours
+% aspectratio=1610: for modern widescreen monitors...
+% see https://www.overleaf.com/learn/latex/Using_colours_in_LaTeX for more detail
+
+% equation annotations also work in articles, of course (then might need explicit 
+\usepackage[dvipsnames]{xcolor}
+
+%%% standard math packages for equations:
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+
+\usepackage{annotate-equations}
+
+%gets rid of bottom navigation bars
+\setbeamertemplate{footline}[frame number]{}
+
+%gets rid of bottom navigation symbols
+\setbeamertemplate{navigation symbols}{}
+
+%gets rid of footer
+%will override 'frame number' instruction above
+%comment out to revert to previous/default definitions
+\setbeamertemplate{footline}{}
+
+\begin{document}
+    \colorlet{colorp}{NavyBlue}
+    \colorlet{colorT}{WildStrawberry}
+    \colorlet{colork}{OliveGreen}
+    \colorlet{colorM}{RoyalPurple}
+    \colorlet{colorNb}{Plum}
+    \colorlet{colorIs}{black}
+\begin{frame}{}
+    \Large %%% increase font size to make equation more readable!
+
+    %%% we define our own colors upfront - this makes it easier to keep it consistent if you change your mind
+
+%    
+    
+    \begin{equation*}
+    	p(x|\eqnmark[black]{mu}{\mu}, \eqnmark[black]{sigma}{\sigma^{2}}) = \eqnmarkbox[NavyBlue]{const}{\frac{1}{\sigma\sqrt{2\pi}}} \,\eqnmarkbox[Plum]{exp}{\exp}\left\{{\eqnmarkbox[OliveGreen]{neg}{-}\frac{1}{2} \eqnmarkbox[WildStrawberry]{dist}{({x-\mu}){\sigma^{-2}}({x-\mu})}}\right\}
+%    \mathcal{O}\big(
+%        (
+%        \eqnmarkbox[NavyBlue]{p1}{p}
+%        \eqnmarkbox[OliveGreen]{k1}{\kappa}^3  % note that we have the ^3 outside the \eqnmark/\tikzmarknode arguments
+%        )
+%        \eqnmarkbox[WildStrawberry]{T1}{T}
+%        +
+%        (
+%        \eqnmarkbox[NavyBlue]{p2}{p}  % tikz nodes need distinct names!
+%        \eqnmark[OliveGreen]{k2}{\kappa}
+%        )
+%        (
+%        \eqnmarkbox[WildStrawberry]{T2}{T}^2
+%        \tikzmarknode{Is}{|\mathcal{I}^*|}  % manual \tikzmarknode works, too
+%        \eqnmarkbox[Plum]{Nb}{N_b}
+%        \eqnmark[RoyalPurple]{M}{M}
+%        )
+%    \big)
+\end{equation*}
+%
+%\annotatetwo[yshift=1em]{above}{p1}{p2}{\# of nodes}
+%\annotatetwo[yshift=-1em,xshift=0.2ex]{below}{T1}{T2}{\# of graphs in $\hat{\mathcal{G}}_T$}
+%\annotatetwo[yshift=-2em]{below}{k1}{k2}{max.\ indegree in $\hat{\mathcal{G}}_T$}
+%\annotate[yshift=2em]{above,left}{Is}{size of set of allowed interventions}
+%\annotate[yshift=1em]{above}{Nb}{\# of samples per batch}
+%\annotate[yshift=-1em]{below}{M}{\# of samples for $\mathbb{E}_y$}
+%    \begin{tikzpicture}
+\annotate[yshift=-1em]{below,left}{mu}{mean}
+\annotate[yshift=-1em]{below,right}{sigma}{variance}
+\annotate[yshift=1em]{above,left}{const}{normalising constant}
+\annotate[yshift=1em]{above,right}{dist}{distance between $x$ and $\mu$}
+\annotate[yshift=-2.5em]{below,left}{exp}{make sure $p(x) >0$}
+\annotate[yshift=-2.5em]{below,right}{neg}{inversely related to $p(x)$}
+
+%\end{tikzpicture}
+%
+%    
+%    \begin{equation*}
+%    	\eqnmarkbox[blue]{node1}{e_q^n}
+%		\eqnmark[red]{node2}{f(x)}
+%		\tikzmarknode{node3}{kT}
+%    \end{equation*}
+%	\annotate[yshift=1em]{}{node1,node2}{my annotation text}
+%    \begin{equation*}
+%        \color{BurntOrange}
+%        \mathcal{O}\big(
+%            (
+%            % \tikzmarknode is what links parts of the equation and corresponding annotations
+%            \eqnmarkbox[colorp]{p1}{p}
+%            \eqnmarkbox[colork]{k1}{\kappa}^3 % note that we have the ^3 outside the \tikzmarknode
+%            )
+%            \eqnmarkbox{T1}{T}
+%            +
+%            (
+%            \eqnmarkbox[colorp]{p2}{p} % tikzmarks need distinct names!
+%            \eqnmark[colork]{k2}{\kappa}
+%            )
+%            (
+%            \eqnmarkbox[colorT]{T2}{T}^2
+%            \tikzmarknode{Is}{|\mathcal{I}^*|}
+%            \eqnmarkbox[colorNb]{Nb}{N}_{\!\!\eqnmarkbox[BurntOrange]{b}{b}}
+%            \eqnmark[colorM]{M}{M}
+%            )
+%        \big)
+%    \end{equation*}
+%    \annotatetwo[yshift=1em]{above}{p1}{p2}{\# of nodes}
+%    \annotatetwo[yshift=-1em,xshift=0.2ex]{below}{T1}{T2}{\# of graphs in $\hat{\mathcal{G}}_T$}
+%    \annotatetwo[yshift=-2em]{below}{k1}{k2}{max.\ indegree in $\hat{\mathcal{G}}_T$}
+%    \annotate[yshift=3em]{above,left}{Is}{size of set of allowed interventions}
+%    \annotate[yshift=1em]{above}{Nb}{\# of samples per batch}
+%    \annotate[yshift=-1em]{below}{M}{\# of samples for $\mathbb{E}_y$}
+%    \annotate[yshift=-3em]{below,left}{b}{batch index}
+\end{frame}
+
+\end{document}

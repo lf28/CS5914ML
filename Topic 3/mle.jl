@@ -45,33 +45,33 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 """
 
 # ╔═╡ 6df53306-f00a-4d7e-9e77-0b717f016f06
-md"""
+# md"""
 
-## Notations
-
-
-Superscript--index with brackets ``.^{(i)}``: ``i \in \{1,2,\ldots, n\}`` index observations/data
-* ``n`` total number of observations
-* *e.g.* ``y^{(i)}`` the i-th observation's label
-* ``\mathbf{x}^{(i)}`` the i-th observation's predictor vector
-
-Subscript--index: feature index ``j \in \{1,2,,\ldots, m\} ``
-* ``m`` total number of features
-* *e.g.* ``\mathbf{x}^{(i)}_2``: the second element/feature of ``i``--th observation
+# ## Notations
 
 
-Vectors: **Bold--face** smaller case:
-* ``\mathbf{x},\mathbf{y}, \boldsymbol{\beta}``
-* ``\mathbf{x}^\top``: row vector
+# Superscript--index with brackets ``.^{(i)}``: ``i \in \{1,2,\ldots, n\}`` index observations/data
+# * ``n`` total number of observations
+# * *e.g.* ``y^{(i)}`` the i-th observation's label
+# * ``\mathbf{x}^{(i)}`` the i-th observation's predictor vector
 
-Matrices: **Bold--face** capital case: 
-* ``\mathbf{X},\mathbf{A}, \boldsymbol{\Gamma}``  
+# Subscript--index: feature index ``j \in \{1,2,,\ldots, m\} ``
+# * ``m`` total number of features
+# * *e.g.* ``\mathbf{x}^{(i)}_2``: the second element/feature of ``i``--th observation
 
 
-Scalars: normal letters
-* ``x,y,\beta,\gamma``
+# Vectors: **Bold--face** smaller case:
+# * ``\mathbf{x},\mathbf{y}, \boldsymbol{\beta}``
+# * ``\mathbf{x}^\top``: row vector
 
-"""
+# Matrices: **Bold--face** capital case: 
+# * ``\mathbf{X},\mathbf{A}, \boldsymbol{\Gamma}``  
+
+
+# Scalars: normal letters
+# * ``x,y,\beta,\gamma``
+
+# """
 
 # ╔═╡ 65bdd684-09d1-4fdc-b2bd-551f43626812
 # md"""
@@ -134,7 +134,7 @@ The data/observation
 
 ```math
 \large
-\mathcal{D} = \{\texttt{caugh} = \texttt{true}\}
+\mathcal{D} = \{\texttt{cough} = \texttt{true}\}
 ```
 
 
@@ -163,7 +163,7 @@ The data/observation
 
 ```math
 \large
-\mathcal{D} = \{\texttt{caugh} = \texttt{true}\}
+\mathcal{D} = \{\texttt{cough} = \texttt{true}\}
 ```
 
 "Inference": the objective is to find out what is likely the cause given the observed
@@ -205,14 +205,14 @@ The data/observation
 
 ```math
 \large
-\mathcal{D} = \{\texttt{caugh} = \texttt{true}\}
+\mathcal{D} = \{\texttt{cough} = \texttt{true}\}
 ```
 * once observed, ``\mathcal{D}`` do not change
 
 The likelihood function therefore is 
 
 ```math
-P(\{\texttt{caugh} = \texttt{true}\}|h)
+P(\{\texttt{cough} = \texttt{true}\}|h)
 ```
 """
 
@@ -240,7 +240,7 @@ TwoColumn(md"""
 
 The likelihood function is
 
-$$P(\underbrace{\mathcal{D}}_{\{\texttt{caugh} = \texttt{t}\}}|h) = \begin{cases} 0.05 & h = \texttt{heal.} \\
+$$P(\underbrace{\mathcal{D}}_{\{\texttt{cough} = \texttt{t}\}}|h) = \begin{cases} 0.05 & h = \texttt{heal.} \\
 0.85 & h = \texttt{cold} \\
 0.9 & h = \texttt{cancer}
 \end{cases}$$
@@ -286,7 +286,7 @@ TwoColumn(md"""
 
 The likelihood function is
 
-$$P(\{\texttt{caugh} = \texttt{t}\}|h) = \begin{cases} 0.05 & h = \texttt{heal.} \\
+$$P(\{\texttt{cough} = \texttt{t}\}|h) = \begin{cases} 0.05 & h = \texttt{heal.} \\
 0.85 & h = \texttt{cold} \\
 \colorbox{pink}{0.9} & \colorbox{pink}{h = \texttt{cancer}}
 \end{cases}$$
