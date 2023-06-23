@@ -69,20 +69,48 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 # ╔═╡ 7091d2cf-9237-45b2-b609-f442cd1cdba5
 md"""
 
-## Topics to cover
-	
+# Topics to cover
+
 """
+
+# ╔═╡ bf362b4d-6ecf-495f-9b7d-3348613b2fc3
+aside((md"""$(@bind next1 Button("next")) 
+$(@bind init1 Button("init"))
+	"""))
+
+# ╔═╡ 72fb156d-edb5-4505-aedc-b1495bd19ed9
+begin
+	init1
+	next_idx = [0];
+end;
+
+# ╔═╡ ae45b0e8-7497-44d3-b1d8-5acdf8a953f2
+begin
+	next1
+	topics = ["Probability theory review", "Maximum likelihood estimation", "Probabilistic linear regression", "Probabilistic regression extensions"]
+	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
+end
+
+# ╔═╡ 50119d87-3724-4f71-b031-19a79c1fbdae
+let
+	next1
+	next_idx[1] += 1
+end;
 
 # ╔═╡ b67afb1b-8f6b-42e1-8f3a-da8a94f1c864
 md"# Motivation"
+
+# ╔═╡ 91b44119-c905-4a10-8fa2-97687f8913f7
+html"""<center><img src="https://theshackrescue.files.wordpress.com/2015/07/boxofchocolate.jpg" height="350"/></center>"""
 
 # ╔═╡ 84916718-b19c-473b-9c39-e1055ccad467
 md"""
 
 ## Why probability ?
 
-!!! important ""
-	##### ``\;\;\;\;\;\;\;\;\;\;`` _Probability theory_ is the tool to deal with **_Uncertainty_** 
+
+!!! note ""
+	##### ``\;\;\;\;\;\;\;\;\;\;`` _**Uncertainty**_ is everywhere in life and Machine Learning
 
 
 
@@ -93,15 +121,18 @@ md"""
 
 ## Why probability ?
 
-!!! important ""
-	##### ``\;\;\;\;\;\;\;\;\;\;`` _Probability theory_ is the tool to deal with **_Uncertainty_** 
-
-\
-\
 
 
 !!! note ""
-	##### ``\;\;\;\;\;\;\;\;\;\;`` And _**uncertainty**_ is everywhere in Machine Learning
+	##### ``\;\;\;\;\;\;\;\;\;\;`` _**Uncertainty**_ is everywhere in life and Machine Learning
+
+\
+\
+
+!!! important ""
+	##### ``\;\;\;\;\;\;\;\;\;\;`` _Probability theory_ is the tool to deal with **_Uncertainty_** 
+
+
 
 
 
@@ -130,7 +161,20 @@ md"""
 md"""
 
 ## Prediction is uncertain -- regression
+
+
 """
+
+# ╔═╡ 9e27864c-f5cb-4780-bcd3-e3d29a69742a
+Foldable("", md"""
+
+Prediction with a probabilistic distribution:
+
+```math
+\large
+p(y_{test}|x_{test})
+```
+""")
 
 # ╔═╡ 5bd15469-e888-4505-a53d-49fef3329ea4
 md"Add linear regression: $(@bind add_lin CheckBox(default=false)),
@@ -183,7 +227,7 @@ md"""
 
 ```math
 
-P(y|\mathbf{X}) = \begin{bmatrix}
+P(y_{test}|\mathbf{x}_{test}) = \begin{bmatrix}
 \cdot \\
 \cdot\\
 \cdot\\
@@ -205,7 +249,7 @@ md"""
 
 ```math
 
-P(y|\mathbf{X}) = \begin{bmatrix}
+P(y_{test}|\mathbf{x}_{test}) = \begin{bmatrix}
 \cdot \\
 \cdot\\
 \cdot\\
@@ -216,7 +260,6 @@ P(y|\mathbf{X}) = \begin{bmatrix}
 \texttt{others}\\
 \end{array}
 ```
-
 """
 
 # ╔═╡ 2ce6c56b-733c-42e8-a63b-d774cb6c199c
@@ -899,20 +942,22 @@ md"""
 """
 
 # ╔═╡ 6bcfe759-0010-400e-bb9b-62c089bd5230
-TwoColumn(md"
+TwoColumn(md"""
 \
 
 Gaussian random variable $X$
 
-$$\large\begin{align} p(X=x) &= \mathcal{N}(x; \mu, \sigma^2) \\
-&= \frac{1}{\sigma \sqrt{2\pi}} e^{-\frac{1}{2} \left(\frac{x-\mu}{\sigma} \right)^2}
-\end{align}$$
 
-* ``x \in (-\infty, +\infty)``
+$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/gaussian_eq_1d.png", :width=>450, :align=>"middle"))
+
+\
+
 * ``\mu``: mean or location
 * ``\sigma^2``: variance or scale, controls the spread
 
-", let
+
+
+""", let
 
 	μs = [-3, 0, 3]
 	σ²s = [1 , 2 , 5]
@@ -1142,6 +1187,7 @@ Bi-letter example: $X,Y$ represents the _first_ and _second_ letter
 
 # ╔═╡ 1877ebc8-790f-483a-acf3-9288df9ee7cc
 TwoColumn(md"""
+\
 
 * there are $27 \times 27$ entries
 * very common bigrams are $\texttt{in, re, he, th}$, \_$\texttt{a}$ (starting with ``\texttt{a}``)
@@ -2627,9 +2673,9 @@ version = "0.3.2"
 
 [[deps.Ratios]]
 deps = ["Requires"]
-git-tree-sha1 = "1342a47bf3260ee108163042310d26f2be5ec90b"
+git-tree-sha1 = "6d7bb727e76147ba18eed998700998e17b8e4911"
 uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
-version = "0.4.5"
+version = "0.4.4"
 weakdeps = ["FixedPointNumbers"]
 
     [deps.Ratios.extensions]
@@ -3209,10 +3255,16 @@ version = "1.4.1+0"
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
 # ╟─7091d2cf-9237-45b2-b609-f442cd1cdba5
+# ╟─bf362b4d-6ecf-495f-9b7d-3348613b2fc3
+# ╟─ae45b0e8-7497-44d3-b1d8-5acdf8a953f2
+# ╟─72fb156d-edb5-4505-aedc-b1495bd19ed9
+# ╟─50119d87-3724-4f71-b031-19a79c1fbdae
 # ╟─b67afb1b-8f6b-42e1-8f3a-da8a94f1c864
+# ╟─91b44119-c905-4a10-8fa2-97687f8913f7
 # ╟─84916718-b19c-473b-9c39-e1055ccad467
 # ╟─1e927760-4dc6-4ecf-86ec-8fed16dbb0d6
 # ╟─7d8ed44a-06ba-4432-8345-55bb31eb8f1d
+# ╟─9e27864c-f5cb-4780-bcd3-e3d29a69742a
 # ╟─5bd15469-e888-4505-a53d-49fef3329ea4
 # ╟─3b4a2f77-587b-41fd-af92-17e9411929c8
 # ╟─c9e0eaae-b340-434e-bdc9-dfdbc747221e

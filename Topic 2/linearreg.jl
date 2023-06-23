@@ -471,45 +471,6 @@ L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n \colorbox{orange}{$(y^{(i)} - h(\mathbf{
 # ╔═╡ f6408f52-bd75-4147-87a3-4b701629b150
 md" Move me: $(@bind iidx Slider(1:11, default=11, show_value=true))"
 
-# ╔═╡ 39d89313-17d8-445f-a0d0-5a241c0e6c13
-begin
-	# define a function that returns a Plots.Shape
-	rectangle(w, h, x, y) = Shape(x .+ [0,w,w,0], y .+ [0,0,h,h])
-end;
-
-# ╔═╡ c5e9d9ab-aa19-489c-a513-bef5f751e7d3
-let
-	gr()
-	Random.seed!(123)
-	n = 10
-	w0, w1 = 1, 1
-	Xs = range(-2, 2, n)
-	ys = (w0 .+ Xs .* w1) .+ randn(n)/1
-	Xs = [Xs; 0.5]
-	ys = [ys; 3.5]
-	plt = plot(Xs, ys, st=:scatter, markersize=3, alpha=0.5, label="", xlabel=L"x", ylabel=L"y", ratio=1, title="Prediction error squared: "*L"(y^{(i)} - h(x^{(i)}))^2")
-	plot!(-2.9:0.1:2.9, (x) -> w0 + w1 * x , xlim=[-3, 3], lw=2, label=L"h_w(x)", legend=:topleft, framestyle=:axes)
-	ŷs = Xs .* w1 .+ w0
-	for i in 1:length(Xs)
-		plot!([Xs[i], Xs[i]], [ys[i], ŷs[i] ], lc=:gray, lw=1.5, label="")
-	end
-
-	if (ys[iidx] -  ŷs[iidx]) > 0 
-		li = -(ŷs[iidx] - ys[iidx] )
-		plot!(rectangle(li, li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
-		if iidx ==11
-			annotate!(Xs[iidx], 0.5*(ys[iidx] + ŷs[iidx]), text(L"y^i - h(x^{(i)})", 10, :black, :top, rotation = -90 ))
-			annotate!(.5 * (Xs[iidx] + abs(li)), ŷs[iidx], text(L"y^i - h(x^{(i)})", 10, :black, :top, rotation = 0 ))
-		end
-	else
-		li = -(ŷs[iidx] - ys[iidx] )
-		plot!(rectangle(abs(li), li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
-		# annotate!(.5*(Xs[iidx] + abs(li)), 0.5*(ys[iidx] + ŷs[iidx]), text(L"(y^i - h(x^{(i)}))^2", 10, :black ))
-
-	end
-	plt
-end
-
 # ╔═╡ dead4d31-8ed4-4599-a3f7-ff8b7f02548c
 md"""
 ## Least square estimation
@@ -527,37 +488,6 @@ And we aim to minimise the loss to achieve the best **goodness**
 
 * **optimisation**: _good old calculus!_
 """
-
-# ╔═╡ 1efe5011-ffbb-4703-bb4a-eb7e310ab7e4
-let
-	gr()
-	Random.seed!(123)
-	n = 10
-	w0, w1 = 1, 1
-	Xs = range(-2, 2, n)
-	ys = (w0 .+ Xs .* w1) .+ randn(n)/1
-	Xs = [Xs; 0.5]
-	ys = [ys; 3.5]
-	plt = plot(Xs, ys, st=:scatter, markersize=3, alpha=0.5, label="", xlabel=L"x", ylabel=L"y", ratio=1, title="SSE loss: "*L"\sum (y^{(i)} - h(x^{(i)}))^2")
-	plot!(-2.9:0.1:2.9, (x) -> w0 + w1 * x , xlim=[-3, 3], lw=2, label=L"h_w(x)", legend=:topleft, framestyle=:axes)
-	ŷs = Xs .* w1 .+ w0
-	for i in 1:length(Xs)
-		plot!([Xs[i], Xs[i]], [ys[i], ŷs[i] ], lc=:gray, lw=1.5, label="")
-		iidx = i
-			if (ys[iidx] -  ŷs[iidx]) > 0 
-		li = -(ŷs[iidx] - ys[iidx] )
-		plot!(rectangle(li, li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
-	else
-		li = -(ŷs[iidx] - ys[iidx] )
-		plot!(rectangle(abs(li), li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
-		# annotate!(.5*(Xs[iidx] + abs(li)), 0.5*(ys[iidx] + ŷs[iidx]), text(L"(y^i - h(x^{(i)}))^2", 10, :black ))
-
-	end
-	end
-
-
-	plt
-end
 
 # ╔═╡ d70102f1-06c0-4c5b-8dfd-e41c4a455181
 md"""
@@ -1390,6 +1320,76 @@ md"""
 
 # Appendix
 """
+
+# ╔═╡ 39d89313-17d8-445f-a0d0-5a241c0e6c13
+begin
+	# define a function that returns a Plots.Shape
+	rectangle(w, h, x, y) = Shape(x .+ [0,w,w,0], y .+ [0,0,h,h])
+end;
+
+# ╔═╡ c5e9d9ab-aa19-489c-a513-bef5f751e7d3
+let
+	gr()
+	Random.seed!(123)
+	n = 10
+	w0, w1 = 1, 1
+	Xs = range(-2, 2, n)
+	ys = (w0 .+ Xs .* w1) .+ randn(n)/1
+	Xs = [Xs; 0.5]
+	ys = [ys; 3.5]
+	plt = plot(Xs, ys, st=:scatter, markersize=3, alpha=0.5, label="", xlabel=L"x", ylabel=L"y", ratio=1, title="Prediction error squared: "*L"(y^{(i)} - h(x^{(i)}))^2")
+	plot!(-2.9:0.1:2.9, (x) -> w0 + w1 * x , xlim=[-3, 3], lw=2, label=L"h_w(x)", legend=:topleft, framestyle=:axes)
+	ŷs = Xs .* w1 .+ w0
+	for i in 1:length(Xs)
+		plot!([Xs[i], Xs[i]], [ys[i], ŷs[i] ], lc=:gray, lw=1.5, label="")
+	end
+
+	if (ys[iidx] -  ŷs[iidx]) > 0 
+		li = -(ŷs[iidx] - ys[iidx] )
+		plot!(rectangle(li, li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
+		if iidx ==11
+			annotate!(Xs[iidx], 0.5*(ys[iidx] + ŷs[iidx]), text(L"y^i - h(x^{(i)})", 10, :black, :top, rotation = -90 ))
+			annotate!(.5 * (Xs[iidx] + abs(li)), ŷs[iidx], text(L"y^i - h(x^{(i)})", 10, :black, :top, rotation = 0 ))
+		end
+	else
+		li = -(ŷs[iidx] - ys[iidx] )
+		plot!(rectangle(abs(li), li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
+		# annotate!(.5*(Xs[iidx] + abs(li)), 0.5*(ys[iidx] + ŷs[iidx]), text(L"(y^i - h(x^{(i)}))^2", 10, :black ))
+
+	end
+	plt
+end
+
+# ╔═╡ 1efe5011-ffbb-4703-bb4a-eb7e310ab7e4
+let
+	gr()
+	Random.seed!(123)
+	n = 10
+	w0, w1 = 1, 1
+	Xs = range(-2, 2, n)
+	ys = (w0 .+ Xs .* w1) .+ randn(n)/1
+	Xs = [Xs; 0.5]
+	ys = [ys; 3.5]
+	plt = plot(Xs, ys, st=:scatter, markersize=3, alpha=0.5, label="", xlabel=L"x", ylabel=L"y", ratio=1, title="SSE loss: "*L"\sum (y^{(i)} - h(x^{(i)}))^2")
+	plot!(-2.9:0.1:2.9, (x) -> w0 + w1 * x , xlim=[-3, 3], lw=2, label=L"h_w(x)", legend=:topleft, framestyle=:axes)
+	ŷs = Xs .* w1 .+ w0
+	for i in 1:length(Xs)
+		plot!([Xs[i], Xs[i]], [ys[i], ŷs[i] ], lc=:gray, lw=1.5, label="")
+		iidx = i
+			if (ys[iidx] -  ŷs[iidx]) > 0 
+		li = -(ŷs[iidx] - ys[iidx] )
+		plot!(rectangle(li, li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
+	else
+		li = -(ŷs[iidx] - ys[iidx] )
+		plot!(rectangle(abs(li), li, Xs[iidx], ŷs[iidx]), lw=2, color=:gray, opacity=.5, label="")
+		# annotate!(.5*(Xs[iidx] + abs(li)), 0.5*(ys[iidx] + ŷs[iidx]), text(L"(y^i - h(x^{(i)}))^2", 10, :black ))
+
+	end
+	end
+
+
+	plt
+end
 
 # ╔═╡ 238e7b56-fb3a-4e9b-9c31-09c1f4a1df2a
 begin
