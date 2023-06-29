@@ -31,7 +31,7 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Maximum Likelihood Estimation
+#### Maximum a Posteriori Estimation (MAP) and Regularisation
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -100,7 +100,7 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 md"""
 
 
-## An example
+## Recap: the coughing example
 
 !!! note "Cancer or cold"
 	Someone in a café has coughed. Has he got  
@@ -109,6 +109,64 @@ md"""
 	* or just **healthy** ?
 
 
+"""
+
+# ╔═╡ 79a00ccc-b2d1-4b61-a6df-c5a8585acca9
+md"""
+
+
+## Recap: the coughing example
+
+!!! note "Cancer or cold"
+	Someone in a café has coughed. Has he got  
+	* **cancer** 
+	* **cold** 
+	* or just **healthy** ?
+
+```math
+\large
+\text{Hypothesis: }h \in \{\texttt{healthy}, \texttt{cold}, \texttt{cancer}\}
+```
+
+```math
+\large
+\text{Observation: }\mathcal{D} = \{\texttt{cough} = \texttt{true}\}
+```
+
+"""
+
+# ╔═╡ 14b90d1d-d68e-4c15-97ce-2360c06829f8
+md"""
+## Recap: _Likelihood_ and MLE
+
+!!! information "Likelihood function"
+	The likelihood function of ``h`` is defined as 
+    ```math
+	\Large
+		{P(\mathcal{D}|h)}
+	```
+	* it is a function of ``h``  
+      * as ``\mathcal{D}`` is observed therefore fixed
+	* **likelihood**: conditional probability of observing the data ``\mathcal D`` given ``h``
+
+"""
+
+# ╔═╡ 87dad92c-0c10-4032-ac1e-5e23a8a4050a
+md"""
+
+!!! note "Maximum likelihood estimation (MLE)"
+
+	```math
+	\Large
+	\hat{h}_{\text{MLE}} \leftarrow \arg\max_{h} P(\mathcal D|h)
+	```
+
+
+"""
+
+# ╔═╡ ec21cda5-f111-470e-97be-66628b71cdb9
+md"""
+## Recap: MLE overfits
 """
 
 # ╔═╡ 274552b0-c285-4cef-89ab-49795d8b8183
@@ -123,101 +181,26 @@ md"""
 	* **cold** 
 	* or just **healthy** ?
 
-The unknown _hypothesis_
+```math
+\large
+\text{Hypothesis: }h \in \{\texttt{healthy}, \texttt{cold}, \texttt{cancer}\}
+```
 
 ```math
 \large
-h \in \{\texttt{healthy}, \texttt{cold}, \texttt{cancer}\}
+\text{Observation: }\mathcal{D} = \{\texttt{cough} = \texttt{true}\}
 ```
 
-The data/observation
+
+##### "Probabilistic inference": the objective is to find out
 
 ```math
-\large
-\mathcal{D} = \{\texttt{cough} = \texttt{true}\}
+\Large\boxed{P(H|\mathcal{D}) ?}
 ```
+
 
 
 """
-
-# ╔═╡ 713afac8-e647-46c1-9873-b91ce3f33e5b
-md"""
-
-
-## Probability inference
-
-!!! note ""
-	Someone in a café has coughed. Has he got  
-	* **cancer** 
-	* **cold** 
-	* or just **healthy** ?
-
-The unknown _hypothesis_
-
-```math
-\large
-h \in \{\texttt{healthy}, \texttt{cold}, \texttt{cancer}\}
-```
-
-The data/observation
-
-```math
-\large
-\mathcal{D} = \{\texttt{cough} = \texttt{true}\}
-```
-
-"Inference": the objective is to find out what is likely the cause given the observed
-```math
-\large\boxed{P(h|\mathcal{D})}
-```
-
-"""
-
-# ╔═╡ 14b90d1d-d68e-4c15-97ce-2360c06829f8
-md"""
-## _Likelihood_ function
-
-!!! information "Likelihood function"
-	The likelihood function of ``h`` is defined as 
-    ```math
-	\Large
-		{P(\mathcal{D}|h)}
-	```
-	* it is a function of ``h``  
-      * as ``\mathcal{D}`` is observed therefore fixed
-	* **likelihood**: conditional probability of observing the data ``\mathcal D`` given ``h``
-
-"""
-
-# ╔═╡ 3a1c914d-47d8-4069-9990-d3a8e7ddb6aa
-md"""
-
-## Likelihood function example
-
-The unknown _hypothesis_
-
-```math
-\large
-h \in \{\texttt{healthy}, \texttt{cold}, \texttt{cancer}\}
-```
-
-The data/observation
-
-```math
-\large
-\mathcal{D} = \{\texttt{cough} = \texttt{true}\}
-```
-* once observed, ``\mathcal{D}`` do not change
-
-The likelihood function therefore is 
-
-```math
-P(\{\texttt{cough} = \texttt{true}\}|h)
-```
-"""
-
-# ╔═╡ 3cbc382a-51d9-41e0-9097-6259c0dc43a9
-md"""## Likelihood function example (cont.)"""
 
 # ╔═╡ bf245f54-d3f4-43e5-895f-f6fbf6d469a4
 begin
@@ -232,52 +215,6 @@ end;
 
 # ╔═╡ b3e54667-2745-439d-a442-84a0755bf905
 like_plt = plot(liks, fill=true, st=:bar, xticks=(1:3, Hs), markershape=:circ, ylim =[0, 1.0], label="",xlabel=L"h", title="Likelihood: "*L"P(\texttt{cough}=\texttt{tr}|h)", c= 2,  lw=2, size=(300,300));
-
-# ╔═╡ 065bd1da-647f-45e0-92f0-92135df2b541
-TwoColumn(md"""
-\
-\
-
-The likelihood function is
-
-$$P(\underbrace{\mathcal{D}}_{\{\texttt{cough} = \texttt{t}\}}|h) = \begin{cases} 0.05 & h = \texttt{heal.} \\
-0.85 & h = \texttt{cold} \\
-0.9 & h = \texttt{cancer}
-\end{cases}$$
-
-* ##### it is a function of ``h``
-* BUT it is **NOT** a probability distribution of ``h``
-
-""",begin
-like_plt
-end)
-
-# ╔═╡ b7964651-fbef-424e-8ba3-fd38d09b64af
-aside(tip(md"""I use ``\hat{h}_{\text{MLE}}`` and ``\hat{h}_{\text{ML}}`` interchangeably: both mean maximum likelihood estimator."""))
-
-# ╔═╡ 6b1b7163-0bac-4229-88cc-d073732a5588
-md"""
-## Maximum Likelihood Estimation (MLE)
-
-Maximum likelihood estimation (MLE)
-
-```math
-\large
-\hat{h}_{\text{MLE}} \leftarrow \arg\max_{h} P(\mathcal D|h)
-```
-
-* "``\arg\max``": find the variable ``h`` that maximise ``P(\mathcal D|h)``
-* ``\hat h_{\text{ML}}`` is called **maximum likelihood estimator**
-
-##
-
-
-"""
-
-# ╔═╡ ec21cda5-f111-470e-97be-66628b71cdb9
-md"""
-## MLE -- example
-"""
 
 # ╔═╡ fc2c5d6f-d8e1-4a53-9c03-9d52fe82edc7
 TwoColumn(md"""
@@ -305,512 +242,362 @@ $$P(\{\texttt{cough} = \texttt{t}\}|h) = \begin{cases} 0.05 & h = \texttt{heal.}
 like_plt
 end)
 
-# ╔═╡ 6f6dc6d8-567d-4000-a2ef-f10f03d007a9
+# ╔═╡ af71eea9-19b1-41fa-ae71-3433abeab889
 md"""
 
-## Another example: coin toss
+## Bayes' theorem
 
+"""
 
-> Toss a coin ``n=10`` times independently:
->
-> $$\mathcal{D} =\{1,0,0,1,1,1,1,1,1,1\},$$
-> *i.e.* 8 of 10 are heads. What is the _bias_ of the coin?
+# ╔═╡ cfc74d6b-8dd6-4d82-b636-e10d39e37e37
+html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/bayes.png' width = '500' /></center>"
 
-Remember the bias ``\theta \in[0,1]`` is the probability of observing a head when you toss a coin.
+# ╔═╡ a13aa4b1-1e19-4419-94ba-808037b21c7f
+md"""
 
-## Another example: coin toss (cont.)
+**Bayes' rule** provides us a way to find out the posterior;
 
-The unknown _hypothesis_ (a continuous hypothesis space): 
+And the **Evidence** is the sum of the numerator:
 
 ```math
 \large
-\theta \in [0,1]
+p(\mathcal{D}) = \sum_h p(h) p(\mathcal{D}|h)
 ```
 
+
+## Bayes' theorem
+
+Since the **Evidence** is a normalising constant (it does **not** depend on ``h``),
+
+```math
+\large
+p(\mathcal{D}) = \sum_h p(h) p(\mathcal{D}|h)
+```
+
+We often write Bayes' rule with ``\propto`` 
+"""
+
+# ╔═╡ 5244a73c-102e-4620-90af-4c1459c1b7f6
+html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/bayes2.png' height = '200' /></center>"
+
+# ╔═╡ 87084518-4e97-4b9a-8356-efbed69ccc5a
+md"""## Cough example: prior ``p(H)``
+
+
+"""
+
+# ╔═╡ aef92673-58df-40d2-8dd0-7a326d707bbc
+TwoColumn(md""" 
+\
+\
+\
 \
 
-The observed data: 
-
-```math
-\large
-	\mathcal{D} =\{Y_1, Y_2,\ldots, Y_{10}\}
-```
-
-## Another example: coin toss (cont.)
-
-
-The unknown _hypothesis_ (a continuous hypothesis space): 
-
-```math
-\large
-\theta \in [0,1]
-```
-
-\
-
-The observed data: 
-
-```math
-\large
-	\mathcal{D} =\{Y_1, Y_2,\ldots, Y_{10}\}
-```
-
-The **likelihood function**
-
-```math
-\large
-P(\mathcal{D}|\theta) = P(y^{(1)}, y^{(2)}, \ldots, y^{(10)}|\theta)= \prod_{i=1}^{10} P(y^{(i)}|\theta)
-```
-
-* *independent* assumption
-"""
-
-# ╔═╡ e0bbe143-3d00-4953-9f77-feb2659bec00
-md"""
-Recall each ``P(y^{(i)}|\theta)`` is a _Bernoulli_ distribution
-
-```math
-\large
-\begin{align}
-P(y^{(i)}|\theta) = \begin{cases} 1-\theta & y^{(i)} = 0 \\ \theta & y^{(i)} = 1\end{cases}, \;\; \text{or}\;\; P(y^{(i)}|\theta) = \theta^{y^{(i)}} (1-\theta)^{1- y^{(i)}}
-
-\end{align}
-```
-
-
-"""
-
-# ╔═╡ 0e4e822e-2f50-4c6b-9292-83815bda8800
-md"""
-
-## Another example: coin toss (cont.)
-
-
-The unknown _hypothesis_ (a continuous hypothesis space): 
-
-```math
-\large
-\theta \in [0,1]
-```
-
-\
-
-The observed data: 
-
-```math
-\large
-	\mathcal{D} =\{Y_1, Y_2,\ldots, Y_{10}\}
-```
-
-The **likelihood function**
-
-```math
-\large
-\begin{align}
-P(\mathcal{D}|\theta) &= P(y^{(1)}, y^{(2)}, \ldots, y^{(n)}|\theta)\\
-&= \prod_{i=1}^{n} P(y^{(i)}|\theta)\\
-&= \prod_{i=1}^{n} \theta^{y^{(i)}} (1-\theta)^{1- y^{(i)}} \\
-&= \theta^{n⁺} (1- \theta)^{n- n⁺}
-\end{align}
-```
-
-
-* ``n^+ = \sum_{i=1}^n y^{(i)}``: the total number of heads 
-* ``n``: total tosses
-
-
-"""
-
-# ╔═╡ 79fb58e4-9a5a-4ee8-8f52-8afe906e8c6d
-aside(tip(md"""
-``P(y^{(i)}|\theta)`` is a _Bernoulli_ distribution
-
-```math
-\large
-\begin{align}
-P(y^{(i)}|\theta) &= \begin{cases} 1-\theta & y^{(i)} = 0 \\ \theta & y^{(i)} = 1\end{cases}\\
-&= \theta^{y^{(i)}} (1-\theta)^{1- y^{(i)}}
-\end{align}
-```
-
-
-
-"""))
-
-# ╔═╡ 5aa3e321-44ed-4e8a-900d-b69f3c5966c8
-θs = 0:0.01:1;
-
-# ╔═╡ 3b1d0f87-608d-4d67-8954-91d519507487
-begin
-	𝒟 = [1, 0, 0, 1, 1, 1, 1, 1, 1, 1]
-end;
-
-# ╔═╡ 733eeed9-f947-45db-9fe5-5e2869b752bf
-md"""
-
-## Another example: coin toss (cont.)
-
-
-
-"""
-
-# ╔═╡ 1c1f225a-aad2-45ab-8ef6-2f2ffad3ce1c
-md"""
-
-## Log-likelihood
-
-
-The maximum likelihood estimator (MLE) of the bias is
-
-```math
-\large
-\hat{\theta}_{\text{MLE}} \leftarrow \arg\max_{\theta'} p(\mathcal{D}|\theta')
-```
-
-
-A common practice is to maximise the *log-* transformed likelihood (log-likelihood)
-
-```math
-\large
-\hat{\theta}_{\text{MLE}} \leftarrow \arg\max_{\theta'} \underbrace{\ln p(\mathcal{D}|\theta')}_{\ell(\theta)}
-```
-Log function (``e`` based) is a monotonically increasing function
-
-* the log transform **does not** change ``\hat{\theta}_{\text{MLE}}``
-* the function on the right is **convex** !
-"""
-
-# ╔═╡ ddaeb352-07d5-4227-bca4-9fcc62198229
-aside(tip(plot(log, framestyle=:zerolines, size=(250,150), ylim=[-5,3],label="", lw=2, title="Log function", titlefontsize=10)))
-
-# ╔═╡ 12ef65ef-a918-4414-8b46-3c8271b1b748
-function ℓ(θ, 𝒟; logprob=false)
-	N = length(𝒟)
-	N⁺ = sum(𝒟)
-	ℓ(θ, N, N⁺; logprob=logprob)
-end;
-
-# ╔═╡ 2b2c5ab8-976e-4f8b-bc75-c19aadc6254f
-function ℓ(θ, n, n⁺; logprob=false)
-	# logL = n⁺ * log(θ) + (n-n⁺) * log(1-θ)
-	# use xlogy(x, y) to deal with the boundary case 0*log(0) case gracefully, i.e. θ=0, n⁺ = 0
-	logL = xlogy(n⁺, θ) + xlogy(n-n⁺, 1-θ)
-	logprob ? logL : exp(logL)
-end;
-
-# ╔═╡ 5fc88273-532d-4d00-8c91-bdcb4160bdb9
-TwoColumn(md"""
-
-
-The **likelihood function**
-
-```math
-\large
-\begin{align}
-P(\mathcal{D}|\theta) 
-= \theta^{n⁺} (1- \theta)^{n- n⁺}
-\end{align}
-```
-
-
-* ``n^+ = 8``: the total number of heads 
-* ``n=10``: total tosses
-
-##### It is STILL a function of the hypothesis ``\theta``
-""", let
-	pl1 = plot(θs, θ -> ℓ(θ, 𝒟), color=1, lw=2, xlabel=L"θ", ylabel=L"p(\mathcal{D}|θ)", label="", title="Likelihood: "*L"p(\mathcal{D}|\theta)", size=(300,300))
-
+$$\large P(h) = \begin{cases} 0.89 & h=\texttt{healthy} \\
+0.1 & h=\texttt{cold}\\ 
+0.01 & h=\texttt{cancer}\end{cases}$$ """, 
+	begin
+prior_plt=plot(prior_p, fill=true, st=:bar, xticks=(1:3, Hs), markershape=:circ, ylim =[0, 1.0], label="", title="Prior: "*L"P(h)", size=(300,300))
 end)
 
-# ╔═╡ 7466a185-f493-45fe-8232-82a604a898bb
-let
-
-
-	pl1 = plot(θs, θ -> ℓ(θ, 𝒟), color=1,  xlabel=L"θ", ylabel=L"p(\mathcal{D}|θ)", label="", lw=2, title="Likelihood: "*L"p(\mathcal{D}|\theta)")
-
-	vline!([mean(𝒟)], c=:grey, label="", lw=2, ls=:dash)
-
-	pl2 = plot(θs, θ -> ℓ(θ, 𝒟; logprob=true), color=1,  lw=2, xlabel=L"θ", ylabel=L"p(\mathcal{D}|θ)", label="", title="Log likelihood: "*L"\ln p(\mathcal{D}|\theta)")
-	vline!([mean(𝒟)], c=:grey, label="", lw=2, ls=:dash)
-
-	plot(pl1, pl2, size=(600,300))
-end
-
-# ╔═╡ bb62337b-e473-42eb-9234-d620f88cc0c2
+# ╔═╡ 8b4ca0a1-307d-456d-bb93-a70f4de1b49f
 md"""
-## Why take the log ``\ln`` 
 
-Log-likelihood is more **desirable** to work with when it comes to optimisation
-
-\
+## Cough example: likelihood ``p(\mathcal{D}|h)``
 
 """
 
-# ╔═╡ 770864c3-8dfb-4a54-a796-d3b18b5983e7
+# ╔═╡ bec1b8fa-ff3a-4a18-bdd8-4101c671b832
 TwoColumn(md"""
-##### Log-likelihood is more *numerically stable*
-
-* for example, the likelihood underflows easily when ``n`` is large 
-  
-  $\begin{align}
-  P(\mathcal{D}|\theta) 
-  = \theta^{n⁺} (1- \theta)^{n- n⁺}
-  \end{align}$
-  * *e.g. imagine* computing ``.5^{100} \times (1-.5)^{100}``
-
-* but *log* likelihood is more stable
-
-```math
-\begin{align}
-\ln P(\mathcal{D}|\theta) 
-= {n⁺}\theta+ (n- n⁺)(1- \theta)
-\end{align}
-```
-
-""", md"")
-
-# ╔═╡ 30305fe8-a920-4ddf-9e7e-a6d5c4d9e30d
-md"""
-## Why take the log ``\ln``
-
-Log-likelihood is more **desirable** to work with when it comes to optimisation
-
-\
-
-"""
-
-# ╔═╡ 5c56cf05-981b-4a5b-96e6-2dbf35122eed
-TwoColumn(md"""
-##### Log-likelihood is more *numerically stable*
-
-* for example, the likelihood underflows easily when ``n`` is large
-```math
-\begin{align}
-P(\mathcal{D}|\theta) 
-= \theta^{n⁺} (1- \theta)^{n- n⁺}
-\end{align}
-```
-
-* but *log* likelihood is more stable
-
-```math
-\begin{align}
-\ln P(\mathcal{D}|\theta) 
-= {n⁺}\theta+ (n- n⁺)(1- \theta)
-\end{align}
-```
-
-""", md"##### Log-likelihood is more *convenient*
-
-* for example, the likelihood for Gaussian is
-```math
-\begin{align}
-p(x) 
-= {\frac{1}{\sigma \sqrt{2\pi}}} e^{-\frac{1}{2} {\left(\frac{x -\mu}{\sigma}\right)^2}}
-\end{align}
-```
-
-* but *log* likelihood is much simpler 
-  * ``e^{\ldots}`` and ``\ln`` cancels
-
-```math
-\begin{align}
-\ln p(x) 
-= -\frac{1}{2}\ln 2\pi\sigma^2 -\frac{1}{2\sigma^2} (y - \mu)^2
-\end{align}
-```")
-
-# ╔═╡ 38950e25-d150-4b69-b5f6-d6a049bfece4
-md"""
-## Another example: coin toss (cont.)
-
-
-
-
-"""
-
-# ╔═╡ 8a7de3fc-2b7f-4cdd-8a03-1bababad0c6c
-TwoColumn(md"""
-
 \
 \
 \
 
-The log-likelihood function becomes:
+The likelihood $$P(\texttt{cough}|h)$$
 
+|  | ``h`` | ``P(\texttt{cough}\|h)``|``P(\texttt{no cough}\|h)``|
+|---|:---:|:---:|:---:|
+|  | ``\texttt{healthy}`` | 0.05 | 0.95 |
+|  | ``\texttt{cold}`` | 0.85 | 0.15|
+|  | ``\texttt{cancer}`` | 0.9 | 0.1|
 
-```math
-\large
-
-\begin{align}
-\ell(\theta) &=\ln p(\mathcal{D}|\theta)  \\
-&= \ln \{\theta^{n⁺} (1- \theta)^{n- n⁺}\}\\
-&={n⁺}\ln \theta+ (n- n⁺)\ln (1- \theta)
-
-\end{align}
-```""", begin plot(θs, θ -> ℓ(θ, 𝒟; logprob=true), color=1,  lw=2, xlabel=L"θ", ylabel=L"p(\mathcal{D}|θ)", label="", title="Log-likelihood: "*L"\ell(\theta)", size=(300,300))
-end
-)
-
-# ╔═╡ 1dd5a302-46c6-48d8-921a-3b3ee3665598
-md"""
-$(begin
-
-aside(tip(md" Log identities:
-
-```math 
-\ln(a \cdot b) = \ln a + \ln b
-```
-
-```math
-e^{\ln x} = x;\;\; \ln (e^x) = x;\;\; 
-```
-
-```math 
-\ln(a^b) = b \ln a
-```
-
-```math 
-\ln\left (\prod_i p_i\right ) = \sum_{i} \ln p_i
-```
-"))
+""", begin
+like_plt
 end)
-"""
 
-# ╔═╡ 7f159e3c-b655-4121-a3ea-403b1d62bf3d
+# ╔═╡ e08423c0-46b1-45fd-b5ec-c977dfeea575
 md"""
 
-## MLE: good old calculus
 
-To optimise the likelihood function; 
+## Cough example: posterior
 
-```math
-\large
-\theta_{\text{MLE}} \leftarrow \arg\max_{\theta}\ell(\theta)
-```
+Apply Bayes' theorem to find posterior
 
-Take derivative and set to zero
-
-```math
-\large
-\frac{\mathrm{d} \ell{(\theta)}}{\mathrm{d}\theta} =0
-
-```
+$$\begin{align}P(h|\texttt{cough}) = \frac{P(h) P(\texttt{cough}|h)}{P(\texttt{cough})} = \begin{cases} 0.89 \times 0.05/P(\texttt{cough}) & h=\texttt{healthy} \\ 0.1 \times 0.85/P(\texttt{cough}) & h=\texttt{cold} \\ 0.01 \times 0.9/ P(\texttt{cough})& h=\texttt{cancer}  \end{cases}
+\end{align}$$
 
 
-* the MLE is just the observed frequency, or sample mean 
+
+* note that the evidence/marginal likelihood is 
+
+  $$\begin{align}
+  P(\texttt{cough}) &= \sum_{h\in \Omega_H} P(h) P(\texttt{cough}|h) \\&= 0.89 \times 0.05 + 0.1 \times 0.85 + 0.01 \times 0.9 = 0.1385\end{align}$$
+  is a **normalising constant**: it normalises ``\text{prior} \times \text{likelihood}`` such that the posterior becomes a valid distribution (*i.e.* sum to one)
+
+"""
+
+# ╔═╡ 8a433b8c-e9f3-4924-bdbe-68c8c5d245b5
+md"""
+
+
+## Cough example: posterior
+
+Apply Bayes' theorem to find posterior
+
+$$\begin{align}P(h|\texttt{cough}) = \frac{P(h) P(\texttt{cough}|h)}{P(\texttt{cough})} = \begin{cases} 0.89 \times 0.05/P(\texttt{cough}) & h=\texttt{healthy} \\ 0.1 \times 0.85/P(\texttt{cough}) & h=\texttt{cold} \\ 0.01 \times 0.9/ P(\texttt{cough})& h=\texttt{cancer}  \end{cases}
+\end{align}$$
+
+
+
+* note that the evidence/marginal likelihood is 
+
+  $$\begin{align}
+  P(\texttt{cough}) &= \sum_{h\in \Omega_H} P(h) P(\texttt{cough}|h) \\&= 0.89 \times 0.05 + 0.1 \times 0.85 + 0.01 \times 0.9 = 0.1385\end{align}$$
+  is a **normalising constant**: it normalises ``\text{prior} \times \text{likelihood}`` such that the posterior becomes a valid distribution (*i.e.* sum to one)
+
+"""
+
+# ╔═╡ f7875458-fbf8-4ead-aa77-437c11c97550
+TwoColumn(md"""
+\
+\
+\
+\
+
+$$P(h|\texttt{cough}) \approx \begin{cases} 0.321 & h=\texttt{healthy} \\
+0.614 & h=\texttt{cold}\\ 
+0.065 & h=\texttt{cancer}\end{cases}$$ 
+""", begin
+	# l = @layout [a b; c]
+	post_plt = Plots.plot(post_p, seriestype=:bar, markershape=:circle, label="", color=3,  xticks=(1:3, Hs), ylim=[0,1], ylabel="", title="Posterior: "*L"P(h|\texttt{cough})" ,legend=:outerleft, size=(320,300))
+	# plt_cough = Plots.plot(prior_plt, like_plt, post_plt, layout=l)
+end)
+
+# ╔═╡ e172c018-efbe-4ac5-a8ae-c889ea944121
+md"""
+
+## Maximum a Posteriori (MAP)
+
+
+
+Similar MLE, the **M**aximum **a** **P**osteriori (MAP)
+
+
+
+!!! note "Maximum a Posteriori (MAP)"
+
+	```math
+	\Large
+	\hat{h}_{\text{MAP}} \leftarrow \arg\max_{h} P(h|\mathcal D)
+	```
+
+
+"""
+
+# ╔═╡ e6bbc326-f9b7-4d51-bb15-a2e94b35cb85
+TwoColumn(md"""
+\
+\
+
+The MAP estimator is
+
+
+$$P(h|\texttt{cough}) \approx \begin{cases} 0.321 & h=\texttt{healthy} \\
+\colorbox{pink}{0.614} & \colorbox{pink}{$h=\texttt{cold}$}\\ 
+0.065 & h=\texttt{cancer}\end{cases}$$ 
 
 ```math
 \large
 \boxed{
-\hat{\theta}_{\text{ML}} = \frac{n⁺}{n}}
+\hat{h}_{\text{MAP}} = \texttt{cold}}
 ```
 
-"""
+**MAP** overcomes **overfitting**!
 
-# ╔═╡ b04d05e6-42f8-4df8-b133-1840f709f103
-Foldable("Details", md"""
-Take derivative w.r.t ``\theta``
-
-```math
-\begin{align}
-\frac{\mathrm{d}\ell(\theta)}{\mathrm{d}\theta} &= n^+ \frac{1}{\theta} + (n-n^+) \frac{1}{1-\theta} (-1)
-\end{align}
-```
-
-Set the derivative to zero and solve it 
-
-```math
-\begin{align}
-n^+ \frac{1}{\theta} &+ (n-n^+) \frac{1}{1-\theta} (-1) =0 \\
-&\Rightarrow n^+ (1-\theta) = (n-n^+) \theta \\
-&\Rightarrow n^+ - n^+ \theta = n \theta - n^+ \theta\\
-&\Rightarrow \theta = \frac{n^+}{n}
-\end{align}
-```
-
-""")
-
-# ╔═╡ 5de41fe7-d6a8-4d7f-9bf2-bd0c794261f5
-md"""
-## MLE: overfitting
-
-> What if we only toss a coin twice and observe 
-> ```math
-> \mathcal{D}=\{0,0\}?
-> ``` 
-> * ``n⁺ =0, n=2``
-
-
-
-
-"""
-
-# ╔═╡ 62cf4533-16ec-4ffc-86b6-490be1ffa1e5
-md"""
-
-##
-"""
-
-# ╔═╡ a241c41c-b250-4a96-a102-642830f833b6
-TwoColumn(md"""
-The MLE is 
-
-$$\large
-\hat{\theta}_{\text{MLE}} =\frac{n^+}{n} = \frac{\textcolor{red}0}{2} =0$$
-
-
-* it predicts: **never** toss `Head` again; **overfitting**
-
-
-* MLE (a frequentist method) is pathologically bad when it comes to overfitting
-
-
-""", let
-	gr()
-	𝒟 = [0,0]
-	like_plt_seller = plot(θs, θ -> ℓ(θ, 𝒟; logprob=false), color=1,  xlabel=L"θ", ylabel=L"p(\{0,0\}|θ)", label="",lw=2, title="Likelihood: "*L"p(\{0,0\}|\theta)", size=(300,300))
-	vline!([mean(𝒟)], c=:grey, label="", lw=2, ls=:dash)
+""",begin
+post_plt
 end)
 
-# ╔═╡ c0fddf14-5170-473a-adc1-c6ba727cf3d6
+# ╔═╡ a072171e-6a80-4e63-9d98-77e97bf9ce9f
 md"""
 
-## "Learning" and MLE
+## Maximum a Posteriori (MAP) (with log posterior)
+
+
+
+Similar to MLE, we find **M**aximum **a** **P**osteriori (MAP) by taking the ``\ln``
+
+
+
+!!! note "Maximum a Posteriori (MAP)"
+
+	```math
+	\Large
+	\begin{align}
+	\hat{h}_{\text{MAP}} &\leftarrow \arg\max_{h}\, \ln P(h|\mathcal D) \\
+		&=\, \arg\max_{h}\, \ln \frac{P(h)P(\mathcal D|h)}{p(\mathcal{D})}
+	\end{align}
+	```
 
 
 """
 
-# ╔═╡ 232dc843-691d-416c-93ee-58c7f029015f
-TwoColumn(md"""
-
-Recall machine "**learning**" is 
-
-* looking for the *sweet* ``\hat{h}(\cdot)`` from the set of functions ``\{h_1, h_2, \ldots\}``
-
-* based on some *goodness* measure and "experience" of the training data
-
-""", html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/mlgoodness.png' width = '250' /></center>")
-
-# ╔═╡ 281b672d-a966-40c6-bf6f-85cec6a289cc
+# ╔═╡ a995ee4d-4393-4f30-989b-2c341e080c66
 md"""
-##
+
+## Maximum a Posteriori (MAP) (with log posterior)
+
+
+
+Similar to MLE, we find **M**aximum **a** **P**osteriori (MAP) by taking the ``\ln``
+
+
+
+!!! note "Maximum a Posteriori (MAP)"
+
+	```math
+	\Large
+	\begin{align}
+	\hat{h}_{\text{MAP}} &\leftarrow \arg\max_{h}\, \ln P(h|\mathcal D) \\
+		&=\, \arg\max_{h}\, \ln \frac{P(h)P(\mathcal D|h)}{p(\mathcal{D})} \\
+		&=\, \arg\max_{h}\, \ln P(h) + \ln P(\mathcal D|h) - \ln p(\mathcal{D}) 
+	\end{align}
+	```
+
 
 """
 
-# ╔═╡ a3624b7e-8544-4e11-b04b-e4b3692b0dcd
-TwoColumn(md"""
+# ╔═╡ 3d97fb4f-6c65-44f3-8780-2309516a04f8
+md"""
+
+## Maximum a Posteriori (MAP) (with log posterior)
+
+
+
+Similar to MLE, we find **M**aximum **a** **P**osteriori (MAP) by taking the ``\ln``
+
+
+
+!!! note "Maximum a Posteriori (MAP)"
+
+	```math
+	\Large
+	\begin{align}
+	\hat{h}_{\text{MAP}} &\leftarrow \arg\max_{h}\, \ln P(h|\mathcal D) \\
+		&=\, \arg\max_{h}\, \ln \frac{P(h)P(\mathcal D|h)}{p(\mathcal{D})} \\
+		&=\, \arg\max_{h}\, \ln P(h) + \ln P(\mathcal D|h) - \underbrace{\ln p(\mathcal{D})}_{\rm constant} \\
+		&=\, \arg\max_{h}\, \ln P(h) + \ln P(\mathcal D|h) 
+	\end{align}
+	```
+
+
+"""
+
+# ╔═╡ b6af72e6-07d8-4209-aa2e-829ad904a99c
+md"""
+## Recap: probabilistic linear regression
+
+
+##### Unknown hypothesis: ``\mathbf{w}``
+* assume ``\sigma^2`` is known 
+
+##### The observations: ``\mathcal{D} = \underbrace{\{y^{(1)}, y^{(2)}, \ldots, y^{(n)}\}}_{\mathbf{y}}``
+
 \
+
+##### The likelihood, therefore, is
+
+```math
+\large
+p(\mathbf{y}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{(i)}\}) = \prod_{i=1}^n p(y^{(i)}|\mathbf{w}, \sigma^2, \mathbf{x}^{(i)})
+```
+
+The log likelihood is 
+
+$$\large \begin{align}\ln p(\mathbf{y}|\mathbf{w}, \sigma^2) &= \sum_{i=1}^n \ln p(y^{(i)}|\mathbf{w}, \sigma^2, \mathbf{x}^{(i)})\\
+&=  -\frac{n}{2} \ln 2\pi\sigma^2 -\frac{1}{2\sigma^2} \underbrace{\colorbox{pink}{$\sum_{i=1}^n({y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)})^2$}}_{\text{sum of squared error loss!}}
+\end{align}$$
+
+"""
+
+# ╔═╡ 1d6fd6a8-1a40-4cb8-8f5b-af9b1f21ea36
+md"""
+## MAP ⇔ Regularisation
+
+
+The same idea
+
+##### Introduce a prior ``p(\mathbf{w})`` 
+
+* then find the maximum a posteriori (**MAP**) estimator
+
+$$\large p(\mathbf{w}|\mathbf{y}, \mathbf{X}, \sigma^2) \propto \underbrace{p(\mathbf{w})}_{\text{prior}} \underbrace{p(\mathbf{y}|\mathbf{X}, \mathbf{w}, \sigma^2)}_{\text{likelihood}}$$
+
+$$\large \hat{\mathbf{w}}_{\text{MAP}} \leftarrow \arg\max_{\mathbf{w}}\,  \ln  {p(\mathbf{w})} +\ln {p(\mathbf{y}|\mathbf{X}, \mathbf{w}, \sigma^2)}$$
+
 \
 
-Bias estimation is an **learning** problem
+!!! note "MAP is cheap"
+	Note that we do not need the normalising constant to find the MAP
+	* its selling point
 
-* model or hypothesis: ``\theta \in [0, 1]`` 
 
-* training data: ``\mathcal{D} =\{y^{(i)}\}``
-* **goodness** of function: likelihood ``p(\mathcal{D}|h)``
+## MAP ⇔ Regularisation
 
-""", html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/mlgoodness.png' width = '250' /></center>")
+
+Assume ``\mathbf{w}\in \mathbb{R}^m`` is **zero mean ``m``--dimensional independent Gaussians** 
+
+$\large p(\mathbf{w})= \prod_{j=1}^m \mathcal{N}(w_j; 0, 1/\lambda) =  \frac{1}{\left (\sqrt{2\pi\cdot  1/\lambda} \right )^m} \exp{\left \{ - \frac{\lambda}{2} \sum_{j=1}^m w_j^2 \right\}}$
+
+The log prior is
+
+
+$\large \ln p(\mathbf{w}) =  -\frac{\lambda}{2} \sum_{j=1}^m w_j^2  + C$
+
+
+
+
+"""
+
+# ╔═╡ 41ba6e50-747d-4f75-8d1d-718c7054baff
+md"""
+## MAP ⇔ Regularisation
+
+
+Assume ``\mathbf{w}\in \mathbb{R}^m`` is **zero mean ``m``--dimensional independent Gaussians** 
+
+$\large p(\mathbf{w})= \prod_{j=1}^m \mathcal{N}(w_j; 0, 1/\lambda) =  \frac{1}{\left (\sqrt{2\pi\cdot  1/\lambda} \right )^m} \exp{\left \{ - \frac{\lambda}{2} \sum_{j=1}^m w_j^2 \right\}}$
+
+The log prior is
+
+
+$\large \ln p(\mathbf{w}) =  -\frac{\lambda}{2} \sum_{j=1}^m w_j^2  + C$
+
+
+Add the log-likelihood to the log prior:
+
+$$\large \ln  {p(\mathbf{w})} +\ln {p(\mathbf{y}|\mathbf{X}, \mathbf{w}, \sigma^2)} = -\frac{1}{2}\sum_{i=1}^n (y^{(i)}- \mathbf{w}^\top \mathbf{x}^{(i)})^2 -  \frac{\lambda}{2} \sum_j w_j^2 + C$$
+
+
+
+Maximise above is the same as minimising its negative
+
+
+!!! note ""
+	**MAP is just Ridge regression !!!**
+
+
+"""
 
 # ╔═╡ 4c7e30b8-5332-4bf3-a23b-4e5c49580ed4
 md"""
@@ -2166,47 +1953,33 @@ version = "1.4.1+0"
 # ╟─6df53306-f00a-4d7e-9e77-0b717f016f06
 # ╟─65bdd684-09d1-4fdc-b2bd-551f43626812
 # ╟─a6fce707-ad22-4feb-8d8c-239adecf6590
-# ╟─274552b0-c285-4cef-89ab-49795d8b8183
-# ╟─713afac8-e647-46c1-9873-b91ce3f33e5b
+# ╟─79a00ccc-b2d1-4b61-a6df-c5a8585acca9
 # ╟─14b90d1d-d68e-4c15-97ce-2360c06829f8
-# ╟─b3e54667-2745-439d-a442-84a0755bf905
-# ╟─3a1c914d-47d8-4069-9990-d3a8e7ddb6aa
-# ╟─3cbc382a-51d9-41e0-9097-6259c0dc43a9
-# ╟─065bd1da-647f-45e0-92f0-92135df2b541
-# ╟─bf245f54-d3f4-43e5-895f-f6fbf6d469a4
-# ╟─b7964651-fbef-424e-8ba3-fd38d09b64af
-# ╟─6b1b7163-0bac-4229-88cc-d073732a5588
+# ╟─87dad92c-0c10-4032-ac1e-5e23a8a4050a
 # ╟─ec21cda5-f111-470e-97be-66628b71cdb9
 # ╟─fc2c5d6f-d8e1-4a53-9c03-9d52fe82edc7
-# ╟─6f6dc6d8-567d-4000-a2ef-f10f03d007a9
-# ╟─e0bbe143-3d00-4953-9f77-feb2659bec00
-# ╟─0e4e822e-2f50-4c6b-9292-83815bda8800
-# ╟─79fb58e4-9a5a-4ee8-8f52-8afe906e8c6d
-# ╟─5aa3e321-44ed-4e8a-900d-b69f3c5966c8
-# ╟─3b1d0f87-608d-4d67-8954-91d519507487
-# ╟─733eeed9-f947-45db-9fe5-5e2869b752bf
-# ╟─5fc88273-532d-4d00-8c91-bdcb4160bdb9
-# ╟─1c1f225a-aad2-45ab-8ef6-2f2ffad3ce1c
-# ╟─7466a185-f493-45fe-8232-82a604a898bb
-# ╟─ddaeb352-07d5-4227-bca4-9fcc62198229
-# ╟─12ef65ef-a918-4414-8b46-3c8271b1b748
-# ╟─2b2c5ab8-976e-4f8b-bc75-c19aadc6254f
-# ╟─bb62337b-e473-42eb-9234-d620f88cc0c2
-# ╟─770864c3-8dfb-4a54-a796-d3b18b5983e7
-# ╟─30305fe8-a920-4ddf-9e7e-a6d5c4d9e30d
-# ╟─5c56cf05-981b-4a5b-96e6-2dbf35122eed
-# ╟─38950e25-d150-4b69-b5f6-d6a049bfece4
-# ╟─8a7de3fc-2b7f-4cdd-8a03-1bababad0c6c
-# ╟─1dd5a302-46c6-48d8-921a-3b3ee3665598
-# ╟─7f159e3c-b655-4121-a3ea-403b1d62bf3d
-# ╟─b04d05e6-42f8-4df8-b133-1840f709f103
-# ╟─5de41fe7-d6a8-4d7f-9bf2-bd0c794261f5
-# ╟─62cf4533-16ec-4ffc-86b6-490be1ffa1e5
-# ╟─a241c41c-b250-4a96-a102-642830f833b6
-# ╟─c0fddf14-5170-473a-adc1-c6ba727cf3d6
-# ╟─232dc843-691d-416c-93ee-58c7f029015f
-# ╟─281b672d-a966-40c6-bf6f-85cec6a289cc
-# ╟─a3624b7e-8544-4e11-b04b-e4b3692b0dcd
+# ╟─274552b0-c285-4cef-89ab-49795d8b8183
+# ╟─b3e54667-2745-439d-a442-84a0755bf905
+# ╟─bf245f54-d3f4-43e5-895f-f6fbf6d469a4
+# ╟─af71eea9-19b1-41fa-ae71-3433abeab889
+# ╟─cfc74d6b-8dd6-4d82-b636-e10d39e37e37
+# ╟─a13aa4b1-1e19-4419-94ba-808037b21c7f
+# ╟─5244a73c-102e-4620-90af-4c1459c1b7f6
+# ╟─87084518-4e97-4b9a-8356-efbed69ccc5a
+# ╟─aef92673-58df-40d2-8dd0-7a326d707bbc
+# ╟─8b4ca0a1-307d-456d-bb93-a70f4de1b49f
+# ╟─bec1b8fa-ff3a-4a18-bdd8-4101c671b832
+# ╟─e08423c0-46b1-45fd-b5ec-c977dfeea575
+# ╟─8a433b8c-e9f3-4924-bdbe-68c8c5d245b5
+# ╟─f7875458-fbf8-4ead-aa77-437c11c97550
+# ╟─e172c018-efbe-4ac5-a8ae-c889ea944121
+# ╟─e6bbc326-f9b7-4d51-bb15-a2e94b35cb85
+# ╟─a072171e-6a80-4e63-9d98-77e97bf9ce9f
+# ╟─a995ee4d-4393-4f30-989b-2c341e080c66
+# ╟─3d97fb4f-6c65-44f3-8780-2309516a04f8
+# ╟─b6af72e6-07d8-4209-aa2e-829ad904a99c
+# ╟─1d6fd6a8-1a40-4cb8-8f5b-af9b1f21ea36
+# ╟─41ba6e50-747d-4f75-8d1d-718c7054baff
 # ╟─4c7e30b8-5332-4bf3-a23b-4e5c49580ed4
 # ╟─53a10970-7e9b-4bd4-bd65-b22028b66835
 # ╟─73d51e22-3e40-4cbb-b649-65b719036647
