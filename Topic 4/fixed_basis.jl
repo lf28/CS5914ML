@@ -38,6 +38,9 @@ begin
 	# using Images
 end
 
+# ╔═╡ cc3c58cc-a22d-4a7d-9527-a11c9f54f4b7
+using Distributions
+
 # ╔═╡ f79bd8ab-894e-4e7b-84eb-cf840baa08e4
 using Logging
 
@@ -53,8 +56,7 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Linear regression 4
-##### Fixed basis expansion
+#### Fixed basis expansion
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -78,7 +80,7 @@ Super-index with brackets ``.^{(i)}``: ``i \in \{1,2,\ldots, n\}`` index for obs
 * *e.g.* ``y^{(i)}`` the i-th observation's label
 * ``\mathbf{x}^{(i)}`` the i-th observation's predictor vector
 
-Feature/predictor index ``j \in \{1,2,,\ldots, m\} ``
+Sub-script index: feature/predictor index ``j \in \{1,2,,\ldots, m\} ``
 * ``m`` total number of features
 * *e.g.* ``\mathbf{x}^{(i)}_2``: the second entry/predictor/feature of ``i``-th observation vector
 
@@ -103,13 +105,6 @@ md"""
 
 """
 
-# ╔═╡ d2ea21da-08f2-4eb1-b763-c69f8d714652
-md"""
-
-## Recap: regression 
-
-"""
-
 # ╔═╡ c4e497fc-cfbf-4d0b-9a0c-1071f2f43a98
 linear_reg_normal_eq(X, y) = X \y;
 
@@ -120,91 +115,11 @@ begin
 	df_house[!, :target] = (MLDatasets.BostonHousing().targets |> Matrix )[:]
 end;
 
-# ╔═╡ 6bce7fb9-8b00-4351-bcf8-d5d1223df915
-TwoColumn(md"""
-!!! information "Regression"
-	_Supervised learning_ with _continuous_ targets ``y^{(i)} \in \mathbb{R}``
-    * input feature ``\mathbf{x}^{(i)}``
-    * target ``y^{(i)}``
-
-**Example**: *house price* prediction, the price is continuous""", 
-	
-	let
-	@df df_house scatter(:rm, :target, xlabel="room", ylabel="price", label="", title="House price prediction", size=(350,300))
-	x_room = df_house[:, :rm]
-	# x_room_sq = x_room.^2
-	X_train_room = [ones(length(x_room)) x_room]
-	c, b = linear_reg_normal_eq(X_train_room, df_house.target)
-
-	plot!(3.5:0.5:9, (x) -> b* x+ c, lw=3, label="")
-end)
-
 # ╔═╡ c4f42980-0e68-4943-abbe-b28f05dd3ee5
 function loss(w, X, y) # in matrix notation
 	error = y - X * w
 	0.5 * dot(error, error)
 end;
-
-# ╔═╡ 8b479e5c-8151-4769-9d27-b5661285b497
-md"""
-
-## Recap: _linear_ regression 
-"""
-
-# ╔═╡ 55fbb81b-8323-4405-beb9-acd557e6d9f3
-TwoColumn(md"""
-\
-\
-
-!!! note "Linear regression"
-	**Linear regression**: ``h(\cdot)`` is assumed **linear**
-
-	```math
-	\Large
-	h(x_{\text{room}}) = w_0 + w_1 x_{\text{room}} 
-	```
-
-
-""", let
-	@df df_house scatter(:rm, :target, xlabel="room", ylabel="price", label="", title="Linear regression", size=(350,300))
-	x_room = df_house[:, :rm]
-	# x_room_sq = x_room.^2
-	X_train_room = [ones(length(x_room)) x_room]
-	c, b = linear_reg_normal_eq(X_train_room, df_house.target)
-
-	
-	plot!(3.5:0.5:9, (x) -> b* x+ c, lw=3, label=L"h(x) = w_0 + w_1x")
-end)
-
-# ╔═╡ 86f09ee8-087e-47ac-a81e-6f8c38566774
-md"""
-
-## Non-linear ``h(\mathbf{x})``
-
-
-**However**, real life data-relationship is **rarely linear**
-
-
-
-_For example_, it seems a quadratic ``h(x)`` fits the house data **better**
-
-```math
-\Large
-h(x_{\rm room}) = w_0 + w_1 x_{\rm room} + w_2 x_{\rm room}^2
-```
-
-"""
-
-# ╔═╡ 577686b7-ec21-4888-bf49-64c278248aca
-md"""
-
-The **M**ean **S**quared **E**rror (MSE) loss: ``\frac{1}{2n} \sum_{i=1}^n (y^{(i)} -h(x^{(i)}))^2``
-
-| | ``w_0 +w_1x`` | ``w_0+w_1x+w_2x^2`` |
-|:---:| :---:| :---:|
-|Mean Squared Error| 21.8 | **19.06** |
-
-"""
 
 # ╔═╡ f8f34671-ef4c-4300-a983-10d42d43fb9f
 quadratic_fit = let
@@ -222,241 +137,10 @@ quadratic_fit = let
 	plot!(3.5:0.5:9, (x) -> b_* x+ c_, lw=3, label=L"h(\mathbf{x}) = w_0 + w_1x;\;"*L"\mathbf{loss}=%$(round(sse_; digits=2))", legend=:outerbottom)
 end;
 
-# ╔═╡ b19f81c4-e555-4dd1-affb-a6729c638bbd
-quadratic_fit
-
 # ╔═╡ 8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
 function least_square_est(X, y) # implement the method here!
 	X \ y
 end;
-
-# ╔═╡ f65644e7-cb25-46ad-b146-87cf7de69f72
-md"""
-
-## Polynomial regression
-
-
-Quadratic prediction function:
-
-```math
-\large
-h(x) = w_0 + w_1 x + w_2 x^2
-```
-
-Cubic prediction function:
-
-```math
-\large
-h(x) = w_0 + w_1 x + w_2 x^2 + w_3 x^3
-```
-
-
-A general polynormial regression
-
-```math
-\large
-h(x) = w_0 + w_1 x + w_2 x^2 + \ldots + w_p x^p
-```
-"""
-
-# ╔═╡ 22cbb1aa-c53f-45d6-891a-90c6f2b9e886
-md"""
-
-## Free lunch -- fixed basis expansion
-
-
-> Polynomial regression solution: **Expand the input** ``x^{(i)}``
->
-> * which is known as polynomial fixed basis expansion
-
-
-##
-
-For each ``x``， **expand** ``\mathbf{x}`` an additional **engineered** feature ``\colorbox{salmon}{$x^2$}``
-
-* and the expanded input becomes
-
-```math
-\large
-\tilde{\mathbf{x}} = \begin{bmatrix}1 & x & \colorbox{salmon}{$x^2$}
-\end{bmatrix}
-```
-
-
-
-"""
-
-# ╔═╡ 5148115c-4b3d-4845-97fa-02b68d09ddaa
-md"""
-
-## Free lunch -- fixed basis expansion
-
-
-> Polynomial regression solution: **Expand the input** ``x^{(i)}``
->
-> * which is known as polynomial fixed basis expansion
-
-
-##
-
-For each ``x``， **expand** with an additional **engineered** feature ``\colorbox{salmon}{$x^2$}``
-
-* and the expanded input becomes
-
-```math
-\large
-\mathbf{x} = \begin{bmatrix}1 & x & \colorbox{salmon}{$x^2$}
-\end{bmatrix}
-```
-
-
-* for weight ``\mathbf{w} =[w_0, w_1, w_2]^\top``, the _regression function_ becomes
-
-```math
-\large
-h(x) =\begin{bmatrix}w_0 & w_1 & w_2\end{bmatrix}  \begin{bmatrix}1 \\ x \\ \colorbox{salmon}{$x^2$} 
-\end{bmatrix} = w_0 + w_1 x + \colorbox{salmon}{$w_2x^2$}
-```
-
-
-"""
-
-# ╔═╡ ec41e396-5d30-4b07-9520-6f7a9c5da73b
-md"""
-
-## Free lunch -- fixed basis expansion
-
-
-> Polynomial regression solution: **Expand the input** ``x^{(i)}``
->
-> * which is known as polynomial fixed basis expansion
-
-
-##
-
-For each ``x``， **expand** with an additional **engineered** feature ``\colorbox{salmon}{$x^2$}``
-
-* and the expanded input becomes
-
-```math
-\large
-\mathbf{x} = \begin{bmatrix}1 & x & \colorbox{salmon}{$x^2$}
-\end{bmatrix}
-```
-
-
-* for weight ``\mathbf{w} =[w_0, w_1, w_2]^\top``, the _regression function_ becomes
-
-```math
-\large
-h(x) =\begin{bmatrix}w_0 & w_1 & w_2\end{bmatrix}  \begin{bmatrix}1 \\ x \\ \colorbox{salmon}{$x^2$} 
-\end{bmatrix} = w_0 + w_1 x + \colorbox{salmon}{$w_2x^2$}
-```
-
-* we can re-use the ordinary **least square estimation** 
-
-```math
-\mathbf{w}\leftarrow \arg\min_{\mathbf{w}} \frac{1}{2} (\mathbf{y} -\mathbf{h})^\top(\mathbf{y} -\mathbf{h})
-```
-"""
-
-# ╔═╡ dd162f70-73b7-4f1a-beab-6fa26b2b11b1
-md"""
-
-## To be more specific
-
-**Expanded input matrix**:
-
-```math
-\large 
-\tilde{\mathbf{X}} = \begin{bmatrix}1 & x^{(1)} & \columncolor{salmon}(x^{(1)})^2 \\
-1 & x^{(2)} & (x^{(2)})^2 \\
-\vdots & \vdots & \vdots \\
-1 & x^{(n)} & (x^{(n)})^2
-\end{bmatrix}
-
-```
-
-
-
-
-"""
-
-# ╔═╡ a495ee86-e78b-46e5-9be4-c4bbfad165f8
-md"""
-
-## To be more specific
-
-**Expanded input matrix**:
-
-```math
-\large 
-\tilde{\mathbf{X}} = \begin{bmatrix}1 & x^{(1)} & \columncolor{salmon}(x^{(1)})^2 \\
-1 & x^{(2)} & (x^{(2)})^2 \\
-\vdots & \vdots & \vdots \\
-1 & x^{(n)} & (x^{(n)})^2
-\end{bmatrix}
-
-```
-
-The **predictions** are
-
-```math
-\large
-\mathbf{h} = \tilde{\mathbf{X}} \mathbf{w} = \begin{bmatrix}w_0 + w_1 x^{(1)} + w_2(x^{(1)})^2 \\
-w_0 + w_1x^{(2)} +w_2 (x^{(2)})^2 \\
-\vdots \\
-w_0 + w_1x^{(n)} +w_2 (x^{(n)})^2
-\end{bmatrix}
-```
-
-
-"""
-
-# ╔═╡ d37f5e8f-63a6-440e-b6c0-ae283ded1eb9
-md"""
-
-## To be more specific
-
-**Expanded input matrix**:
-
-```math
-\large 
-\tilde{\mathbf{X}} = \begin{bmatrix}1 & x^{(1)} & \columncolor{salmon}(x^{(1)})^2 \\
-1 & x^{(2)} & (x^{(2)})^2 \\
-\vdots & \vdots & \vdots \\
-1 & x^{(n)} & (x^{(n)})^2
-\end{bmatrix}_{n\times 3}
-
-```
-
-The **predictions** are
-
-```math
-\large
-\mathbf{h} = \tilde{\mathbf{X}} \mathbf{w} = \begin{bmatrix}w_0 + w_1 x^{(1)} + w_2(x^{(1)})^2 \\
-w_0 + w_1x^{(2)} +w_2 (x^{(2)})^2 \\
-\vdots \\
-w_0 + w_1x^{(n)} +w_2 (x^{(n)})^2
-\end{bmatrix}_{n\times 1}
-```
-
-
-
-
-Lastly, use least square method to **regress** with the expanded design matrix (now a ``n \times 3`` matrix)
-
-```math
-\large
-\begin{align}
-\hat{\mathbf{w}} &\leftarrow \arg\min_{\mathbf{w}} \frac{1}{2}(\mathbf{y} -\mathbf{h})^\top(\mathbf{y}-\mathbf{h})\\
-&\;\; \hat{\mathbf{w}} = (\tilde{\mathbf{X}} ^\top\tilde{\mathbf{X}} )^{-1}\tilde{\mathbf{X}}^\top \mathbf{y}
-
-\end{align}
-```
-
-
-"""
 
 # ╔═╡ ce35ddcb-5018-4cb9-b0c9-01fb4b14be40
 begin
@@ -468,7 +152,7 @@ end;
 # ╔═╡ 2cdd8751-7ec8-47b0-a174-fdc23e176921
 md"""
 
-## Higher orders?
+## Recap: polynomial regression
 
 
 ```math
@@ -476,7 +160,9 @@ md"""
 \boxed{
 h(x) = w_0 + w_1 x + w_2 x^2 +\ldots + w_p w^p}
 ```
- * still _**free lunch**_: regress with a ``n\times \textcolor{red}{(p+1)}`` matrix
+ * _**free lunch**_: regress with a **expanded** ``n\times \textcolor{red}{(p+1)}`` matrix
+
+* fixed form polynomial expansion 
 
 """
 
@@ -669,8 +355,7 @@ $\boxed{\Large \phi_k(x) = x^k, \;\; \text{for }k = 0,1,\ldots, K}$
 
 are **NOT** **location** based
 
-* it only depends on the power ``k``
-* does not depend on *e.g.* ``x``'s range
+* it *only* depends on the power ``k``
 """
 
 # ╔═╡ 78daf3d9-8070-43ea-a9a1-970e317c3006
@@ -685,12 +370,12 @@ end
 # ╔═╡ 8c239067-7046-4eaf-9b68-b92f98bf9aeb
 md"""
 
-## Other basis function -- radian basis functions
+## Location based basis -- radian basis functions
 
 
-More commonly used basis functions are **location-aware**
+More commonly used are **location-aware**
 
-* ``\phi`` depends on an extra expansion location parameter ``\mu``
+* ``\phi`` depends on an location parameter ``\mu``
 
 **For example**, the **radian-basis-function (rbf)**
 
@@ -734,12 +419,8 @@ end
 # ╔═╡ f5636856-dee0-4de6-b0c0-7c98bdc83524
 md"""
 
-## Other basis function -- logistic
+## Location based basis -- logistic
 
-
-More commonly used basis functions are **location-aware**
-
-* ``\phi`` depends on an extra expansion location parameter ``\mu``
 
 **For example**, the **logistic** function (aka sigmoid)
 
@@ -793,11 +474,11 @@ More commonly used basis functions are **location-aware**
 
 * ``\phi`` depends on an extra expansion location parameter ``\mu``
 
-**For example**, the **re**ctified **l**inear **u**nit  (or **ReLu** function )
+**For example**, the **Re**ctified **L**inear **u**nit  (or **ReLu** function )
 
 
 ```math
-\phi(x; \mu)=\text{Relu}(x;\mu) = \begin{cases} 
+\phi(x; \mu)=\text{ReLu}(x;\mu) = \begin{cases} 
 x-\mu & x > \mu\\
 0 & x \leq \mu
 \end{cases}
@@ -863,10 +544,44 @@ begin
 	plot(plt_poly_basis, plt_rbf_basis, plt_sigmoid_basis, plt_relu_basis)
 end
 
+# ╔═╡ c4282092-1c26-4fe2-bee2-9b996154c2f9
+md"""
+
+## What ``\mu``s to choose ?
+
+
+Given expansion size ``K``, to do the expansion
+
+```math
+\large
+\Phi=\{\textcolor{gray}{\phi_0(\mathbf{x})},\;\;\textcolor{orange}{\phi_1(\mathbf{x}; \mu_1)},\;\; \textcolor{green}{\phi_2(\mathbf{x}; \mu_2)},\;\; \ldots,\;\;\textcolor{magenta}{\phi_K(\mathbf{x}; \mu_K)}\}
+```
+
+we need a pre-fixed expansion locations: 
+
+$\large \{\mu_1, \mu_2, \ldots, \mu_K\}$
+
+
+A few options
+
+
+* select ``K`` locations with evenly spaced intervals between the range
+* randomly choose ``K`` observations from the ``n`` training data ``\{\mathbf{x}^{(1)}, \ldots, \mathbf{x}^{(n)}\}``
+* randomly select ``K`` points within ``\mathbf{x}``'s range 
+
+
+"""
+
+# ╔═╡ e4046bad-5af8-4ca7-a34d-9d62a7535b6b
+md"""Add Basis functions: $(@bind add_basis_2 CheckBox(default=false)),
+Basis function: $(@bind basis_locations Select(["equal interval", "random within range", "random from x"]))
+"""
+
 # ╔═╡ 2f19637e-80a2-4855-a7b7-2d70b25e188c
 md"""
 
 ## Demonstration -- sinusoid function
+
 
 """
 
@@ -887,7 +602,7 @@ md"Add true function: $(@bind addsin CheckBox(default=false))"
 let
 	plt = plot(xs_q4, ys_q4, st=:scatter, label="training data", title="Regression training data")
 	if addsin
-		plot!(0:0.1:2π, true_f, label="true signal", lw=2, title=L"\sin(x)")
+		plot!(0:0.1:2π, true_f, label="true signal", lc=1, lw=2, title=L"\sin(x)")
 	end
 	plt
 end
@@ -896,9 +611,6 @@ end
 md"""
 
 ## Fixed basis expansion regression
-
-
-
 """
 
 # ╔═╡ 718f99ce-640c-47c4-bc91-9b650eb88a36
@@ -1055,6 +767,45 @@ begin
 
 	plot!(x_poly_test, y_poly_test, st=:scatter, lc=2, alpha= .5, label="testing data")
 	plot!(-2:0.1:2, (x) -> poly_fun(x, w_poly), label="true "*L"h(x)", lw=2, lc=2, size=(600, 400))
+end
+
+# ╔═╡ 319cf510-9b6e-41ea-b592-fcbe988679ef
+let
+	Random.seed!(4321)
+	y_poly_new = (y_poly .- mean(y_poly)) / std(y_poly) + randn(length(y_poly))/10
+	xmin, xmax = extrema(x_poly)
+	plt = plot(x_poly, y_poly_new, st=:scatter, ylim=[-2,2], label="training data", title="", ms=6, framestyle = :origin, xlim = [xmin-0.5, xmax+0.5], legend=:outerbottom)
+	K = 6
+	xmin, xmax = extrema(x_poly)
+	μs_idx = rand(1:length(x_poly), K)
+	μs = x_poly[μs_idx]
+	if basis_locations == "random from x"
+		μs_idx = rand(1:length(x_poly), K)
+		μs = x_poly[μs_idx]
+	elseif basis_locations == "random within range"
+		μs = rand(Uniform(xmin, xmax), K)
+	else
+		μs = range(xmin, xmax, K)
+	end
+	
+	# μs = μs_locations
+	scale_ = 0.05
+	basis_fun = rbf(scale_)
+	if add_basis_2
+		for (j, μ) in enumerate(μs)
+			if j == 1
+				plot!(xmin-0.5:0.01:xmax+0.5, (x) -> basis_fun(x-μ), lw=1, ls=:dash, lc=:gray, label="basis functions")
+			else
+				plot!(xmin-0.5:0.01:xmax+0.5, (x) -> basis_fun(x-μ), lw=1, ls=:dash, lc=:gray, label="")
+			end
+		end
+		plot!(μs, zeros(K), st=:scatter, markershape=:x, mc =:black, ms=5,label="")
+	
+		if basis_locations == "random from x"
+			plot!(x_poly[μs_idx], y_poly_new[μs_idx], st=:scatter, mc =:red,alpha=0.5, ms=6, label="")
+		end
+	end
+	plt
 end
 
 # ╔═╡ 726a1008-26e6-417d-a73a-57e32cb224b6
@@ -1380,6 +1131,7 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
@@ -1398,6 +1150,7 @@ StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 [compat]
 CSV = "~0.10.10"
 DataFrames = "~1.5.0"
+Distributions = "~0.25.97"
 HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.15.21"
@@ -1416,7 +1169,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.1"
 manifest_format = "2.0"
-project_hash = "3c5c0fa779a72e256b388f8a09587c9ff0e6b889"
+project_hash = "e30bdb89ce9da379d7e7ec4d8cff7a8a1c45f628"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1740,9 +1493,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.Distributions]]
 deps = ["FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SparseArrays", "SpecialFunctions", "Statistics", "StatsAPI", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "c72970914c8a21b36bbc244e9df0ed1834a0360b"
+git-tree-sha1 = "db40d3aff76ea6a3619fdd15a8c78299221a2394"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.95"
+version = "0.25.97"
 
     [deps.Distributions.extensions]
     DistributionsChainRulesCoreExt = "ChainRulesCore"
@@ -3238,25 +2991,11 @@ version = "1.4.1+0"
 # ╟─9bd2e7d6-c9fb-4a67-96ef-049f713f4d53
 # ╟─cf9c3937-3d23-4d47-b329-9ecbe0006a1e
 # ╟─dfcfd2c0-9f51-48fb-b91e-629b6934dc0f
-# ╟─d2ea21da-08f2-4eb1-b763-c69f8d714652
-# ╟─6bce7fb9-8b00-4351-bcf8-d5d1223df915
 # ╟─c4e497fc-cfbf-4d0b-9a0c-1071f2f43a98
 # ╟─0e2dc755-57df-4d9a-b4f3-d01569c3fcde
-# ╠═c4f42980-0e68-4943-abbe-b28f05dd3ee5
-# ╟─8b479e5c-8151-4769-9d27-b5661285b497
-# ╟─55fbb81b-8323-4405-beb9-acd557e6d9f3
-# ╟─86f09ee8-087e-47ac-a81e-6f8c38566774
-# ╟─b19f81c4-e555-4dd1-affb-a6729c638bbd
-# ╟─577686b7-ec21-4888-bf49-64c278248aca
+# ╟─c4f42980-0e68-4943-abbe-b28f05dd3ee5
 # ╟─f8f34671-ef4c-4300-a983-10d42d43fb9f
 # ╟─8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
-# ╟─f65644e7-cb25-46ad-b146-87cf7de69f72
-# ╟─22cbb1aa-c53f-45d6-891a-90c6f2b9e886
-# ╟─5148115c-4b3d-4845-97fa-02b68d09ddaa
-# ╟─ec41e396-5d30-4b07-9520-6f7a9c5da73b
-# ╟─dd162f70-73b7-4f1a-beab-6fa26b2b11b1
-# ╟─a495ee86-e78b-46e5-9be4-c4bbfad165f8
-# ╟─d37f5e8f-63a6-440e-b6c0-ae283ded1eb9
 # ╟─ce35ddcb-5018-4cb9-b0c9-01fb4b14be40
 # ╟─2cdd8751-7ec8-47b0-a174-fdc23e176921
 # ╟─720774c4-9aec-4329-bc90-51350fea0191
@@ -3286,6 +3025,10 @@ version = "1.4.1+0"
 # ╟─254fb3d0-a1ac-43cb-bc12-3d512aa6184e
 # ╟─c83c7e50-532c-4fb2-8c6d-5f3af32d205e
 # ╟─80cdaf0c-c863-49db-86df-71413068e5f4
+# ╟─c4282092-1c26-4fe2-bee2-9b996154c2f9
+# ╟─e4046bad-5af8-4ca7-a34d-9d62a7535b6b
+# ╟─319cf510-9b6e-41ea-b592-fcbe988679ef
+# ╟─cc3c58cc-a22d-4a7d-9527-a11c9f54f4b7
 # ╟─2f19637e-80a2-4855-a7b7-2d70b25e188c
 # ╟─bc513037-c689-4eca-865d-d94a6a8aa997
 # ╟─88c1bb3e-dab8-459a-b2d0-ebc2496f5b19

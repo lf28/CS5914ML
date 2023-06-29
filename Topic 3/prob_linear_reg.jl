@@ -379,14 +379,14 @@ The likelihood function is
 
 ```math
 \large
-p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{i}\}) = \prod_{i=1}^n p(y^{(i)}|\mathbf{w}, \sigma^2, \mathbf{x}^{(i)})
+p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{(i)}\}) = \prod_{i=1}^n p(y^{(i)}|\mathbf{w}, \sigma^2, \mathbf{x}^{(i)})
 ```
 
 As usual, its log transformation is 
 
 ```math
 \large
-\ell(\mathbf{w}, \sigma^2) = \ln p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{i}\}) = \sum_{i=1}^n \ln p(y^{(i)}|\mathbf{w}, \sigma^2, \mathbf{x}^{(i)})
+\ell(\mathbf{w}, \sigma^2) = \ln p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{(i)}\}) = \sum_{i=1}^n \ln p(y^{(i)}|\mathbf{w}, \sigma^2, \mathbf{x}^{(i)})
 ```
 * ##### it is a function of ``\mathbf{w}, \sigma^2`` !
 """
