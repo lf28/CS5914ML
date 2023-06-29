@@ -122,7 +122,7 @@ md"""
 
 ```math
 \large
-p = \{5, 6, 7, 14\}
+p = \{5, 6, 7, 15\}
 ```
 
 Remember the **true P-order** is **4**
