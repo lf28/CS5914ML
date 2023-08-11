@@ -430,20 +430,35 @@ md"""
 ## An extra regularisation: `Elastic Net`
 
 
-An alternative form **regularisation** is `Elastic Net`: 
 
-* a combination of ``L_1`` and ``L_2``
+"""
 
+# ╔═╡ f2bdf68d-3c36-4dd0-8f3e-02597f2f56f6
+TwoColumn(md"""
 
+An alternative form **regularisation** is `Elastic Net`
 
 ```math
 \large
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2 + \boxed{\frac{\lambda_1}{2} \sum_{j=1}^{m} |w_j|}_{L_1}+ \boxed{\frac{\lambda_2}{2} \sum_{j=1}^{m} w_j^2}_{L_2}
+\begin{align}
+L(\mathbf{w}) &= \text{SSE}\; +  \\
+&\boxed{{\lambda \alpha} \sum_{j=1}^{m} |w_j|}_{L_1}+ \boxed{\lambda (1-\alpha)\sum_{j=1}^{m} w_j^2}_{L_2}
+\end{align}
 ```
-* where ``\lambda_1, \lambda_2 \geq 0`` are a hyperparameter
+* where ``\lambda \geq 0`` is a hyperparameter
+* and ``0 \leq \alpha \leq 1`` is a mixing parameter
+* a convex combination of both penalty forms """, 
+	
+md"""$(Resource("https://scikit-learn.org/0.15/_images/plot_sgd_penalties_001.png", :align=> :right, :width=>500))""")
 
-* a combination of both penalty forms
+# ╔═╡ 0c1e5a46-4abc-421f-9851-596696381c81
+md"""
+
+## An illustration
 """
+
+# ╔═╡ 1abf629d-fd7f-4309-942d-a396b84b8356
+md"""$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/norm_balls.png", :align=> :left, :width=>900))"""
 
 # ╔═╡ 974f1b58-3ec6-447a-95f2-6bbeda43f12f
 md"""
@@ -688,7 +703,7 @@ StatsPlots = "~0.15.5"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.1"
+julia_version = "1.9.2"
 manifest_format = "2.0"
 project_hash = "74fa60b1ae51cc02e4d1401ff11317ea57555464"
 
@@ -900,7 +915,7 @@ weakdeps = ["Dates", "LinearAlgebra"]
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.0.2+0"
+version = "1.0.5+0"
 
 [[deps.CompositionsBase]]
 git-tree-sha1 = "802bb88cd69dfd1509f6670416bd4434015693ad"
@@ -1792,7 +1807,7 @@ version = "0.42.2+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "FileWatching", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-version = "1.9.0"
+version = "1.9.2"
 
 [[deps.PlotThemes]]
 deps = ["PlotUtils", "Statistics"]
@@ -2549,6 +2564,9 @@ version = "1.4.1+0"
 # ╟─dec59e77-8545-46fc-bb4c-dbb9c7c958b9
 # ╟─5e704189-c3fb-4ba0-b7f1-607b351a0341
 # ╟─4c0b0be1-94d8-47ea-a804-aa9f20b5fb62
+# ╟─f2bdf68d-3c36-4dd0-8f3e-02597f2f56f6
+# ╟─0c1e5a46-4abc-421f-9851-596696381c81
+# ╟─1abf629d-fd7f-4309-942d-a396b84b8356
 # ╟─974f1b58-3ec6-447a-95f2-6bbeda43f12f
 # ╟─6fa3941b-5975-463c-9427-2ebad15f78eb
 # ╟─7c6520b2-0446-44c0-a0b5-5aacff87cf84

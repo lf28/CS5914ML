@@ -493,6 +493,15 @@ md"""
 ```
 """
 
+# ╔═╡ 595f073e-1553-464b-af06-d8344782aa83
+md"""
+
+## Demonstration
+"""
+
+# ╔═╡ 8b596e98-4d0c-471e-bb25-20f492a9199b
+md"Polynomial order: $(@bind poly_order Slider(0:10, default =2, show_value=true))"
+
 # ╔═╡ 3b6502ea-178c-4308-ad7e-a5c05f084e5e
 md"""
 
@@ -524,15 +533,6 @@ h(x) = w_0 + \sqrt{w_1} x + \frac{x}{w_2} + \frac{1}{1 + e^{-w_3 x}}
 ```
 
 """
-
-# ╔═╡ 595f073e-1553-464b-af06-d8344782aa83
-md"""
-
-## Demonstration
-"""
-
-# ╔═╡ 8b596e98-4d0c-471e-bb25-20f492a9199b
-md"Polynomial order: $(@bind poly_order Slider(0:10, default =2, show_value=true))"
 
 # ╔═╡ edc245bc-6571-4e65-a50c-0bd4b8d63b74
 function poly_expand(x; order = 2) # expand the design matrix to the pth order
@@ -643,7 +643,7 @@ StatsPlots = "~0.15.5"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.1"
+julia_version = "1.9.2"
 manifest_format = "2.0"
 project_hash = "3c5c0fa779a72e256b388f8a09587c9ff0e6b889"
 
@@ -867,7 +867,7 @@ weakdeps = ["Dates", "LinearAlgebra"]
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.0.2+0"
+version = "1.0.5+0"
 
 [[deps.CompositionsBase]]
 git-tree-sha1 = "802bb88cd69dfd1509f6670416bd4434015693ad"
@@ -1752,7 +1752,7 @@ version = "0.40.1+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "FileWatching", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-version = "1.9.0"
+version = "1.9.2"
 
 [[deps.PlotThemes]]
 deps = ["PlotUtils", "Statistics"]

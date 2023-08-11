@@ -150,7 +150,7 @@ md"""
 
 ```math
 
-\text{Training Loss} = \frac{1}{n} \sum_{(x^{(i)}, y^{(i)})\in \mathcal{D}_\text{train}} (y^{(i)} - \hat{h}(x^{(i)}))^2
+\text{Avg training loss} = \frac{1}{n} \sum_{(x^{(i)}, y^{(i)})\in \mathcal{D}_\text{train}} (y^{(i)} - \hat{h}(x^{(i)}))^2
 ```
 
 """
@@ -164,7 +164,7 @@ Now check the performance on the **reserved** test data
 
 For ``({x}^{(i)}, y^{(i)}) \in \mathcal{D}_{test}``:
 ```math
-\text{Test loss} = \frac{1}{n_{test}}\sum_{({x}^{(i)}, y^{(i)}) \in \mathcal{D}_{test}} (y^{(i)} - h(\mathbf{x}^{(i)}))^2
+\text{Avg test loss} = \frac{1}{n_{test}}\sum_{({x}^{(i)}, y^{(i)}) \in \mathcal{D}_{test}} (y^{(i)} - h(\mathbf{x}^{(i)}))^2
 ```
 """
 
@@ -752,7 +752,7 @@ StatsPlots = "~0.15.5"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.1"
+julia_version = "1.9.2"
 manifest_format = "2.0"
 project_hash = "3c5c0fa779a72e256b388f8a09587c9ff0e6b889"
 
@@ -976,7 +976,7 @@ weakdeps = ["Dates", "LinearAlgebra"]
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.0.2+0"
+version = "1.0.5+0"
 
 [[deps.CompositionsBase]]
 git-tree-sha1 = "802bb88cd69dfd1509f6670416bd4434015693ad"
@@ -1861,7 +1861,7 @@ version = "0.40.1+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "FileWatching", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-version = "1.9.0"
+version = "1.9.2"
 
 [[deps.PlotThemes]]
 deps = ["PlotUtils", "Statistics"]
