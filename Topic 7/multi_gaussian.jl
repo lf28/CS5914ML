@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.26
+# v0.19.27
 
 using Markdown
 using InteractiveUtils
@@ -30,16 +30,12 @@ begin
 end
 
 # ╔═╡ 50752620-a604-442c-bf92-992963b1dd7a
-using Images
-
-# ╔═╡ 3b4a2f77-587b-41fd-af92-17e9411929c8
-using GaussianProcesses
-
-# ╔═╡ 1afdb42f-6bce-4fb1-860a-820d98df0f9d
-using Distributions
-
-# ╔═╡ ef112987-74b4-41fc-842f-ebf1c901b59b
-using StatsBase
+begin
+	using Images
+	using Distributions
+	using StatsBase
+	
+end
 
 # ╔═╡ 3e2e1ea8-3a7d-462f-ac38-43a087907a14
 TableOfContents()
@@ -53,7 +49,7 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Probability theory
+#### Multivariate Gaussian
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -66,1024 +62,32 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 
 """
 
-# ╔═╡ 7091d2cf-9237-45b2-b609-f442cd1cdba5
-md"""
-
-# Topics to cover
-
-"""
-
-# ╔═╡ bf362b4d-6ecf-495f-9b7d-3348613b2fc3
-aside((md"""$(@bind next1 Button("next")) 
-$(@bind init1 Button("init"))
-	"""))
-
-# ╔═╡ 72fb156d-edb5-4505-aedc-b1495bd19ed9
-begin
-	init1
-	next_idx = [0];
-end;
-
-# ╔═╡ ae45b0e8-7497-44d3-b1d8-5acdf8a953f2
-begin
-	next1
-	topics = ["Probability theory review", "Maximum likelihood estimation", "Probabilistic linear regression", "Probabilistic regression extensions"]
-	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
-end
-
-# ╔═╡ 50119d87-3724-4f71-b031-19a79c1fbdae
-let
-	next1
-	next_idx[1] += 1
-end;
-
-# ╔═╡ b67afb1b-8f6b-42e1-8f3a-da8a94f1c864
-md"# Motivation"
-
-# ╔═╡ 91b44119-c905-4a10-8fa2-97687f8913f7
-html"""<center><img src="https://theshackrescue.files.wordpress.com/2015/07/boxofchocolate.jpg" height="350"/></center>"""
-
-# ╔═╡ 84916718-b19c-473b-9c39-e1055ccad467
-md"""
-
-## Why probability ?
-
-
-!!! note ""
-	##### ``\;\;\;\;\;\;\;\;\;\;`` _**Uncertainty**_ is everywhere in life and Machine Learning
-
-
-
-"""
-
-# ╔═╡ 1e927760-4dc6-4ecf-86ec-8fed16dbb0d6
-md"""
-
-## Why probability ?
-
-
-
-!!! note ""
-	##### ``\;\;\;\;\;\;\;\;\;\;`` _**Uncertainty**_ is everywhere in life and Machine Learning
-
-\
-\
-
-!!! important ""
-	##### ``\;\;\;\;\;\;\;\;\;\;`` _Probability theory_ is the tool to deal with **_Uncertainty_** 
-
-
-
-
-
-## Uncertainty is everywhere
-
-
-##### (some) _Sources of uncertainty_: 
-
-
-* Data is **_Noisy_** 
-
-
-* _**Model**_ is uncertain
-
-
-* **_Prediction_** is uncertain
-
-
-* _**Changing**_ environment
-
-
-* and more ...
-"""
-
-# ╔═╡ 7d8ed44a-06ba-4432-8345-55bb31eb8f1d
-md"""
-
-## Prediction is uncertain -- regression
-
-
-"""
-
-# ╔═╡ 9e27864c-f5cb-4780-bcd3-e3d29a69742a
-Foldable("", md"""
-
-Prediction with a probabilistic distribution:
-
-```math
-\large
-p(y_{test}|x_{test})
-```
-""")
-
-# ╔═╡ 5bd15469-e888-4505-a53d-49fef3329ea4
-md"Add linear regression: $(@bind add_lin CheckBox(default=false)),
-Add other fits: $(@bind add_gp CheckBox(default=false)),
-Add interval: $(@bind add_intv CheckBox(default=false))"
-
-# ╔═╡ c9e0eaae-b340-434e-bdc9-dfdbc747221e
-let
-	Random.seed!(123)
-	# Generate random data for Gaussian process
-	nobs = 4
-	x = [0.5, 1.5, 4.5, 5.6]
-	f(x) =  .75 * x + sin(x)
-	y = f.(x) + 0.01 * rand(nobs)
-	
-	# Set-up mean and kernel
-	se = SE(0.0, 0.0)
-	m = MeanZero()
-	
-	# Construct and plot GP
-	gp = GP(x, y, m, se, -1e5)
-
-	plt = plot(x, y, st=:scatter, label="", markershape=:circle, markersize= 8,  xlabel=L"x", ylabel=L"y")
-	xs = 0:0.05:2π
-	plot!(xs, x -> f(x), color=:blue, lw=2, label="true function")
-	# plot(gp;  xlabel=L"x", ylabel=L"y", title="Gaussian process", legend=false, xlim =[0, 2π])
-	
-	samples = rand(gp, xs, 10)
-	w0, w1 = [ones(4) x] \ y
-
-	if add_lin
-		plot!(xs, (x) -> w0 + w1*x, lw=2, lc=:gray, label="")
-	end
-	if add_gp
-		plot!(xs, samples, lw=2, label="", alpha=0.9)
-
-		if add_intv
-			plot!(gp; obsv=false, label="estimation mean")
-		end
-	end
-
-	plt
-end
-
-# ╔═╡ 59a38e32-c2f3-465f-928d-c05f8d69f496
-md"""
-
-## Prediction is uncertain -- classification
-
-
-```math
-
-P(y_{test}|\mathbf{x}_{test}) = \begin{bmatrix}
-\cdot \\
-\cdot\\
-\cdot\\
-\end{bmatrix}
-\begin{array}{l}
-\texttt{cat}\\
-\texttt{dog}\\
-\texttt{others}\\
-\end{array}
-```
-
-"""
-
-# ╔═╡ a7a24713-a29a-4f0c-996b-f98305bac09c
-md"""
-
-## Prediction is uncertain -- classification
-
-
-```math
-
-P(y_{test}|\mathbf{x}_{test}) = \begin{bmatrix}
-\cdot \\
-\cdot\\
-\cdot\\
-\end{bmatrix}
-\begin{array}{l}
-\texttt{cat}\\
-\texttt{dog}\\
-\texttt{others}\\
-\end{array}
-```
-"""
-
-# ╔═╡ 2ce6c56b-733c-42e8-a63b-d774cb6c199c
-md"""
-
-##
-"""
-
-# ╔═╡ 2e4df75b-0778-4ed4-840a-417da2d65204
-md"""
-
-##
-"""
-
-# ╔═╡ c5be7eb8-e0b6-48cc-8dbe-788fa6624999
-Hs_catdogs = ["Cat", "Dog", "Others"];
-
-# ╔═╡ 81ab9972-07bc-4ce9-9138-3359d4e34025
-plt1, plt2, plt3=let
-	ps = [.9, .05, .05]
-	texts = [Plots.text(L"%$(p)", 10) for (i, p) in enumerate(ps)]
-	plt_cat = plot(ps, fill = true, st=:bar, xticks=(1:3, Hs_catdogs),  ylim =[0, 1.0], label="", title="", color =:orange,  texts = texts,size=(200,200))
-
-
-	ps = [.05, .9, .05]
-	texts = [Plots.text(L"%$(p)", 10) for (i, p) in enumerate(ps)]
-	plt_dog=plot(ps, fill = true, st=:bar, xticks=(1:3, Hs_catdogs),  ylim =[0, 1.0], label="", title="", color =:orange,  texts = texts,size=(200,200))
-
-
-	ps = [.25, .25, .5]
-	texts = [Plots.text(L"%$(p)", 10) for (i, p) in enumerate(ps)]
-	plt_dontknow=plot(ps, fill = true, st=:bar, xticks=(1:3, Hs_catdogs),  ylim =[0, 1.0], label="", title="", color =:orange,  texts = texts,size=(200,200))
-
-	plt_cat, plt_dog, plt_dontknow
-end;
-
-# ╔═╡ e8fd61f1-33a6-43d8-8056-fb7cf97291b5
-ThreeColumn(md"""
-
-$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/dogcats/cat1.png", :height=>200, :align=>""))
-
-```math
-\Big\Downarrow\;\; \texttt{classify}
-```
-$(plt1)
-
-""", md"""
-
-""",
-	md"""
-
-""")
-
-# ╔═╡ fc9e9bb6-2287-46c8-8518-c9d0804c094e
-ThreeColumn(md"""
-
-$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/dogcats/cat1.png", :height=>200, :align=>""))
-
-```math
-\Big\Downarrow\;\; \texttt{classify}
-```
-
-$(plt1)
-""", md"""
-
-$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/dogcats/dog1.png", :height=>200, :align=>""))
-
-```math
-\Big\Downarrow\;\; \texttt{classify}
-```
-
-$(plt2)
-""",
-	md"""
-
-
-""")
-
-# ╔═╡ 8730b9a2-a1b4-456c-974c-ecd8880e6834
-ThreeColumn(md"""
-
-$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/dogcats/cat1.png", :height=>200, :align=>""))
-
-```math
-\Big\Downarrow\;\; \texttt{classify}
-```
-
-$(plt1)
-""", md"""
-
-$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/dogcats/dog1.png", :height=>200, :align=>""))
-
-```math
-\Big\Downarrow\;\; \texttt{classify}
-```
-
-$(plt2)
-""",
-	md"""
-
-$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/dogcats/catdog1.png", :height=>200, :align=>""))
-
-```math
-\Big\Downarrow\;\; \texttt{???}
-```
-$(plt3)
-
-""")
-
-# ╔═╡ dc8a3e36-2021-42dd-bc49-0eb6ab784fac
-ThreeColumn(md"""
-
-$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/dogcats/cat1.png", :height=>200, :align=>""))
-
-```math
-\Big\Downarrow\;\; \texttt{classify}
-```
-
-$(plt1)
-""", md"""
-
-$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/dogcats/dog1.png", :height=>200, :align=>""))
-
-```math
-\Big\Downarrow\;\; \texttt{classify}
-```
-
-$(plt2)
-""",
-	md"""
-
-$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/dogcats/catdog1.png", :height=>200, :align=>""))
-
-```math
-\Big\Downarrow\;\; \texttt{???}
-```
-
-$(plot([.0, .0, .0], fill = true, st=:bar, xticks=(1:3, Hs_catdogs),  ylim =[0, 1.0], label="", title="", size=(200,200)))
-""")
-
 # ╔═╡ ff61cd9d-a193-44b3-a715-3c372ade7f79
-md"# Probability theory"
-
-# ╔═╡ 443fa256-ee34-43c0-8efd-c12560c00492
-md"""
-
-## What is probability?
-
-
-There are two views: **Frequentist** and **Bayesian**
-
-> **Frequentist's** interpretation: 
-> *  *relative long-term frequency* of something (*i.e.* an **event**) happens
-> ```math
-> \large
-> \mathbb{P}(E) = \lim_{n\rightarrow \infty} \frac{n(E)}{n}
-> ```
-
-* ``n(E)``: the count of event ``E`` happens
-
-##
-
-
-
-"""
-
-# ╔═╡ 89df7ccb-53da-4b96-bbb4-fe39109467dd
-md"Experiment times ``n``: $(@bind mc Slider(1:100000; show_value=true))"
-
-# ╔═╡ bce5c041-be39-4ed1-8935-c389293400bc
-penny_image = load(download("https://www.usacoinbook.com/us-coins/lincoln-memorial-cent.jpg"));
-
-# ╔═╡ db6eb97c-558c-4206-a112-6ab3b0ad04c8
-begin
-	head = penny_image[:, 1:end÷2]
-	tail = penny_image[:, end÷2:end]
-end;
-
-# ╔═╡ b742a37d-b49a-467b-bda7-6d39cce33125
-TwoColumn(md"Coin tossing, **event** `Head`: a head turns up
-```math
-\large
-\mathbb{P}(\texttt{Head}) = \lim_{n\rightarrow \infty}\frac{n(\texttt{head})}{n}=0.5
-```
-
-*Frequentist's* interpretation
-* toss the coin ``n \rightarrow \infty`` times, 
-* half of them will be head. ", [head, tail])
-
-# ╔═╡ ae5c476b-193e-44e3-b3a6-36c8944d4816
-begin
-	Random.seed!(3456)
-	sampleCoins = rand(["head", "tail"], 100000);
-	coin_exp = (sampleCoins .== "head")
-	nhead = sum(coin_exp[1:mc])
-end;
-
-# ╔═╡ f44b5a95-95b5-4d88-927a-61d91ed51c53
-sampleCoins[1:mc];
-
-# ╔═╡ 221b8f09-6727-4613-8b96-02d70d337280
-L"P(\texttt{head}) = \lim_{n\rightarrow \infty}\frac{n(\texttt{head})}{n} \approx \frac{%$nhead}{%$mc} = %$(round(nhead/mc; digits=3))"
-
-# ╔═╡ 340c9b5b-5ca0-4313-870e-912d5c2dc451
-let
-	p_mc = nhead/mc
-	plot(["tail", "head"], [1-p_mc, p_mc], st=:bar, label="", title=L"P(\texttt{Head})",ylabel="Probability")
-end
-
-# ╔═╡ deedb2db-8483-4026-975f-3d5af5a249b7
-md"""
-## What is probability ?  -- Bayesian
-
-> **Bayesian's** interpretation
-> * **subjective** *belief* on something uncertain 
-
-For our coin tossing example,
-
-```math
-	\mathbb{P}(\texttt{Head}) = 0.5
-``` 
-
-* subjectively, *no preference* in terms of coin's toss will be _head_ or _tail_
-
-##
-
-
-Both **interpretations** are valid and useful 
-* for many cases, *e.g.* time series, the Bayesian interpretation is more natural
-  * what is the chance of Brexit?
-  * how can we travel back in time to 2018 again and again, infinite times?
-"""
-
-# ╔═╡ 128b6ad8-aa21-4d0a-8124-2cf433bc79c4
-md"""
-
-## Random variable 
-
-
-Let's consider ``\cancel{\textbf{random}} \textbf{variable}``  first, 
-
-> e.g. a variable ``\large X= 5``
-
-* ``X``: a _deterministic_ variable
-* *with ``100\%`` certainty*, ``X`` takes the value of 5
-
-
-##
-
-
-``{\textbf{Random}}\; \textbf{variable}``: the value is _**random**_ rather than _**certain**_
-
-
-
-*For example*: $X$ is the rolling realisation of a 6--faced die 🎲
-* ``X \in \{1,2,3,4,5,6 \}``
-
-* and ``X`` has a *probability distribution* ``P(X)``
-```math
-\large
-\begin{equation}  \begin{array}{c|cccccc} 
- & X = 1 & X = 2 & X = 3 & X = 4 & X = 5 & X = 6 \\
-\hline
-P(X) & 1/6 & 1/6 & 1/6 & 1/6 & 1/6 & 1/6
-
-\end{array} \end{equation} 
-
-```
-"""
-
-# ╔═╡ 403af436-d7f2-43c0-803a-8104ba69fcfd
-md"""
-## Probability distributions
-
-
-Random variables' uncertainties is quantified by **probability distributions**
-
-$$\large P(X=x) \geq 0, \forall x\;\; \text{and}\;\; \sum_x{P(X=x)}=1$$
-* non-negative and sum to one
-
-
-**Temperature** $T: P(T)$
-
-```math
-
-\begin{equation}  \begin{array}{c|c} 
-T & P(T)\\
-\hline
-hot & 0.5 \\
-cold & 0.5
-\end{array} \end{equation} 
-```
-
-
-**Weather** $W: P(W)$
-
-```math
-
-\begin{equation}  \begin{array}{c|c} 
-W & P(W)\\
-\hline
-sun & 0.6 \\
-rain & 0.1 \\
-fog & 0.2 \\
-snow & 0.1
-\end{array} \end{equation} 
-```
-"""
-
-# ╔═╡ 4d99c216-e32f-43a3-a122-ccbb697711fc
-md"""
-## Domain of a random variable
-
-
-**Discrete random variables**
-* ``R:`` Is it raining?
-  * ``\Omega =\{t, f\}``
-
-
-* ``T:`` Is the temperature hot or cold?
-  * ``\Omega =\{hot, cold\}``
-
-
-**Continuous random variables**
-* ``D \in [0, +\infty)`` How long will it take to drive to St Andrews?
-  * ``\Omega = [0, \infty)``
-
-
-* ``T \in (-\infty, +\infty)`` the temperature in Celcius
-  * ``\Omega = [-\infty, \infty)``
-
-
-We denote random variables with **Capital letters**
-* its realisations (values in ``\Omega``) in small cases
-"""
-
-# ╔═╡ 5b500acf-7029-43ff-9835-a26d8fe05194
-md"""
-## Notation
-
-- Capital letter $X,Y, \texttt{Pass}, \texttt{Weather}$ are random variables
-
-
-- Smaller letters $x,y, +x, -y, \texttt{true, false, cloudy, sunny}$ are particular values r.v.s can take  
-
-
-- Notation: $P(x)$  is a shorthand notation for $P(X=x)$
-
-
-- So ``P(X)`` is assumed to be a distribution, but ``P(x)`` is a number
-
-Therefore, $P(W)$ means a full distribution vector
-
-```math
-
-\begin{equation}  \begin{array}{c|c} 
-W & P(W)\\
-\hline
-sun & 0.6 \\
-rain & 0.1 \\
-fog & 0.2 \\
-snow & 0.1
-\end{array} \end{equation} 
-```
-
-But ``P(sum)`` is a number
-
-```math
-P(sun) = P(W=sum) = 0.6 
-```
-
-
-"""
-
-# ╔═╡ 4bf768de-833f-45bf-9429-4820ff61553f
-md"""
-
-## Examples of r.v.s
-
-| Variable kind | Discrete or continous| Target space ``\mathcal A`` |
-| :---|:---|:---|
-| Toss of a coin | Discrete | ``\{0,1\}`` |
-| Roll of a die | Discrete |``\{1,2,\ldots, 6\}`` |
-| Outcome of a court case | Discrete |``\{0,1\}`` |
-| Number of heads of 100 coin tosses| Discrete|``\{0,1, \ldots, 100\}`` |
-| Number of covid cases | Discrete|``\{0,1,\ldots\}`` |
-| Height of a human | Continuous |``\mathbb{R}^+=(0, +\infty)`` |
-| The probability of coin's bias ``\theta``| Continuous|``[0,1]`` |
-| Measurement error of people's height| Continuous|``(-\infty, \infty)`` |
-"""
-
-# ╔═╡ 656da51f-fd35-4e89-9af5-b5f0fdf8618f
-md"""
-##  Discrete r.v. -- Bernoulli 
-
-
-
-
-"""
-
-# ╔═╡ 80038fee-b922-479d-9687-771e7e258fcf
-md"Model parameter ``\theta``: $(@bind θ Slider(0:0.1:1, default=0.5; show_value=true))"
-
-# ╔═╡ 7c03a15f-9ac1-465f-86a4-d2a6087e5970
-TwoColumn(md"""
-**Bernoulli random variable**: ``X`` taking binary values ``\{1, 0\}`` 
-
-* for example, coin tossing 
-* the distribution _probability mass function_ is 
-
-```math
-\large
-P(X ) =\begin{cases}\theta & x= 1 \\ 1-\theta & x=0 \end{cases}
-```
-
-* ``0\leq \theta \leq 1`` is the parameter of the distribution
-* ``0 \leq P(x) \leq 1; \text{and}\; \sum_{x=0,1}P(x) = \theta + 1-\theta = 1``
-
-
-""", 
-
-	begin
-		bar(Bernoulli(θ), xticks=[0,1], xlabel=L"X", ylabel=L"P(X)", label="", ylim=[0,1.0], size=(250,300), title="Bernoulli dis.")
-	end
-)
-
-# ╔═╡ e28e8089-f52b-440a-9861-895f9c378c84
-md"""
-## Discrete r.v. -- Bernoulli 
-Probability distribution in one--line
-
-```math
-\large 
-\begin{align}
-P(X=x) &=\begin{cases}\theta & x= 1 \\ 1-\theta & x=0 \end{cases} \\
-
-&=\boxed{ \theta^{x} (1-\theta)^{1-x}}
-\end{align}
-```
-
-``\text{for}\; x\in \{0, 1\}``
-* ``x=0``: ``P(X=0) = \theta^{0} (1-\theta)^{1-0} = \underbrace{\theta^0}_{1}\cdot (1-\theta)= 1-\theta``
-* ``x=1``: ``P(X=1) = \theta^{1} (1-\theta)^{1-1} = \theta\cdot (1-\theta)^0= \theta``
-
-"""
-
-# ╔═╡ 1e52d388-1e8d-4c20-b6e7-bcdd674ea406
-md"""
-## Discrete r.v. -- Categorical random variable
-
-
-
-
-"""
-
-# ╔═╡ b662605e-30ef-4e93-a71f-696e76e3ab45
-TwoColumn(md"""
-``X`` takes categorical values
-
-For example
-``\large X\in \{a,b,c\ldots, z, \_\}``
-- ``\Omega:`` the English alphabet plus empty space "\_"
-- the probability distribution of alphabet in an English text is listed below
-    - it tells you $\_$, $\texttt{e, i, n, o}$ are more likely to be used than e.g. letter $\texttt{z}$
-
-""", html"""<center><img src="https://leo.host.cs.st-andrews.ac.uk/figs/figure21.png" height="450"/></center>
-""")
-
-# ╔═╡ c7210d17-bf91-4434-840f-393eeef1ebd4
-md"""
-
-## Discrete r.v. -- Binomial
-
-
-Toss a coin (**Bernoulli**) with bias (``0\leq \theta \leq 1``) independently ``N`` times: 
-
-```math
- \{Y_1, Y_2, \ldots, Y_n\} \in \{0,1\}^n, \text{and}\;P(Y_i) =\begin{cases}\theta &  Y_i=1 \\ 1-\theta & Y_i=0 \end{cases}
-```
-
-
-"""
-
-# ╔═╡ 4d6badcc-c061-4e63-a156-167376f131eb
-md"Total trials: ``n`` $(@bind nb Slider(2:1:100, default=10, show_value=true)),
-Bias of each trial ``\theta`` $(@bind θ_bi Slider(0:0.05:1, default=0.7, show_value=true))"
-
-# ╔═╡ 556617f4-4e88-45f4-9d91-066c24473c44
-md"""
-
-## Discrete r.v. -- Binomial
-
-
-Toss a coin (**Bernoulli**) with bias (``0\leq \theta \leq 1``) independently ``N`` times: 
-
-```math
- \{Y_1, Y_2, \ldots, Y_n\} \in \{0,1\}^n, \text{and}\;P(Y_i) =\begin{cases}\theta &  Y_i=1 \\ 1-\theta & Y_i=0 \end{cases}
-```
-
-
-The **total number of heads** (or ``1``s) (or the sum)
-
-$$\large X= \sum_{i=1}^n Y_i$$
-
-## Discrete r.v. -- Binomial
-
-
-Toss a coin (**Bernoulli**) with bias (``0\leq \theta \leq 1``) independently ``N`` times: 
-
-```math
- \{Y_1, Y_2, \ldots, Y_n\} \in \{0,1\}^n, \text{and}\;P(Y_i) =\begin{cases}\theta &  Y_i=1 \\ 1-\theta & Y_i=0 \end{cases}
-```
-
-
-The **total number of heads** (or ``1``s) (or the sum)
-
-$$\large X= \sum_{i=1}^n Y_i$$
-
-is a **Binomial** distribution; its distribution is
-
-$$\large P(X=x) = \text{Binom}(X; n,\theta)= \binom{n}{x} (1-\theta)^{n-x} \theta^{x},$$
-
-
-* parameters: ``\theta \in[0,1]`` and ``n \in \mathbb{N}^+``
-* ``x\in \{0,1,\ldots, n\}``
-* ``\binom{n}{x}``: *binomial coefficient*
-
-## Discrete r.v. -- Binomial
-
-
-A Binomial r.v. with ``n``= $(nb), ``\theta`` = $(θ_bi) is plotted below
-* ``P`` tells how likely you are going to see a result of ``X=x``
-  * in this example, the most likely result, called *mode* is 7
-  * almost impossible to observe $X=0$, *i.e.* all 10 tosses are tail, the probability is $0.3^{10}$
-
-"""
-
-# ╔═╡ c3910dd8-4919-463f-9af0-bc554566c681
-let
-	binom = Binomial(nb, θ_bi)
-	bar(binom, label="", xlabel=L"X", xticks = 0:nb, ylabel=L"P(X)", title="Binomial with: "*L"n=%$(nb),\;\;\theta = %$(θ_bi)", legend=:topleft)
-
-end
-
-# ╔═╡ f664e72d-e762-4dea-ba11-bc8c6b2863f9
-md"""
-
-## Discrete r.v. -- Binomial (conti.)
-
-
-!!! question "Question"
-	Toss a coin (with bias ``0\leq \theta \leq 1``)  ``n`` times
-	* what is the probability the number of heads is more than the half?
-
-We can use the Binomial distribution:
-
-```math
-\large
-P(X \geq \lfloor n/2\rfloor + 1) = \sum_{x \geq \lfloor n/2\rfloor + 1}P(x)
-```
-
-* recall ``X`` is the total number of heads
-"""
-
-# ╔═╡ c134a0b6-8754-48bd-a2ca-932542744407
-let
-	binom = Binomial(nb, θ_bi)
-	bar(binom, label="", xlabel=L"X", xticks = 0:nb, ylabel=L"P(X)", title=L"n=%$(nb),\;\;\theta = %$(θ_bi)", legend=:topleft)
-
-	p_more_heads = exp(logsumexp(logpdf.(binom, floor(nb/2)+1:1:nb)))
-	vspan!([floor(nb/2)+0.5, nb+0.5], alpha=0.5, label=L"P(X \geq \lfloor n/2 \rfloor +1)\approx%$(round(p_more_heads; digits=2))")
-end
-
-# ╔═╡ cd746d93-135e-4d10-9a44-50b610344fd9
-md"""
-
-## Continuous random variable
-
-
-
-**Continuous random variable**: the domain ``\Omega`` is continuous, *e.g.* ``[0,1], (-\infty , +\infty)``
-  * ``p:`` *probability density function (p.d.f)*
-
-
-$$\large \forall x, \;\; p(X=x) \geq 0, \;\; \text{and}\;\; \int_{x\in \Omega}{p(X=x)dx}=1$$
-
-"""
-
-# ╔═╡ a4980317-32aa-44b8-97a8-8887c0e65bb4
-md"""
-
-## 	Continuous r.v. -- Uniform
-
-
-"""
-
-# ╔═╡ 197e2d17-fd19-46b1-8f51-0fa2748340e5
-TwoColumn(md"""
-
-``X`` is a **uniform distribution** over interval ``[a, b]``
-
-```math
-\large
-p(x) = \begin{cases}\frac{1}{b-a} & a \leq x \leq b \\ 0 & \text{otherwise}\end{cases}
-```
-
-* denoted as ``X \sim \texttt{Uniform}(a,b)`` if
-* no preference over the range between ``a`` and ``b``
-**Example**: when ``a=0, b=1``, the distribution reduces to ``p(x) = 1`` for ``x\in [0,1]``
-
-
-
-""", 
-let
-	a, b = 0, 1
-	plot(Uniform(0,1), fill=true, alpha= 0.5, lw=2, ylim=[0, 2], xlabel=L"X", ylabel=L"p(X)", label="", title=L"p(X) = \texttt{Uniform}(0,1)", size=(300,300))
-end
-)
-
-# ╔═╡ 2bad0f9a-2b21-4686-aa41-2b430c354454
-md"""
-
-## Probability with p.d.f
-
-
-
-
-"""
-
-# ╔═╡ 9594d76f-3274-48fa-b833-f0c26daa229a
-TwoColumn(md"""
-
-\
-\
-\
-
-
-!!! question "Question"
-	What is the probability that ``X \in [0.5, 1.0]``
-""", let
-	a, b = 0, 1
-	plot(Uniform(0,1), fill=true, alpha= 0.5, lw=2, ylim=[0, 2], xlabel=L"X", ylabel=L"p(X)", label="")
-	c = 0.5
-	plot!(.5:0.1:1.0, (x)-> 1.0, fill=true, alpha=0.5, label="",title=L"p(X) = \texttt{Uniform}(0,1)", size=(300,300))
-end)
-
-# ╔═╡ ce1d7bad-179a-48c0-86c7-2de82c55a96d
-md"""
-##
-"""
-
-# ╔═╡ 09f78f45-3790-4218-847f-b9ea1e61176a
-TwoColumn(md"""
-
-We calculate **probability** of continuous r.v. by *integration* (instead of summation)
-
-
-
-```math
-\begin{align}
-P(X \in [0.5, 1.0]) &= \int_{0.5}^{1} p(x) \mathrm{d}x \\
-&= \int_{0.5}^{1}1 \mathrm{d}x = 1 \cdot 0.5 = 0.5
-\end{align}
-```
-* interpretation: the shaded area is 0.5
-
-""", let
-	a, b = 0, 1
-	plot(Uniform(0,1), fill=true, alpha= 0.5, lw=2, ylim=[0, 2], xlabel=L"X", ylabel=L"p(X)", label="")
-	c = 0.5
-	plot!(.5:0.1:1.0, (x)-> 1.0, fill=true, alpha=0.5, label=L"\mathbb{P}(X\in [0.5, 1.0])=0.5", size=(300,300))
-end)
+md"# Multivariate Gaussian"
 
 # ╔═╡ b89ac105-597e-44ac-9b58-c1c3c5ac59e9
 md"""
-## Continuous r.v. -- Gaussian
+## Recap: univariate Gaussian
 
 
 
 """
 
-# ╔═╡ 6bcfe759-0010-400e-bb9b-62c089bd5230
-TwoColumn(md"""
-\
+# ╔═╡ 40f334b3-60fa-4ca1-8146-06e00fa14d45
+md"##
+"
 
-Gaussian random variable $X$
+# ╔═╡ bb02b467-0269-4047-8c0b-ee61e0185df8
+html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/gaussian_eq_1d_alt.png' width = '900' /></center>"
 
-
-$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/gaussian_eq_1d.png", :width=>450, :align=>"middle"))
-
-\
-
+# ╔═╡ d9829c67-d346-4145-ae75-028f9fdd103d
+md"""
 * ``\mu``: mean or location
 * ``\sigma^2``: variance or scale, controls the spread
 
 
 
-""", let
-
-	μs = [-3, 0, 3]
-	σ²s = [1 , 2 , 5]
-	plt_gaussian = Plots.plot(title="Gaussian distributions", xlabel=L"X", ylabel=L"p(X)", size=(300,300))
-	for i in 1:3 
-		plot!(plt_gaussian, Normal(μs[i], sqrt(σ²s[i])), fill=true, alpha=0.5, label=L"\mathcal{N}(μ=%$(μs[i]), σ^2=%$(σ²s[i]))")
-		vline!([μs[i]], color=i, label="", linewidth=2)
-	end
-	plt_gaussian
-end)
-
-# ╔═╡ d3f51b03-384c-428c-b7e4-bdc1508e6a02
-md"""
-
-## Dissect Gaussian
-
-```math
-\boxed{\colorbox{lightblue}{$\left(\frac{x -\mu}{\sigma}\right)^2$}} \Longrightarrow -\frac{1}{2}{\left(\frac{x -\mu}{\sigma}\right)^2} \Longrightarrow  \large{e^{-\frac{1}{2}{\left(\frac{x -\mu}{\sigma}\right)^2}} } \Longrightarrow {\frac{1}{\sigma \sqrt{2\pi}}} e^{-\frac{1}{2} {\left(\frac{x -\mu}{\sigma}\right)^2}}
-```
-
-* ``\colorbox{lightblue}{$(\frac{x-\mu}{\sigma})^2$}``: the `kernel` measures how far away ``x`` is from ``\mu``
-  * measured w.r.t measurement unit ``\sigma``
-  * how many ``\sigma`` units away 
-
 """
-
-# ╔═╡ 875a06b7-eb90-451e-a888-3e4f13832053
-md"``\mu``: $(@bind μ1_ Slider(-5:.1:5.0, default=0.0, show_value=true)),
-``x``: $(@bind x1_ Slider(-5:.1:5.0, default=2.0, show_value=true))"
-
-# ╔═╡ c2497681-0729-451a-ab5f-43937bc9e100
-let
-
-	μ = μ1_
-	σ = 1.0
-
-	f1(x) = ((x - μ)/σ )^2
-
-	plot(range(μ -5, μ+5, 100), (x) -> f1(x), lw=2, label=L"\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= \left(({x-\mu})/{\sigma}\right)^2", framestyle=:origin)
-
-	x_ = x1_
-	plot!([x_, x_], [0, f1(x_)], ls=:dot, lc=1, lw=2, label="")
-	annotate!([x_], [f1(x_)], text(L"f(x)=%$(round(f1(x_); digits=2))", :blue,:right))
-	annotate!([x_], [0], text(L"x_0", :blue,:top))
-	annotate!([μ], [0], text(L"\mu", :red, :top))
-	vline!([μ], lc=:red, lw=1.5, label=L"\mu")
-end
-
-# ╔═╡ 00c8c5a4-c58f-4a62-ba88-ca3f590977d7
-md"""
-
-## Dissect Gaussian
-
-```math
-\left(\frac{x -\mu}{\sigma}\right)^2 \Longrightarrow \boxed{\colorbox{orange}{$-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2$} }\Longrightarrow  \large{e^{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2} } \Longrightarrow {\frac{1}{\sigma \sqrt{2\pi}}} e^{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2}
-```
-
-
-* ``\colorbox{orange}{$-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2$} ``: ``p(x)`` is negative correlated with the distance
-  * further away ``x`` is from ``\mu``, ``p(x)`` is smaller
-"""
-
-# ╔═╡ 06e178a8-bcd1-4646-8e51-1b90a2e09784
-md"``\mu``: $(@bind μ2_ Slider(-5:.1:5.0, default=0.0, show_value=true)),
-``x``: $(@bind x2_ Slider(-5:.1:5.0, default=2.0, show_value=true))"
-
-# ╔═╡ ab5612b9-9681-4984-b58e-3783c0c0c6e4
-let
-
-	μ = μ2_
-	σ = 1
-
-	f1(x) = ((x - μ)/σ )^2
-	f2(x) = -0.5* f1(x)
-	plot(range(μ -5, μ+5, 100), (x) -> f1(x), lw=2, label=L"\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= \left(({x-\mu})/{\sigma}\right)^2", framestyle=:origin)
-	plot!(f2, lw=2, label=L"-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= -\frac{1}{2}\left(({x-\mu})/{\sigma}\right)^2")
-
-
-	x_ = x2_
-	plot!([x_, x_], [0, f2(x_)], ls=:dot, lc=:orange, lw=2, label="")
-	annotate!([x_], [f2(x_)], text(L"f(x)=%$(round(f2(x_); digits=2))",:orange, :bottom))
-
-	annotate!([x_], [0], text(L"x_0", :orange,:top))
-	annotate!([μ], [0], text(L"\mu", :red, :top))
-
-	vline!([μ], lc=:red, lw=2, label=L"\mu")
-end
-
-# ╔═╡ 6e7ace1b-6c6f-44e4-8377-dd7804f94ee0
-md"""
-
-## Dissect Gaussian
-
-```math
-\left(\frac{x -\mu}{\sigma}\right)^2 \Longrightarrow -\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2 \Longrightarrow  \large{ \boxed{\colorbox{lightgreen}{$e^{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2} $}}} \Longrightarrow {\frac{1}{\sigma \sqrt{2\pi}}} e^{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2}
-```
-
-
-* "``\exp``": the exponential function makes sure ``p(x)>0`` for all ``x``
-
-"""
-
-# ╔═╡ cb3f15a1-3d04-447a-a5a2-50c66f356922
-md"``\mu``: $(@bind μ3_ Slider(-5:.1:5.0, default=0.0, show_value=true)),
-``x``: $(@bind x3_ Slider(-5:.1:5.0, default=2.0, show_value=true))"
-
-# ╔═╡ 43f6f92c-fe29-484f-ad1b-18a674574ef2
-let
-
-	μ = μ3_
-	σ = 1
-
-	f1(x) = ((x - μ)/σ )^2
-	f2(x) = -0.5* f1(x)
-	f3(x) = exp(f2(x))
-	# plot(f1, lw=2, label=L"\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= \left(({x-\mu})/{\sigma}\right)^2")
-	plot(range(μ -5, μ+5, 100), (x) -> f2(x), lw=2, lc=2,label=L"-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= -\frac{1}{2}\left(({x-\mu})/{\sigma}\right)^2", framestyle=:origin)
-	plot!(f3, lw=2, lc=3, label=L"e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}", title=L"f(x)= e^{-\frac{1}{2}\left(({x-\mu})/{\sigma}\right)^2}", ylim=[-2,1.5])
-
-
-	x_ = x3_
-	plot!([x_, x_], [0, f3(x_)], ls=:dot, lc=:green, lw=2, label="")
-	annotate!([x_], [f3(x_)], text(L"f(x)=%$(round(f3(x_); digits=2))",:green, :bottom))
-
-	vline!([μ], lc=:red, lw=2, label=L"\mu")
-end
 
 # ╔═╡ 72af797b-5340-482e-be00-2cda375dd734
 md"""
@@ -1091,271 +95,820 @@ md"""
 ## Dissect Gaussian
 
 ```math
-\left(\frac{x -\mu}{\sigma}\right)^2 \Longrightarrow -\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2 \Longrightarrow  \large{ e^{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2} } \Longrightarrow \boxed{\colorbox{pink}{${\frac{1}{\sigma \sqrt{2\pi}}} e^{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2}$}}
+\Large
+{\color{darkorange}{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2}} \Longrightarrow  { \color{green}{ e^{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2} }} \Longrightarrow  {\color{purple}{\frac{1}{\sigma \sqrt{2\pi}}} e^{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2}}
 ```
-
-
-* ``\frac{1}{\sigma \sqrt{2\pi}}``: normalising constant, a contant from ``x``'s perspective
-  * it normalise the density such that $$\int p(x)\mathrm{d}x = 1$$
 
 """
 
 # ╔═╡ 723365e7-1fad-4899-8ac1-fb8674e2b9a7
-md"``\mu``: $(@bind μ4_ Slider(-5:.1:5.0, default=0.0, show_value=true))"
+md"``\mu``: $(@bind μ4_ Slider(-5:.1:5.0, default=1.0, show_value=true)),
+``\sigma``: $(@bind σ4_ Slider(0.1:.1:2, default=1.0, show_value=true))"
+
+# ╔═╡ ff303022-1eff-4278-be92-edf46c747bec
+md"
+Add ``-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2``: $(@bind add_kernel CheckBox(default=false)), 
+Add exp ``e^{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2}``: $(@bind add_ekernel CheckBox(default=false)), 
+Add final ``p(x)``: $(@bind add_px CheckBox(default=false))
+"
+
+# ╔═╡ 6dba8be7-b62b-42d4-835a-d5ed827befa9
+begin
+	f1(x; μ=0, σ=1) = ((x - μ)/σ )^2
+	f2(x; μ=0, σ=1) = -0.5 * f1(x; μ=μ, σ=σ)
+	f3(x; μ=0, σ=1) = exp(f2(x; μ=μ, σ=σ))
+	f4(x; μ=0, σ=1) = 1/(σ * sqrt(2π)) *exp(f2(x; μ=μ, σ=σ))
+end;
 
 # ╔═╡ a862e9d6-c31d-4b21-80c0-e359a5435b6b
 let
 	μ = μ4_
-	σ = 1
-	f1(x) = ((x - μ)/σ )^2
-	f2(x) = -0.5* f1(x)
-	f3(x) = exp(f2(x))
-
-	f4(x) = 1/(σ * sqrt(2π)) *exp(f2(x))
+	σ = σ4_
+	# f1(x) = ((x - μ)/σ )^2
+	# f2(x) = -0.5* f1(x)
+	# f3(x) = exp(f2(x))
+	maxy = f4(μ; μ=μ, σ=σ) 
+	# f4(x) = 1/(σ * sqrt(2π)) *exp(f2(x))
 	# plot(f1, lw=2, label=L"\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= \left(({x-\mu})/{\sigma}\right)^2")
-	plot(range(μ -5, μ+5, 100), (x) -> f2(x), lw=2, lc=2,label=L"-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= -\frac{1}{2}\left(({x-\mu})/{\sigma}\right)^2", framestyle=:origin)
-	plot!(f3, lw=2, lc=3, label=L"e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}", title=L"f(x)= e^{-\frac{1}{2}\left(({x-\mu})/{\sigma}\right)^2}", ylim=[-2,1.5])
-
-	plot!(f4, lw=2, lc=4, label=L"\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}", title=L"f(x)= \frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{1}{2}\left(({x-\mu})/{\sigma}\right)^2}", ylim=[-2,1.5])
-
+	if add_kernel
+		plt = plot(range(μ -5, μ+5, 100), (x) -> f2(x; μ=μ, σ=σ), lw=1.5, lc=2,label=L"-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= -\frac{1}{2} \left(({x-\mu})/{\sigma}\right)^2", framestyle=:origin, ylim=[-2, max(maxy + 0.1, 1.5)])
+	else
+		plt = plot(framestyle=:origin, ylim=[-2,1.5], xlim=[-2,2])
+	end
+	if add_ekernel
+		plot!((x) -> f3(x; μ=μ, σ=σ), lw=1.5, lc=3, label=L"e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}", title=L"f(x)= e^{-\frac{1}{2}\left(({x-\mu})/{\sigma}\right)^2}")
+	end
+	vline!([μ], label="", ls=:dash, lw=2, lc=2, la=0.5)
+	if add_px
+		plot!(x -> f4(x; μ=μ, σ=σ), lw=3, lc=4, label=L"\frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}", title="Gaussian prob. density")
+	end
+	plt
 end
 
-# ╔═╡ e44e47c4-fce6-4559-ae32-c315508bbf9c
+# ╔═╡ 4e55339d-4b61-4584-81c8-a9f35312830d
+ThreeColumn(let
+	μ = μ4_
+	σ = 1
+	maxy = f4(μ; μ=μ, σ=σ) 
+	plt = plot(range(μ -4, μ+4, 100), (x) -> f2(x; μ=μ, σ=σ), lw=2, lc=2, title = "", framestyle=:origin, ylim=[-2, max(maxy + 0.1, 1.5)], size=(230,250), label=L"-\frac{1}{2} \left(({x-\mu})/{\sigma}\right)^2", legendfontsize=8, legend=:outertop)
+	vline!([μ], label="", ls=:dash, lw=2, lc=2, la=0.5)
+	plt
+end, let
+	μ = μ4_
+	σ = 1
+	maxy = f4(μ; μ=μ, σ=σ) 
+	plt = plot(range(μ -4, μ+4, 100), (x) -> f2(x; μ=μ, σ=σ), lw=1., lc=2,label="" , ls=:dash, framestyle=:origin, ylim=[-2,max(maxy + 0.1, 1.5)], size=(230,250))
+	
+	plot!(x -> f3(x; μ=μ, σ=σ), lw=2, lc=3, title="", ylim=[-2,max(maxy + 0.1, 1.5)], titlefontsize=15, label=L"e^{-\frac{1}{2}\left(({x-\mu})/{\sigma}\right)^2}", legendfontsize=8, legend=:outertop)
+
+	vline!([μ], label="", ls=:dash, lw=2, lc=2, la=0.5)
+	plt
+end, let
+	μ = μ4_
+	σ = 1
+	maxy = f4(μ; μ=μ, σ=σ) 
+	plt = plot(range(μ -4, μ+4, 100), (x) -> f2(x; μ=μ, σ=σ), lw=1, ls=:dash, lc=2,label="", title="", framestyle=:origin, ylim=[-2,max(maxy + 0.1, 1.5)],size=(230,250))
+	plot!(x -> f3(x; μ=μ, σ=σ), lw=1, ls=:dash, lc=3, label="", title="")
+	# end
+	vline!([μ], label="", ls=:dash, lw=2, lc=2, la=0.5)
+	plot!(x -> f4(x; μ=μ, σ=σ), lw=3, lc=4, title="", label=L"1/{\sigma\sqrt{2\pi}}\,e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}", legendfontsize=8, legend=:outertop)
+
+	plt
+end)
+
+# ╔═╡ 3f189707-d21d-4bf6-bc86-35304206281a
 md"""
-## Summary of discrete and continuous r.v.
+
+## *Normalising constant
+
+```math
+\Large
+p(x)=\colorbox{lightgreen}{$\frac{1}{\sigma \sqrt{2\pi}}$} e^{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2}
+```
 
 
-**Discrete random variable**: ``\Omega`` is discrete, *e.g.* ``\{\texttt{true},\texttt{false}\}, \{1,2,3,\ldots, \infty\}``
-  * ``P:`` *probability mass function (p.m.f)* satisfies 
-    * ``0\leq P(x) \leq 1``
-    * ``\sum_{x\in \Omega} P(x) = 1``
-  * *e.g.* Bernoulli, Binomial, Poisson and so on
+* ``\large \colorbox{lightgreen}{$\frac{1}{\sigma \sqrt{2\pi}}$}``: normalising constant, a contant from ``x``'s perspective
 
-**Continuous random variable**: ``\Omega`` is continuous, *e.g.* ``[0,1],  (-\infty , +\infty)``
-  * ``p:`` *probability density function (p.d.f)* satisfies (smaller case ``p``)
-    * ``p(x) \ge 0``
-    * ``\int_{x\in \Omega} p(x) {d}x=1``
-  * *e.g.* Gaussian, Laplace, Beta distributions and so on
-"""
+* it normalises the density such that 
 
-# ╔═╡ e557ad8b-9e4f-4209-908f-2251e2e2cde9
-md"""
-## Joint distribution
+$$\large\int p(x)\mathrm{d}x = 1$$
 
-
-A **joint distribution** over a set of random variables: ``X_1, X_2, \ldots, X_n`` 
+* *in other words*
 
 
 ```math
 \large
-\begin{equation} P(X_1= x_1, X_2=x_2,\ldots, X_n= x_n) = P(x_1, x_2, \ldots, x_n) \end{equation} 
+\int e^{-\frac{1}{2}\left(\frac{x -\mu}{\sigma}\right)^2}dx = \left (\frac{1}{\sigma \sqrt{2\pi}}\right )^{-1} = \sigma \sqrt{2\pi}
 ```
 
-* the joint event ``\{X_1=x_1, X_2=x_2, \ldots, X_n=x_n\}``'s distribution
-
-* must still statisfy
-
-$P(x_1, x_2, \ldots, x_n) \geq 0\;\; \text{and}\;\;  \sum_{x_1, x_2, \ldots, x_n} P(x_1, x_2, \ldots, x_n) =1$ 
-
-## Joint distribution -- examples
-
-
-For example, joint distribution of temperature (``T``) and weather (``W``): ``P(T,W)``
-```math
-\begin{equation}
-\begin{array}{c c |c} 
-T & W & P\\
-\hline
-hot & sun & 0.4 \\
-hot & rain & 0.1 \\
-cold & sun  & 0.2\\
-cold & rain & 0.3\end{array} \end{equation} 
-```
-
-
-
 """
-
-# ╔═╡ 25c1c999-c9b0-437a-99f3-6bb59482ca7d
-md"""
-
-## Joint distribution --  examples
-
-Bi-letter example: $X,Y$ represents the _first_ and _second_ letter
-  * *e.g.* $X = \texttt{s}, Y = \texttt{t}$, means a bi--letter "$\texttt{st}$"
-"""
-
-# ╔═╡ 1877ebc8-790f-483a-acf3-9288df9ee7cc
-TwoColumn(md"""
-\
-
-* there are $27 \times 27$ entries
-* very common bigrams are $\texttt{in, re, he, th}$, \_$\texttt{a}$ (starting with ``\texttt{a}``)
-* uncommon bigrams are $\texttt{aa, az, tb, j}$\_ (ending with ``\texttt{j}``)
-* sum all $27\times 27$ entries will be 1
-
-""", html"""<center><img src="https://leo.host.cs.st-andrews.ac.uk/figs/figure19.png" width = "300" height="300"/></center>
-""")
 
 # ╔═╡ 66a08217-481a-4956-ba8a-c4c822f3d0d2
 figure_url = "https://leo.host.cs.st-andrews.ac.uk/figs/figs4CS5010/";
 
-# ╔═╡ 271009dc-c42b-40bc-9896-e6fc16238a73
+# ╔═╡ b02d6493-8da9-4d4d-a090-353f96addbdd
+# $$\begin{equation*}
+# p(\mathbf{x})=\mathcal{N}(\mathbf{x}| \boldsymbol{\mu}, \boldsymbol{\Sigma}) =  \underbrace{\frac{1}{(2\pi)^{d/2} |\boldsymbol\Sigma|^{1/2}}}_{\text{normalising constant}}
+# \exp \left \{-\frac{1}{2} \underbrace{({x} - {\mu})^\top \Sigma^{-1}({x}-{\mu})}_{\text{distance btw } x \text{ and } \mu }\right\}
+# \end{equation*}$$
+# #
+
+# ╔═╡ b88ce59d-a715-48af-b7f6-cc867ef2b50e
 md"""
 
-## Conditional distribution
-
-Conditional probability is defined as
-
-$$P(A=a|B=b) = \frac{P(A=a, B=b)}{P(B=b)}$$
-
-* read: *probability of ``A`` given ``B``*
-* the probability of $A=a$ given $B=b$ is true
-
+## Recap: Euclidean distance 
 
 
 """
 
-# ╔═╡ a01ebe11-dba2-45df-9fe3-1343576c2071
-Resource(figure_url * "condiprob.png", :width=>800, :align=>"left")
+# ╔═╡ dc64c064-6cee-4fba-8a36-e9b3264ebbbf
+TwoColumn(md"""
 
-# ╔═╡ 738c0c4c-d66e-42a5-8b7f-0cb4bb576d18
+\
+\
+
+_Squared_ Euclidean distance between $\mathbf{x}\in \mathbb{R}^d,\boldsymbol{\mu}\in \mathbb{R}^d$ is
+
+$$\|\mathbf{x} - \boldsymbol{\mu}\|^2 = \sum_{j=1}^d (x_j - \mu_{j})^2$$
+* or **straightline distance** between them 
+* note ``\mathbf{x} = [x_1, \ldots, x_d]^\top`` and ``\boldsymbol\mu = [\mu_{1}, \ldots, \mu_{d}]^\top`` are vectors
+
+""", 
+	
+	let
+	μ = [1,1]
+ 	t = 0:0.01:2π
+	r = 1 
+	# plot(μ[1] .+ cos.(t), μ[2] .+ sin.(t), ratio=1,  xlim = μ .+ [-1.5, 1.5],lw=2, label="", framestyle=:origin,  size=(300,300))
+
+	plt = scatter([μ[1]], [μ[2]], label=L"\mu", marker=:x, markerstrokewidth=5, markersize=6, size=(300,300), ratio=1,c=2,  xlim = μ .+ [-1.5, 1.5], ylim = μ .+ [-1.5, 1.5], framestyle=:zerolines)
+	θs = range(0, 2π, 15)
+
+	vs = [cos.(θs) sin.(θs)] .+ μ'
+	ii = 3
+	scatter!(vs[ii:ii,1], vs[ii:ii,2], c=1,  markersize=5, label="")
+	plot!([μ[1], vs[ii, 1]],  [μ[2], vs[ii, 2]], lc=:gray, arrow=Plots.Arrow(:close, :both, 1,1),  lw=0.6, st=:path, label="")
+
+		
+	annotate!(μ[1], μ[2], text(L"μ", 20, :red,:top))
+	annotate!(vs[ii, 1], vs[ii, 2], text(L"\mathbf{x}", 20, :blue,:top))
+	if false 
+		plot!(μ[1] .+ cos.(t), μ[2] .+ sin.(t), lw=2, label="", framestyle=:origin,  size=(300,300))
+		scatter!(vs[:,1], vs[:,2], label=L"\mathbf{x}", c=1,  markersize=2)
+			for i in 1:size(vs)[1]
+			# 	quiver!([μ[1]], [μ[2]], quiver=([vs[i, 1]], [vs[i, 2]]), lw=1, lc=:gray)
+				# quiver!([μ[1]], [μ[2]], quiver=([vs[i, 1]-μ[1]], vs[i, 2]-μ[2]), lc=:gray, lw=1)
+			plot!([μ[1], vs[i, 1]],  [μ[2], vs[i, 2]], lc=:gray, arrow=Plots.Arrow(:close, :both, 1,1),  lw=0.6, st=:path, label="")
+			end
+
+	end
+
+	plt
+
+end)
+
+# ╔═╡ 2d72550f-6dd4-496b-a763-125ec7f9d251
 md"""
 
-## Independence
+## Recap: Euclidean distance 
 
-Random variable $X,Y$ are **independent**, if 
 
-$$\large \forall x,y : P(x,y) = P(x)P(y)$$
+"""
 
-*Alternatively*
+# ╔═╡ 7d625061-fdef-440b-b541-0dd141a50c95
+md"""
+Add all ``\mathbf{x}``s: $(@bind add_xs CheckBox(default=false))
+"""
 
-$$\large \forall x,y: P(x|y) = P(x)$$
-  * intuition: knowing (conditional on $Y=y$) does not change the probability of ``X``
+# ╔═╡ 848c79ff-61b3-47e1-a574-4549afe9900f
+TwoColumn(md"""
+_Squared_ Euclidean distance between $\mathbf{x}\in \mathbb{R}^d,\boldsymbol{\mu}\in \mathbb{R}^d$ is
+
+$$\|\mathbf{x} - \boldsymbol{\mu}\|^2 = \sum_{j=1}^d (x_j - \mu_{j})^2$$
+* or **straightline distance** between them 
+* note ``\mathbf{x} = [x_1, \ldots, x_d]^\top`` and ``\boldsymbol\mu = [\mu_{1}, \ldots, \mu_{d}]^\top`` are vectors
+
+
+> if we fix $\boldsymbol\mu$ and a **distance**, 
+> * ``\mathbf{x}``s forms a circle in $\mathbb{R}^2$ (or sphere in $\mathbb{R}^3$ or hypersphere for $d>3$) 
+""", 
+	
+	let
+	μ = [1,1]
+ 	t = 0:0.01:2π
+	r = 1 
+	# plot(μ[1] .+ cos.(t), μ[2] .+ sin.(t), ratio=1,  xlim = μ .+ [-1.5, 1.5],lw=2, label="", framestyle=:origin,  size=(300,300))
+
+	plt = scatter([μ[1]], [μ[2]], label=L"\mu", marker=:x, markerstrokewidth=5, markersize=6, size=(300,300), ratio=1,c=2,  xlim = μ .+ [-1.5, 1.5], ylim = μ .+ [-1.5, 1.5])
+	θs = range(0, 2π, 15)
+
+	vs = [cos.(θs) sin.(θs)] .+ μ'
+		ii = 2
+	scatter!(vs[ii:ii,1], vs[ii:ii,2], label="", c=1,  markersize=5)
+	plot!([μ[1], vs[ii, 1]],  [μ[2], vs[ii, 2]], lc=:gray, arrow=Plots.Arrow(:close, :both, 1,1),  lw=0.6, st=:path, label="")
+
+		
+	annotate!(μ[1], μ[2], text(L"μ", 20, :red,:top))
+
+	if add_xs 
+		plot!(μ[1] .+ cos.(t), μ[2] .+ sin.(t), lw=2, label="", framestyle=:origin, lc=1)
+		scatter!(vs[:,1], vs[:,2], label=L"\mathbf{x}", c=1,  markersize=2)
+		for i in 1:size(vs)[1]
+			plot!([μ[1], vs[i, 1]],  [μ[2], vs[i, 2]], lc=:gray, arrow=Plots.Arrow(:close, :both, 1,1),  lw=0.6, st=:path, label="")
+		end
+
+	end
+
+	plt
+
+end)
+
+# ╔═╡ aecdb616-d38b-4db6-af4c-55c988a3139d
+md"""
+
+
+## Recap: Euclidean distance as Quadratic form
+
+
+"""
+
+# ╔═╡ 82c78222-131f-4a38-a014-00cfee6d09ed
+TwoColumn(md"""
+
+Euclidean distance can also be formed as
+\
+\
+
+
+$$\begin{align}\sum_{j=1}^d (x_j - \mu_{j})^2&=\begin{bmatrix}x_1- \mu_{1}& \ldots & x_d- \mu_{d}\end{bmatrix}\begin{bmatrix} x_1-\mu_{1} \\ \vdots \\ x_d-\mu_{d}\end{bmatrix} \\
+&= \underbrace{(\mathbf{x} - \boldsymbol\mu)^\top}_{\text{row vector}} \underbrace{(\mathbf{x} - \boldsymbol\mu)}_{\text{column vector}}\\ 
+&= \boxed{(\mathbf{x} - \boldsymbol\mu)^\top  \mathbf{I}^{-1}  (\mathbf{x} - \boldsymbol\mu)}\end{align}$$
+
+
+
+""",let
+	μ = [1.25, 0.5]
+	# plot(μ[1] .+ cos.(t), μ[2] .+ sin.(t), ratio=1,  xlim = μ .+ [-1.5, 1.5],lw=2, label="", framestyle=:origin,  size=(300,300))
+
+	plt = scatter([μ[1]], [μ[2]], label="", marker=:x, markerstrokewidth=0, markersize=0, size=(300,300), ratio=1,c=2,  xlim = [-0.5, 2], ylim =  [-0.5, 2.2], framestyle=:zerolines)
+	# θ = π/4
+
+	quiver!([0], [0], quiver=([μ[1]], [μ[2]]), lw=1.5, lc=2)
+	v = [1.5, 1.8]
+	ii = 3
+	scatter!([v[1]], [v[2]], c=1,  markersize=0, label="")
+	quiver!([0], [0], quiver=([v[1]], [v[2]]), lw=1.5, lc=1)
+	# plot!([μ[1], v[1]],  [μ[2], v[2]], lc=:gray, arrow=Plots.Arrow(:close, :both, 1,1),  lw=0.6, st=:path, label="")
+	xmu = - v + μ 
+	quiver!([v[1]], [v[2]], quiver=([xmu[1]], [xmu[2]]), lw=3, lc=3)	
+	annotate!(μ[1], μ[2], text(L"μ", 20, :red,:top))
+	annotate!(v[1], v[2], text(L"\mathbf{x}", 20, :blue,:bottom))
+	
+	θ = acos(dot(-xmu, [1,0])/ norm(xmu)) * 180/π
+	annotate!(.5 * (μ[1] + v[1]), .5 * (μ[2] + v[2]),text(L"\mathbf{x}-\mu", 20, :green, :top, rotation=θ))
+
+		# annotate!(0.5*b[1], 0.5*b[2], text(L"\sqrt{\mathbf{b}^\top\mathbf{b}}", 18, :bottom, rotation = θb ))
+	plt
+
+end )
+
+# ╔═╡ 3864434a-0f66-4872-81c6-84353d870f50
+md"""
+
+
+## Recap: Euclidean distance as Quadratic form
+
+
+"""
+
+# ╔═╡ a0a1eb6a-74e1-4d1e-8097-b7b3c04cffa2
+TwoColumn(md"""
+
+Euclidean distance can also be formed as a **quadratic form**
+
+$$\begin{align}\sum_{j=1}^d (x_j - \mu_{j})^2&=\begin{bmatrix}x_1- \mu_{1}& \ldots & x_d- \mu_{d}\end{bmatrix}\begin{bmatrix} x_1-\mu_{1} \\ \vdots \\ x_d-\mu_{d}\end{bmatrix} \\
+&= \underbrace{(\mathbf{x} - \boldsymbol\mu)^\top}_{\text{row vector}} \underbrace{(\mathbf{x} - \boldsymbol\mu)}_{\text{column vector}}\\ 
+&= \boxed{(\mathbf{x} - \boldsymbol\mu)^\top  \mathbf{I}^{-1}  (\mathbf{x} - \boldsymbol\mu)}\end{align}$$
+
+* **quadratic form**: *a row vector* ``\times`` *a square matrix* ``\times`` *a column vector*
+  *  generalisation of scalar quadratic function ``x\cdot a \cdot x``
+* note that $\mathbf{I}$ is the Identity matrix 
   
+$\mathbf{I} = \begin{bmatrix} 1 &0& \ldots & 0 \\
+  0 &1 & \ldots & 0  \\
+  \vdots & \vdots & \vdots & \vdots \\
+  0 & 0 & \ldots & 1
+  \end{bmatrix}$
 
-##
+""",let
+	μ = [1.25, 0.5]
+	# plot(μ[1] .+ cos.(t), μ[2] .+ sin.(t), ratio=1,  xlim = μ .+ [-1.5, 1.5],lw=2, label="", framestyle=:origin,  size=(300,300))
 
-For _multiple_ independent random variables,
+	plt = scatter([μ[1]], [μ[2]], label="", marker=:x, markerstrokewidth=0, markersize=0, size=(300,300), ratio=1,c=2,  xlim = [-0.5, 2], ylim =  [-0.5, 2.2], framestyle=:zerolines)
+	# θ = π/4
+
+	quiver!([0], [0], quiver=([μ[1]], [μ[2]]), lw=1.5, lc=2)
+	v = [1.5, 1.8]
+	ii = 3
+	scatter!([v[1]], [v[2]], c=1,  markersize=0, label="")
+	quiver!([0], [0], quiver=([v[1]], [v[2]]), lw=1.5, lc=1)
+	# plot!([μ[1], v[1]],  [μ[2], v[2]], lc=:gray, arrow=Plots.Arrow(:close, :both, 1,1),  lw=0.6, st=:path, label="")
+	xmu = - v + μ 
+	quiver!([v[1]], [v[2]], quiver=([xmu[1]], [xmu[2]]), lw=3, lc=3)	
+	annotate!(μ[1], μ[2], text(L"μ", 20, :red,:top))
+	annotate!(v[1], v[2], text(L"\mathbf{x}", 20, :blue,:bottom))
+	
+	θ = acos(dot(-xmu, [1,0])/ norm(xmu)) * 180/π
+	annotate!(.5 * (μ[1] + v[1]), .5 * (μ[2] + v[2]),text(L"\mathbf{x}-\mu", 20, :green, :top, rotation=θ))
+
+		# annotate!(0.5*b[1], 0.5*b[2], text(L"\sqrt{\mathbf{b}^\top\mathbf{b}}", 18, :bottom, rotation = θb ))
+	plt
+
+end )
+
+# ╔═╡ 85a0636b-5475-4ece-a03d-cbbc4603cbc5
+md"""
+
+## Multivariate Gaussian
+"""
+
+# ╔═╡ 4ce3cb20-e70d-4d39-8572-ee7ac6d8e441
+html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/gaussian_eq_md_alt.png' width = '900' /></center>"
+
+# ╔═╡ b0f0628e-ceff-4e6c-819b-2778ca4d4b08
+md"""
+
+
+* mean: ``\boldsymbol\mu \in \mathbb{R}^d`` is the  vector 
+
 
 ```math
-P(X_1, X_2, \ldots, X_n) = \prod_{i=1}^n P(X_i)
+\large
+\boldsymbol{\mu} =\begin{bmatrix}\mu_1 \\ \mu_2 \\\vdots \\ \mu_d \end{bmatrix}
 ```
+* variance: ``\boldsymbol\Sigma`` is a $d \times d$ *symmetric* and *positive definite* **matrix**
+  * *symmetric*: ``\boldsymbol{\Sigma}^\top = \boldsymbol{\Sigma}``
+  * _positive definite_: ``\mathbf{x}^\top \boldsymbol{\Sigma} \mathbf{x} > 0`` and ``\mathbf{x}^\top \boldsymbol{\Sigma}^{-1} \mathbf{x} > 0`` for all ``\mathbf{x} \in \mathbb{R}^d`` (except ``\mathbf{0}``)
+```math
+\large
+\boldsymbol{\Sigma} =\begin{bmatrix}\sigma_1^2 & \sigma_{12} & \ldots & \sigma_{1d} \\ \sigma_{21}  & \sigma_2^2 & \ldots & \sigma_{2d}\\\vdots & \vdots & \vdots & \vdots \\ \sigma_{d1} &  \sigma_{d2} & \ldots & \sigma_{d}^2\end{bmatrix}
+```
+  
 """
 
-# ╔═╡ 62627b47-5ec9-4d7d-9e94-2148ff198f66
+# ╔═╡ 8c72fd4f-d783-48bb-8f62-c00e16399e2a
 md"""
-## Independence: genuine coin toss
 
-> Two sequences of 300 “coin flips” (H for heads, T for tails). 
-> 
-> * which one is the genuine **independent** coin tosses?
+* **distance measure** between $x$ and $\mu$ (adjusted with correlations) is known as **mahalanobis distance**
 
-**Sequence 1**
+  $\large \text{mahalanobis distance:}\;\;d_{\boldsymbol{\Sigma}} = \sqrt{(\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol\Sigma^{-1}(\mathbf{x}-\boldsymbol{\mu})}$
 
->	TTHHTHTTHTTTHTTTHTTTHTTHTHHTHHTHTHHTTTHHTHTHTTHTHHTTHTHHTHTTTHHTTHHTTHHHTHHTHTTHTHTTHHTHHHTTHTHTTTHHTTHTHTHTHTHTTHTHTHHHTTHTHTHHTHHHTHTHTTHTTHHTHTHTHTTHHTTHTHTTHHHTHTHTHTTHTTHHTTHTHHTHHHTTHHTHTTHTHTHTHTHTHTHHHTHTHTHTHHTHHTHTHTTHTTTHHTHTTTHTHHTHHHHTTTHHTHTHTHTHHHTTHHTHTTTHTHHTHTHTHHTHTTHTTHTHHTHTHTTT
-
-**Sequence 2**
-
->	HTHHHTHTTHHTTTTTTTTHHHTTTHHTTTTHHTTHHHTTHTHTTTTTTHTHTTTTHHHHTHTHTTHTTTHTTHTTTTHTHHTHHHHTTTTTHHHHTHHHTTTTHTHTTHHHHTHHHHHHHHTTHHTHHTHHHHHHHTTHTHTTTHHTTTTHTHHTTHTTHTHTHTTHHHHHTTHTTTHTHTHHTTTTHTTTTTHHTHTHHHHTTTTHTHHHTHHTHTHTHTHHHTHTTHHHTHHHHHHTHHHTHTTTHHHTTTHHTHTTHHTHHHTHTTHTTHTTTHHTHTHTTTTHTHTHTTHTHTHT
-
-* both of them have ``N_h = 148`` and ``N_t= 152``
 """
 
-# ╔═╡ fc09b97a-13c9-4721-83ca-f7caa5f55079
+# ╔═╡ ae216b5f-59bb-4d0e-ab58-ddea82d5ee2f
+md"""
+
+## Dissect multivariate Gaussian
+"""
+
+# ╔═╡ c1ac8263-f226-4ae9-b0de-ab4eacb4ff42
+html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/gaussian_eq_md_alt.png' width = '900' /></center>"
+
+# ╔═╡ c07428c0-1c9d-41ba-9702-e3dffe2e0159
+md"
+Add ``-\frac{1}{2}(x -\mu){\Sigma}^{-1}(x -\mu)``: $(@bind add_kernel2 CheckBox(default=true)), 
+Add exp ``e^{-\frac{1}{2}(x -\mu){\Sigma}^{-1}(x -\mu)}``: $(@bind add_ekernel2 CheckBox(default=false)), 
+Add final ``p(x)``: $(@bind add_px2 CheckBox(default=false))
+"
+
+# ╔═╡ bfedf482-2ef2-4d3d-93d1-796ae61ef48d
+let
+	plotly()
+	μ = [0, 0]
+	Σ = Matrix(I, 2, 2) / 15
+	Σinv = inv(Σ)
+	f1(x) = (x -μ)' * Σinv * (x -μ)
+	f2(x) = -0.5 * f1(x)
+	f3(x) = exp(f2(x))
+	f4(x) = pdf(MvNormal(μ, Σ), x)
+	xlen = 2
+	ylen = 2
+	plt = plot(range(μ[1] -xlen, μ[1]+xlen, 50), range(μ[2] -ylen, μ[2]+ylen, 50), (x, y) -> f1([x, y]), st=:surface, alpha=0.55, label=L"-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= -\frac{1}{2} ({x-\mu})\Sigma^{-1}(x-\mu)", framestyle=:zerolines,  zlim=[-5,25], colorbar=false, ratio=1)
+	if add_kernel2
+		plot(range(μ[1] -xlen, μ[1]+xlen, 50), range(μ[2] -ylen, μ[2]+ylen, 50), (x, y) -> f1([x, y]), st=:surface, alpha=0.25, label=L"-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= -\frac{1}{2} ({x-\mu})\Sigma^{-1}(x-\mu)", framestyle=:zerolines,  zlim=[-5,25], colorbar=false, ratio=1)
+		plt=plot!(range(μ[1] -xlen, μ[1]+xlen, 50), range(μ[2] -ylen, μ[2]+ylen, 50), (x, y) -> f2([x, y]), st=:surface, alpha=0.55, label=L"-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= -\frac{1}{2} ({x-\mu})\Sigma^{-1}(x-\mu)", framestyle=:zerolines,  zlim=[-20,20], colorbar=false, ratio=1)
+	end
+	if add_ekernel2
+		plt=plot(range(μ[1] -xlen, μ[1]+xlen, 50), range(μ[2] -ylen, μ[2]+ylen, 50), (x, y) -> f2([x, y]), st=:surface, alpha=0.3, label=L"-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2", title=L"f(x)= -\frac{1}{2} ({x-\mu})\Sigma^{-1}(x-\mu)", framestyle=:zerolines,  zlim=[-20,20], colorbar=false, ratio=1)
+		maxz = f3(μ)
+		plot!(range(μ[1] -xlen, μ[1]+xlen, 50), range(μ[2] -ylen, μ[2]+ylen, 50), (x, y) -> f3([x,y]), st=:surface,  label=L"e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}", title=L"f(x)= e^{-\frac{1}{2} ({x-\mu})\Sigma^{-1}(x-\mu)}", zlim=[-15,maxz+0.5], alpha=0.8, colorbar=false)
+	end
+	# vline!([μ], label=L"\mu", ls=:dash, lw=2, lc=:gray, la=0.5)
+	if add_px2
+		maxz = f4(μ)
+		plot!(range(μ[1] -xlen, μ[1]+xlen, 80), range(μ[2] -ylen, μ[2]+ylen, 80), (x, y) -> f4([x,y]), label=L"p(x)", alpha=0.8, title="Gaussian prob. density", st=:surface, zlim=[-10, maxz+0.5])
+	end
+	plt
+end
+
+# ╔═╡ a08f53bd-91d3-45b2-ab73-42e9b4bae563
+md"""
+## Example when $\boldsymbol{\Sigma}=\mathbf{I}$
+
+Consider $\mathbb{R}^2$, and 
+
+$\large \boldsymbol{\Sigma}=\mathbf{I}= \begin{bmatrix} 1 & 0 \\0 & 1\end{bmatrix}$
+
+then the kernel
+
+$(\mathbf{x} - \boldsymbol{\mu})^\top \mathbf I^{-1}(\mathbf{x}-\boldsymbol{\mu})=(\mathbf{x} - \boldsymbol{\mu})^\top(\mathbf{x}-\boldsymbol{\mu})= (x_{1} -\mu_1)^2+ (x_2 - \mu_2)^2$
+
+*i.e.* Euclidean distance between $\mathbf x$ and $\boldsymbol\mu$
+
+* remember $\mathbf I^{-1} = \mathbf I$
+"""
+
+# ╔═╡ e69bbba2-3167-4edd-b9db-6aba7a0dceed
 begin
-	seq1="TTHHTHTTHTTTHTTTHTTTHTTHTHHTHHTHTHHTTTHHTHTHTTHTHHTTHTHHTHTTTHHTTHHTTHHHTHHTHTTHTHTTHHTHHHTTHTHTTTHHTTHTHTHTHTHTTHTHTHHHTTHTHTHHTHHHTHTHTTHTTHHTHTHTHTTHHTTHTHTTHHHTHTHTHTTHTTHHTTHTHHTHHHTTHHTHTTHTHTHTHTHTHTHHHTHTHTHTHHTHHTHTHTTHTTTHHTHTTTHTHHTHHHHTTTHHTHTHTHTHHHTTHHTHTTTHTHHTHTHTHHTHTTHTTHTHHTHTHTTT"
-	seq2 = "HTHHHTHTTHHTTTTTTTTHHHTTTHHTTTTHHTTHHHTTHTHTTTTTTHTHTTTTHHHHTHTHTTHTTTHTTHTTTTHTHHTHHHHTTTTTHHHHTHHHTTTTHTHTTHHHHTHHHHHHHHTTHHTHHTHHHHHHHTTHTHTTTHHTTTTHTHHTTHTTHTHTHTTHHHHHTTHTTTHTHTHHTTTTHTTTTTHHTHTHHHHTTTTHTHHHTHHTHTHTHTHHHTHTTHHHTHHHHHHTHHHTHTTTHHHTTTHHTHTTHHTHHHTHTTHTTHTTTHHTHTHTTTTHTHTHTTHTHTHT"
-	sequence1=map((x) -> x=='H' ? 1 : 2,  [c for c in seq1])
-	sequence2=map((x) -> x=='H' ? 1 : 2,  [c for c in seq2])
-end;
+	gr()
+	Random.seed!(234)
+	μ₁ = [2,2]
+	mvn1 = 	MvNormal(μ₁, Matrix(1.0I, 2,2))
+	spl1 = rand(mvn1, 500)
+	x₁s = μ₁[1]-3:0.1:μ₁[1]+3
+	x₂s = μ₁[2]-3:0.1:μ₁[2]+3	
+	mvnplt₁ = scatter(spl1[1,:], spl1[2,:], ratio=1, label="", xlabel=L"x_1", ylabel=L"x_2", alpha=0.5)	
+	scatter!([μ₁[1]], [μ₁[2]], ratio=1, label=L"{\mu}=%$(μ₁)", markershape = :x, markerstrokewidth=5, markersize=8)	
+	plot!(x₁s, x₂s, (x1, x2)->pdf(mvn1, [x1, x2]), levels=4, linewidth=3, c=:jet, st=:contour, colorbar=false)	
 
-# ╔═╡ 95779ca4-b743-43f1-af12-6b14c0e28f0b
+	# plot(mvnplt₁, mvnplt₂)
+end
+
+# ╔═╡ d2085d25-1867-4037-92e0-8cbd2d1ada39
+begin
+	gr()
+	mvnplt₂ = surface(x₁s, x₂s, (x1, x2)->pdf(mvn1, [x1, x2]), color=:lighttest, st=:surface, colorbar=true, title="Probability density plot")
+end
+
+# ╔═╡ bec564e6-fea8-4645-8f25-8babbe0b13df
 md"""
 
-## Independence: genuine coin toss (cont.)
+## Example (Diagonal $\boldsymbol \Sigma$)
+
+When $\boldsymbol\Sigma =  \begin{bmatrix} \sigma_1^2 & 0 \\0 & \sigma_2^2\end{bmatrix}$, then 
 
 
-Recall **independence**'s definition
-
-```math
-\large
-P(X_{t+1}|X_{t}) = P(X_{t+1})
-```
-
-* ``X_{t}``: the tossing result at ``t``
-* ``X_{t+1}``: the next tossing result at ``t+1``
+$\large \boldsymbol\Sigma^{-1} = \begin{bmatrix} 1/\sigma_1^2 & 0 \\0 & 1/\sigma_2^2\end{bmatrix}$
 
 
-And the conditional distribution should be (due to independence)
+The distance measure forms *axis aligned* ellipses
 
-```math
-\large
-P(X_{t+1}=\texttt{h}|X_{t}=\texttt{h}) = P(X_{t+1}=\texttt{h}|X_{t}=\texttt{t}) =P(X_{t+1}=\texttt{h}) = 0.5
-```
+
+$\large (\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol\Sigma^{-1}(\mathbf{x}-\boldsymbol{\mu})= \underbrace{\frac{(x_{1} -\mu_1)^2}{\sigma_1^2}+ \frac{(x_2 - \mu_2)^2}{\sigma_2^2}}_{\text{analytical form of an ellipse}}$
+
+* note 
+  $\mathbf x-\boldsymbol\mu=\begin{bmatrix}x_1-\mu_1\\ x_2-\mu_2\end{bmatrix}$
+  is a column vector
 
 """
 
-# ╔═╡ 0f280847-2404-4211-8221-e30418cf4d42
+# ╔═╡ 55b63786-4e04-497a-abae-e6e229a7edf2
 md"""
 
-##
+## Example (Diagonal $\boldsymbol \Sigma$)
+
+When $\boldsymbol\Sigma =  \begin{bmatrix} \sigma_1^2 & 0 \\0 & \sigma_2^2\end{bmatrix}$, then 
 
 
-**Sequence 1**
+$\large \boldsymbol\Sigma^{-1} = \begin{bmatrix} 1/\sigma_1^2 & 0 \\0 & 1/\sigma_2^2\end{bmatrix}$
 
->	TTHHTHTTHTTTHTTTHTTTHTTHTHHTHHTHTHHTTTHHTHTHTTHTHHTTHTHHTHTTTHHTTHHTTHHHTHHTHTTHTHTTHHTHHHTTHTHTTTHHTTHTHTHTHTHTTHTHTHHHTTHTHTHHTHHHTHTHTTHTTHHTHTHTHTTHHTTHTHTTHHHTHTHTHTTHTTHHTTHTHHTHHHTTHHTHTTHTHTHTHTHTHTHHHTHTHTHTHHTHHTHTHTTHTTTHHTHTTTHTHHTHHHHTTTHHTHTHTHTHHHTTHHTHTTTHTHHTHTHTHHTHTTHTTHTHHTHTHTTT
 
-The joint frequency table is
+The distance measure forms *axis aligned* ellipses
+
+
+$\large (\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol\Sigma^{-1}(\mathbf{x}-\boldsymbol{\mu})= \underbrace{\frac{(x_{1} -\mu_1)^2}{\sigma_1^2}+ \frac{(x_2 - \mu_2)^2}{\sigma_2^2}}_{\text{analytical form of an ellipse}}$
+
+
+#### Which also implies $\Rightarrow$ *Independent* dimensions
+
 
 ```math
+\large 
+p(\mathbf{x}) = p(x_1) p(x_2)= \mathcal{N}(x_1;\mu_1, \sigma_1^2)\cdot \mathcal{N}(x_2;\mu_2, \sigma_2^2) 
+```
+"""
 
-\begin{equation}  \begin{array}{c|cc} 
-n(X_{t}, X_{t+1}) & X_{t+1} = \texttt h & X_{t+1} =\texttt t \\
-\hline
-X_t =\texttt h & 46 & 102 \\ 
+# ╔═╡ 0d38b7f0-39e7-44db-8343-3c80f32a5c30
+md"""
 
-X_t= \texttt t & 102 & 49 \\ 
+## Diagonal ``\mathbf\Sigma`` ``\Leftrightarrow`` _Independence_ 
 
-\end{array} \end{equation} 
+When $\boldsymbol\Sigma =  \begin{bmatrix} \sigma_1^2 & 0 \\0 & \sigma_2^2\end{bmatrix}$ *i.e.* diagonal, then
 
+$(\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol\Sigma^{-1}(\mathbf{x}-\boldsymbol{\mu})= \frac{(x_{1} -\mu_1)^2}{\sigma_1^2}+ \frac{(x_2 - \mu_2)^2}{\sigma_2^2}$
+
+* where $\mathbf{x} = \begin{bmatrix} x_1\\ x_2 \end{bmatrix}$
+The joint probability distribution ``p(\mathbf{x})`` becomes
+
+$$\begin{align}p(\mathbf{x}) 
+&= \frac{1}{(\sqrt{2\pi})^2 \sigma_1 \sigma_2} \exp{\left \{ -\frac{1}{2} \left (\frac{(x_1-\mu_1)^2}{\sigma_1^2}+\frac{(x_2-\mu_2)^2}{\sigma_2^2}\right ) \right\}}\\
+ &=\underbrace{\frac{1}{\sqrt{2\pi}\sigma_1}\exp\left [-\frac{1}{2} \frac{(x_1-\mu_1)^2}{\sigma_1^2}\right ]}_{{p(x_1)}} \cdot \underbrace{\frac{1}{\sqrt{2\pi}\sigma_2}\exp\left [-\frac{1}{2} \frac{(x_2-\mu_2)^2}{\sigma_2^2}\right ]}_{p(x_2)} \\
+&= p(x_1)p(x_2) 
+\end{align}$$
+
+
+
+Generalise the idea to ``d`` dimensional ``\mathbf{x} \in \mathbb{R}^d``
+
+$$\begin{align}p(\mathbf{x}) 
+&= \frac{1}{\left (\sqrt{2\pi} \right )^d \prod_i \sigma_i} \exp{\left \{ -\frac{1}{2} \sum_{i=1}^d\frac{(x_i-\mu_i)^2}{\sigma_i^2}  \right\}} = \prod_{i=1}^d p(x_i; \mu_i, \sigma_i^2)
+\end{align}$$
+"""
+
+# ╔═╡ 434a9163-bddb-4702-b97b-b193a6f08b77
+aside(tip(md"""
+
+```math
+e^{a+b} = e^a\cdot e^b
+```
+"""))
+
+# ╔═╡ 001496ae-65ca-4de1-a211-4cbbafc7777f
+md"""
+
+##  Example (diagonal $\boldsymbol \Sigma$)
+
+When $\boldsymbol\Sigma =  \begin{bmatrix} \sigma_1^2 & 0 \\0 & \sigma_2^2\end{bmatrix}$, then 
+The distance measure forms *axis aligned* ellipses
+
+
+$\large (\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol\Sigma^{-1}(\mathbf{x}-\boldsymbol{\mu})= \underbrace{\frac{(x_{1} -\mu_1)^2}{\sigma_1^2}+ \frac{(x_2 - \mu_2)^2}{\sigma_2^2}}_{\text{analytical form of an ellipse}}$
+
+
+#### Which also implies $\Rightarrow$ *Independent* dimensions
+
+
+```math
+\large 
+p(\mathbf{x}) = p(x_1) p(x_2)= \mathcal{N}(x_1;\mu_1, \sigma_1^2)\cdot \mathcal{N}(x_2;\mu_2, \sigma_2^2) 
+```
+"""
+
+# ╔═╡ 1663b630-a57a-44c5-90c6-95be2ac42aa8
+md"``\sigma_1^2``: $(@bind σ₁² Slider(0.5:0.1:5, default=1.9, show_value=true))"
+
+# ╔═╡ 5acb28a1-49f1-412d-9c6e-b840cab687aa
+md"``\sigma_2^2``: $(@bind σ₂² Slider(0.1:0.1:5, default=1, show_value=true))"
+
+# ╔═╡ 2c152ff3-050f-42de-b434-21b2658d572f
+md"""Add ``p(x_2|X_1= x_1)``: $(@bind add_px2x1 CheckBox(default=false)),
+
+``X_1=`` $(@bind x1_ Slider(-1.5:0.1:4))
+"""
+
+# ╔═╡ da1fd88b-0e2a-49e6-8fb5-135a9d18be6e
+begin
+	gr()
+	Random.seed!(123)
+	mvnsample = randn(2, 500);
+	μ₂ = [2,2]
+	# Σ₂ = [1 0; 0 2]
+	Σ₂ = [σ₁² 0; 0 σ₂²]
+	L₂ = [sqrt(σ₁²) 0; 0 sqrt(σ₂²)]
+	mvn₂ = 	MvNormal(μ₂, Σ₂)
+	# μ + L * MvNormal(0, I) = MvNormal(μ, LLᵀ)
+	spl₂ = μ₂.+ L₂ * mvnsample
+	x₁s_ = μ₂[1]-6:0.1:μ₂[1]+6	
+	x₂s_ = μ₂[2]-6:0.1:μ₂[2]+6	
+	plt_gau2=scatter(spl₂[1,:], spl₂[2,:], ratio=1, label="", xlabel=L"x_1", ylabel=L"x_2", alpha=0.5, framestyle=:zerolines)	
+	scatter!([μ₂[1]], [μ₂[2]], ratio=1, label=L"\mu=%$(μ₂)", markershape = :x, markerstrokewidth=5, markersize=8)	
+	plot!(x₁s, x₂s, (x1, x2)->pdf(mvn₂, [x1, x2]), levels=4, linewidth=4, c=:jet, st=:contour, colorbar=:false)	
+
+	if add_px2x1
+		x = x1_
+		# μi = dot(true_w, [1, x])
+		μi = μ₂[2] + Σ₂[2, 1] * Σ₂[1,1]^(-1) * (x - μ₂[1])
+		σ = Σ₂[2,2] - Σ₂[2, 1] * Σ₂[1,1]^(-1) * Σ₂[1,2]
+		xs_ = μi- 4 * sqrt(σ) :0.05:μi+ 4 * sqrt(σ)
+		ys_ = pdf.(Normal(μi, sqrt(σ)), xs_)
+		# ys_ = ys_ ./ maximum(ys_)
+		plot!((x) -> μ₂[2] + Σ₂[2, 1] * Σ₂[1,1]^(-1) * (x - μ₂[1]), c=2, lw=3, ls=:dash, label="")
+			# scatter!([x],[μi], markerstrokewidth =1, markershape = :diamond, c=:grey, label="", markersize=3)
+		plot!(ys_ .+x, xs_, c=2, lw=2, label="")
+		
+	end
+	plt_gau2
+	# scatter!([xis[i]],[ys[i]], markershape = :circle, label="", c=1, markersize=4)
+end
+
+# ╔═╡ bda9fe31-88ae-4ce3-8038-9ca7f0a24378
+begin
+	plotly()
+	surface(x₁s, x₂s, (x1, x2)->pdf(mvn₂, [x1, x2]), color=:lighttest, st=:surface, colorbar=true, xlabel="x1", ylabel="x2", zlabel="p(x)")
+end
+
+# ╔═╡ b20f121e-781a-4d17-8833-43d34396bf44
+md"""
+## Example (full covriance $\boldsymbol{\Sigma}$)
+
+When 
+
+$\large \boldsymbol\Sigma =  \begin{bmatrix} \sigma_1^2 & \sigma_{12} \\ \sigma_{21} & \sigma_2^2\end{bmatrix}$
+
+
+``\sigma_{12} =\sigma_{21}``: **covariance** between ``x_1`` and ``x_2``, defined as
+
+```math
+\sigma_{12} = \mathbb{E}[(X_1 -\mu_1)(X_2 -\mu_2)]
 ```
 
-* ``P(X_{t+1}=\texttt h|X_t=\texttt h) =\frac{46}{46+102} \approx 0.311 \ll 0.5``
-* ``P(X_{t+1}=\texttt h|X_t=\texttt t) =\frac{102}{102+49} \approx 0.675 \gg 0.5``
+* ``\sigma_{12} >0``: positively correlated
+* ``\sigma_{12} < 0``: negatively correlated
+
+##  Example (full covriance $\boldsymbol{\Sigma}$)
+
+When 
+
+$\large \boldsymbol\Sigma =  \begin{bmatrix} \sigma_1^2 & \sigma_{12} \\ \sigma_{21} & \sigma_2^2\end{bmatrix}$
+
+
+* ``\sigma_{12} =\sigma_{21}``: covariance between ``x_1`` and ``x_2``, defined as
+
+
+The distance measure still forms (rotated) **ellipses**
+
+
+$(\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol\Sigma^{-1}(\mathbf{x}-\boldsymbol{\mu})= \underbrace{\frac{(\mathbf{v}_1^\top(\mathbf{x}-\boldsymbol\mu))^2}{\lambda_1} + \frac{(\mathbf{v}_2^\top(\mathbf{x}-\boldsymbol\mu))^2}{\lambda_2}}_{\text{still an analytical form of ellipse}}$
+
+* ``\mathbf{v}_1`` and ``\mathbf{v}_2`` are the **eigen vectors** of $\boldsymbol\Sigma$; and ``\lambda_1, \lambda_2`` are the **eigen values**
+* *i.e.* the rotated ellipse's basis (the $\textcolor{red}{\text{red vectors}}$ in the plot below)
+* **positive** or **negatively correlated** inputs
 
 """
 
-# ╔═╡ b682cc8d-4eeb-4ecd-897c-e15a3e40f76d
+# ╔═╡ dd2fc1a7-4684-4956-aff3-25b23e1548e0
+@bind σ₁₂ Slider(-1:0.02:1, default=0)
+
+# ╔═╡ 1fb9b4c4-e7c7-4ceb-9193-3c1e83244445
+md"``\sigma_{12}=\sigma_{21}``=$(σ₁₂)"
+
+# ╔═╡ 0f7e65e5-5eea-4e4d-8ea4-0f04ce52f91d
+md"""Add ``p(x_2|X_1= x_1)``: $(@bind add_px2x12 CheckBox(default=false)),
+
+``X_1=`` $(@bind x1_2 Slider(-1.5:0.1:4))
+"""
+
+# ╔═╡ 492c3edd-772c-4d07-88bc-92a046190f29
+let
+	gr()
+	# mvnsample = randn(2, 500);
+	# μ₂ = [2,2]
+	# Σ₂ = [1 0; 0 2]
+	Σ₃ = [1 σ₁₂; σ₁₂ 1]
+	# cholesky decomposition of Σ (only to reuse the random samples)
+	L₃ = cholesky(Σ₃).L
+	mvn₃ = 	MvNormal(μ₂, Σ₃)
+	# μ + L * MvNormal(0, I) = MvNormal(μ, LLᵀ)
+	spl₃ = μ₂.+ L₃ * mvnsample
+	# x₁s_ = μ₂[1]-6:0.1:μ₂[1]+6	
+	# x₂s_ = μ₂[2]-6:0.1:μ₂[2]+6	
+	plt_gau3 = scatter(spl₃[1,:], spl₃[2,:], ratio=1, label="", xlabel=L"x_1", alpha=0.5, ylabel=L"x_2", framestyle=:zerolines)	
+	scatter!([μ₂[1]], [μ₂[2]], ratio=1, label=L"\mu", markershape = :x, markerstrokewidth=5, markersize=8)	
+	
+
+
+	if add_px2x12
+		x = x1_2
+		# μi = dot(true_w, [1, x])
+		μi = μ₂[2] + Σ₃[2, 1] * Σ₃[1,1]^(-1) * (x - μ₂[1])
+		σ = Σ₃[2,2] - Σ₃[2, 1] * Σ₃[1,1]^(-1) * Σ₃[1,2]
+		xs_ = μi - 4 * sqrt(σ) :0.05:μi+ 4 * sqrt(σ)
+		ys_ = pdf.(Normal(μi, sqrt(σ)), xs_)
+		# ys_ = ys_ ./ maximum(ys_)
+			# scatter!([x],[μi], markerstrokewidth =1, markershape = :diamond, c=:grey, label="", markersize=3)
+		plot!(ys_ .+x, xs_, c=2, lw=2, label=L"p(X_2|x_1)")
+
+		plot!((x) -> μ₂[2] + Σ₃[2, 1] * Σ₃[1,1]^(-1) * (x - μ₂[1]), c=2, lw=3, ls=:dash, label="")
+
+	else
+		λs, vs = eigen(Σ₃)
+		v1 = (vs .* λs')[:,1]
+		v2 = (vs .* λs')[:,2]
+		quiver!([μ₂[1]], [μ₂[2]], quiver=([v1[1]], [v1[2]]), linewidth=4, color=:red, alpha=0.8)
+		quiver!([μ₂[1]], [μ₂[2]], quiver=([v2[1]], [v2[2]]), linewidth=4, color=:red, alpha=0.8)
+		plot!(x₁s, x₂s, (x1, x2)->pdf(mvn₃, [x1, x2]), levels=4, linewidth=3, c=:jet, st=:contour, colorbar=false)
+		
+	end
+	plt_gau3
+end
+
+# ╔═╡ 295644e3-b8ee-4d06-a17d-9a37b5f965ce
 md"""
 
-##
+## *Positive definiteness of $\boldsymbol{\Sigma}$
+When $\sigma_{12} = 1.0$ or $-1$ (or $|\sigma_{12}| >1$), 
 
-**Sequence 2**
+$\boldsymbol\Sigma = \begin{bmatrix} 1 & 1 \\ 1 & 1\end{bmatrix}\;\; \text{or}\;\; \begin{bmatrix} 1 & -1 \\ -1 & 1\end{bmatrix}$ is no longer **positive definite**
+* one of the dimension collapses (with zero variance!)
+* the normalising constant does not exist as $|\boldsymbol\Sigma| =0$, therefore the Gaussian does not exist
+* similar to the case when $\sigma^2=0$ for univariate Gaussian
 
->	HTHHHTHTTHHTTTTTTTTHHHTTTHHTTTTHHTTHHHTTHTHTTTTTTHTHTTTTHHHHTHTHTTHTTTHTTHTTTTHTHHTHHHHTTTTTHHHHTHHHTTTTHTHTTHHHHTHHHHHHHHTTHHTHHTHHHHHHHTTHTHTTTHHTTTTHTHHTTHTTHTHTHTTHHHHHTTHTTTHTHTHHTTTTHTTTTTHHTHTHHHHTTTTHTHHHTHHTHTHTHTHHHTHTTHHHTHHHHHHTHHHTHTTTHHHTTTHHTHTTHHTHHHTHTTHTTHTTTHHTHTHTTTTHTHTHTTHTHTHT
 
-```math
+**Positive definite**: that is for all $\mathbf{x}\in \mathbb{R}^d$
 
-\begin{equation}  \begin{array}{c|cc} 
-n(X_{t}, X_{t+1}) & X_{t+1} = \texttt h & X_{t+1} =\texttt t \\
-\hline
-X_t =\texttt h & 71 & 77 \\ 
+$\mathbf{x}^\top \boldsymbol\Sigma^{-1} \mathbf{x}>0$ 
 
-X_t= \texttt t & 76 & 75 \\ 
+* strictly positive so it needs to be a valid distance measure
+"""
 
-\end{array} \end{equation} 
+# ╔═╡ 1d0a3487-363e-4353-904a-73e2718748af
+md"""
 
-```
+## Summary
+"""
 
-* ``\hat P(X_{t+1}=\texttt h|X_t=\texttt h) =\frac{71}{71+77} \approx 0.48 \approx 0.5``
-* ``\hat P(X_{t+1}=\texttt h|X_t=\texttt t) =\frac{76}{76+75} \approx 0.503 \approx 0.5``
+# ╔═╡ 2d94f5ba-9a3b-4615-b451-3ef3b393057d
+html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/gaussian_eq_md_alt.png' width = '900' /></center>"
+
+# ╔═╡ f870fc82-56d4-4a39-991e-d42bc31cd9c8
+md"""
+
+
+* mean: ``\boldsymbol\mu \in \mathbb{R}^d`` is the  vector 
+* variance: ``\boldsymbol\Sigma`` is a $d \times d$ *symmetric* and *positive definite* matrix 
+* the kernel is a **distance measure** between $x$ and $\mu$
+
+  $(\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol\Sigma^{-1}(\mathbf{x}-\boldsymbol{\mu})$
+* the density is negatively related to the distance measure
+  * the further away $\mathbf x$ from $\boldsymbol{\mu}$, then $p(\mathbf{x})$ is smaller
+* ``\colorbox{lightblue}{$\frac{1}{(2\pi)^{d/2} | \boldsymbol{\Sigma}|^{1/2}}$}`` is the **normalising constant** (does not change w.r.t $\mathbf{x}$) such that
+
+$$\int p(\mathbf x) d\mathbf x = 1$$
+* ``| \boldsymbol\Sigma|`` is determinant, which measures the volume under the the bell surface (when it is a positive definite matrix)
 """
 
 # ╔═╡ 0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 md"""
 
 ## Appendix
+"""
+
+# ╔═╡ 9fc9a421-194e-4163-87f2-30989354932a
+md"""
+
+
+## *Eigen decomposition
+
+
+**Eigen**-decompose ``\mathbf\Sigma``
+```math
+\boldsymbol\Sigma = \mathbf{V}\mathbf{\Lambda}\mathbf{V}^\top
+```
+
+* where ``\mathbf{V}`` are formed by the eigen-vectors and ``\mathbf\Lambda`` is a diagonal matrix with the eigen values
+
+```math
+\mathbf{V} = \begin{bmatrix}\vert & \vert & \vert & \vert\\\mathbf{v}_1 & \mathbf{v}_2 & \ldots & \mathbf{v}_d\\ \vert & \vert & \vert & \vert\end{bmatrix}, \;\;\mathbf{\Lambda} = \begin{bmatrix}\lambda_1 & 0 & \ldots & 0 \\ 0 & \lambda_2 & \ldots & 0\\ \vdots & \vdots & \vdots & \vdots \\ 0 & 0 & \ldots & \lambda_d\end{bmatrix}
+```
+
+* and since ``\mathbf{\Sigma}`` is symmetric and real, the eigen matrix is orthognormal, *i.e.* ``\mathbf{V}^\top =\mathbf{V}^{-1}`` 
+
+Then, the precision matrix 
+
+```math
+\boldsymbol\Sigma^{-1} = (\mathbf{V}\mathbf{\Lambda}\mathbf{V}^\top)^{-1} = (\mathbf{V}^\top)^{-1} \mathbf{\Lambda}^{-1}\mathbf{V}^{-1}  = \mathbf{V}\mathbf{\Lambda}^{-1}\mathbf{V}^\top
+```
+and since ``\mathbf{\Lambda}`` and ``\mathbf{\Lambda}^{-1}`` are diagonal matrices, therefore
+
+```math
+\boldsymbol\Sigma^{-1}  = \mathbf{V}\mathbf{\Lambda}^{-1}\mathbf{V}^\top = \mathbf{V}\mathbf{\Lambda}^{-\frac{1}{2}}\mathbf{\Lambda}^{-\frac{1}{2}}\mathbf{V}^\top
+```
+
+
+The quadratic form becomes 
+
+
+
+```math
+(\mathbf{x}-\boldsymbol{\mu})^\top\underbrace{(\mathbf{V}\mathbf{\Lambda}^{-\frac{1}{2}}\mathbf{\Lambda}^{-\frac{1}{2}}\mathbf{V}^\top)}_{\mathbf{\Sigma}^{-1}}(\mathbf{x}-\boldsymbol{\mu}) = (\mathbf{\Lambda}^{-\frac{1}{2}}\mathbf{V}^\top(\mathbf{x}-\boldsymbol{\mu}))^\top(\mathbf{\Lambda}^{-\frac{1}{2}}\mathbf{V}^\top(\mathbf{x}-\boldsymbol{\mu}))
+```
+
+Note that ``\mathbf{\Lambda}^{-\frac{1}{2}}\mathbf{V}^\top(\mathbf{x}-\boldsymbol{\mu})`` is some linear transformation of ``\mathbf{x}-\boldsymbol{\mu}``
+with transformation matrix ``\mathbf{\Lambda}^{-\frac{1}{2}}\mathbf{V}^\top``; the transformed vector can be expanded (for a 2-dimensional case) as 
+
+```math
+\begin{bmatrix}\lambda_1^{-1/2} & 0 \\ 0 &  \lambda_2^{-1/2}\end{bmatrix}\begin{bmatrix}\mathbf{v}_1^\top \\ \mathbf{v}_2^\top\end{bmatrix}\cdot (\mathbf{x}-\boldsymbol{\mu})= \begin{bmatrix}\lambda_1^{-1/2} & 0 \\ 0 &  \lambda_2^{-1/2}\end{bmatrix}\begin{bmatrix}\mathbf{v}_1^\top(\mathbf{x}-\boldsymbol{\mu}) \\ \mathbf{v}_2^\top(\mathbf{x}-\boldsymbol{\mu})\end{bmatrix}= \begin{bmatrix}\lambda_1^{-1/2} \mathbf{v}_1^\top(\mathbf{x}-\boldsymbol{\mu}) \\ \lambda_2^{-1/2} \mathbf{v}_2^\top(\mathbf{x}-\boldsymbol{\mu})\end{bmatrix}
+```
+
+its inner product or (squared) ``L_2`` norm is
+
+
+```math
+\begin{align}
+&\begin{bmatrix}\lambda_1^{-1/2} \mathbf{v}_1^\top(\mathbf{x}-\boldsymbol{\mu}) & &\lambda_2^{-1/2} \mathbf{v}_2^\top(\mathbf{x}-\boldsymbol{\mu})\end{bmatrix}\begin{bmatrix}\lambda_1^{-1/2} \mathbf{v}_1^\top(\mathbf{x}-\boldsymbol{\mu}) \\ \lambda_2^{-1/2} \mathbf{v}_2^\top(\mathbf{x}-\boldsymbol{\mu})\end{bmatrix} \\
+&= \frac{(\mathbf{v}_1^\top(\mathbf{x}-\boldsymbol{\mu}))^2}{\lambda_1}+ \frac{(\mathbf{v}_2^\top(\mathbf{x}-\boldsymbol{\mu}))^2}{\lambda_2}
+\end{align}
+```
 """
 
 # ╔═╡ 8687dbd1-4857-40e4-b9cb-af469b8563e2
@@ -1390,7 +943,6 @@ end
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-GaussianProcesses = "891a1506-143c-57d2-908e-e1f8e92e6de9"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
@@ -1407,17 +959,16 @@ StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
 Distributions = "~0.25.98"
-GaussianProcesses = "~0.12.5"
 HypertextLiteral = "~0.9.4"
-Images = "~0.25.3"
+Images = "~0.26.0"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.15.21"
 LogExpFunctions = "~0.3.24"
 Plots = "~1.38.16"
 PlutoTeachingTools = "~0.2.12"
-PlutoUI = "~0.7.51"
+PlutoUI = "~0.7.52"
 StatsBase = "~0.34.0"
-StatsPlots = "~0.15.5"
+StatsPlots = "~0.15.6"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -1426,7 +977,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "fc2566bd8e23197eb409c33341e7ffcaa8d8b295"
+project_hash = "1991a833bed46efd21376f23ab5ff9db8b513398"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1440,9 +991,9 @@ weakdeps = ["ChainRulesCore"]
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
-git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
+git-tree-sha1 = "91bd53c39b9cbfb5ef4b015e8b582d344532bd0a"
 uuid = "6e696c72-6542-2067-7265-42206c756150"
-version = "1.1.4"
+version = "1.2.0"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra", "Requires"]
@@ -1498,6 +1049,12 @@ version = "7.4.11"
     StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
     Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 
+[[deps.ArrayInterfaceCore]]
+deps = ["LinearAlgebra", "SnoopPrecompile", "SparseArrays", "SuiteSparse"]
+git-tree-sha1 = "e5f08b5689b1aad068e01751889f2f615c7db36d"
+uuid = "30b0a656-2188-435a-8636-2ec0e6a096e2"
+version = "0.1.29"
+
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
@@ -1509,9 +1066,9 @@ version = "1.0.1"
 
 [[deps.AxisArrays]]
 deps = ["Dates", "IntervalSets", "IterTools", "RangeArrays"]
-git-tree-sha1 = "1dd4d9f5beebac0c03446918741b1a03dc5e5788"
+git-tree-sha1 = "16351be62963a67ac4083f748fdb3cca58bfd52f"
 uuid = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
-version = "0.4.6"
+version = "0.4.7"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -1520,6 +1077,12 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 git-tree-sha1 = "43b1a4a8f797c1cddadf60499a8a077d4af2cd2d"
 uuid = "d1d4a3ce-64b1-5f1a-9ba4-7e7e69966f35"
 version = "0.1.7"
+
+[[deps.BitTwiddlingConvenienceFunctions]]
+deps = ["Static"]
+git-tree-sha1 = "0c5f81f47bbbcf4aea7b2959135713459170798b"
+uuid = "62783981-4cbd-42fc-bca8-16325de8dc4b"
+version = "0.1.5"
 
 [[deps.Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1532,11 +1095,23 @@ git-tree-sha1 = "eb4cb44a499229b3b8426dcfb5dd85333951ff90"
 uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
 version = "0.4.2"
 
+[[deps.CPUSummary]]
+deps = ["CpuId", "IfElse", "PrecompileTools", "Static"]
+git-tree-sha1 = "89e0654ed8c7aebad6d5ad235d6242c2d737a928"
+uuid = "2a0fbf3d-bb9c-48f3-b0a9-814d99fd7ab9"
+version = "0.2.3"
+
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
+
+[[deps.Calculus]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
+uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
+version = "0.5.1"
 
 [[deps.CatIndices]]
 deps = ["CustomUnitRanges", "OffsetArrays"]
@@ -1549,6 +1124,12 @@ deps = ["Compat", "LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "1.16.0"
+
+[[deps.CloseOpenIntervals]]
+deps = ["Static", "StaticArrayInterface"]
+git-tree-sha1 = "70232f82ffaab9dc52585e0dd043b5e0c6b714f1"
+uuid = "fb6a15b2-703c-40df-9091-08a04967cfa9"
+version = "0.1.12"
 
 [[deps.Clustering]]
 deps = ["Distances", "LinearAlgebra", "NearestNeighbors", "Printf", "Random", "SparseArrays", "Statistics", "StatsBase"]
@@ -1564,15 +1145,15 @@ version = "1.3.1"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
-git-tree-sha1 = "9c209fb7536406834aa938fb149964b985de6c83"
+git-tree-sha1 = "02aa26a4cf76381be7f66e020a3eddeb27b0a092"
 uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
-version = "0.7.1"
+version = "0.7.2"
 
 [[deps.ColorSchemes]]
 deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "PrecompileTools", "Random"]
-git-tree-sha1 = "be6ab11021cd29f0344d5c4357b163af05a48cba"
+git-tree-sha1 = "dd3000d954d483c1aad05fe1eb9e6a715c97013e"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.21.0"
+version = "3.22.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -1581,22 +1162,20 @@ uuid = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
 version = "0.11.4"
 
 [[deps.ColorVectorSpace]]
-deps = ["ColorTypes", "FixedPointNumbers", "LinearAlgebra", "SpecialFunctions", "Statistics", "TensorCore"]
-git-tree-sha1 = "600cc5508d66b78aae350f7accdb58763ac18589"
+deps = ["ColorTypes", "FixedPointNumbers", "LinearAlgebra", "Requires", "Statistics", "TensorCore"]
+git-tree-sha1 = "a1f44953f2382ebb937d60dafbe2deea4bd23249"
 uuid = "c3611d14-8923-5661-9e6a-0046d554d3a4"
-version = "0.9.10"
+version = "0.10.0"
+weakdeps = ["SpecialFunctions"]
+
+    [deps.ColorVectorSpace.extensions]
+    SpecialFunctionsExt = "SpecialFunctions"
 
 [[deps.Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
 git-tree-sha1 = "fc08e5930ee9a4e03f84bfb5211cb54e7769758a"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.10"
-
-[[deps.CommonSubexpressions]]
-deps = ["MacroTools", "Test"]
-git-tree-sha1 = "7b8a93dba8af7e3b42fecabf646260105ac373f7"
-uuid = "bbf7d656-a473-5ed7-a52c-81e309532950"
-version = "0.3.0"
 
 [[deps.Compat]]
 deps = ["UUIDs"]
@@ -1624,17 +1203,6 @@ git-tree-sha1 = "5372dbbf8f0bdb8c700db5367132925c0771ef7e"
 uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
 version = "2.2.1"
 
-[[deps.ConstructionBase]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "738fec4d684a9a6ee9598a8bfee305b26831f28c"
-uuid = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
-version = "1.5.2"
-weakdeps = ["IntervalSets", "StaticArrays"]
-
-    [deps.ConstructionBase.extensions]
-    ConstructionBaseIntervalSetsExt = "IntervalSets"
-    ConstructionBaseStaticArraysExt = "StaticArrays"
-
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
@@ -1645,6 +1213,12 @@ deps = ["LinearAlgebra", "StaticArrays"]
 git-tree-sha1 = "f9d7112bfff8a19a3a4ea4e03a8e6a91fe8456bf"
 uuid = "150eb455-5306-5404-9cee-2592286d6298"
 version = "0.6.3"
+
+[[deps.CpuId]]
+deps = ["Markdown"]
+git-tree-sha1 = "fcbb72b032692610bfbdb15018ac16a36cf2e406"
+uuid = "adafc99b-e345-5852-983c-f28acb93d879"
+version = "0.3.1"
 
 [[deps.CustomUnitRanges]]
 git-tree-sha1 = "1a3f97f907e6dd8983b744d2642651bb162a3f7a"
@@ -1677,23 +1251,15 @@ git-tree-sha1 = "9e2f36d3c96a820c678f2f1f1782582fcf685bae"
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 version = "1.9.1"
 
-[[deps.DiffResults]]
-deps = ["StaticArraysCore"]
-git-tree-sha1 = "782dd5f4561f5d267313f23853baaaa4c52ea621"
-uuid = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
-version = "1.1.0"
-
-[[deps.DiffRules]]
-deps = ["IrrationalConstants", "LogExpFunctions", "NaNMath", "Random", "SpecialFunctions"]
-git-tree-sha1 = "23163d55f885173722d1e4cf0f6110cdbaf7e272"
-uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
-version = "1.15.1"
-
 [[deps.Distances]]
-deps = ["LinearAlgebra", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "49eba9ad9f7ead780bfb7ee319f962c811c6d3b2"
+deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
+git-tree-sha1 = "b6def76ffad15143924a2199f72a5cd883a2e8a9"
 uuid = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-version = "0.10.8"
+version = "0.10.9"
+weakdeps = ["SparseArrays"]
+
+    [deps.Distances.extensions]
+    DistancesSparseArraysExt = "SparseArrays"
 
 [[deps.Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -1724,17 +1290,11 @@ deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
 
-[[deps.ElasticArrays]]
-deps = ["Adapt"]
-git-tree-sha1 = "e1c40d78de68e9a2be565f0202693a158ec9ad85"
-uuid = "fdbdab4c-e67f-52f5-8c3f-e7b388dad3d4"
-version = "1.2.11"
-
-[[deps.ElasticPDMats]]
-deps = ["LinearAlgebra", "MacroTools", "PDMats"]
-git-tree-sha1 = "5157c93fe9431a041e4cd84265dfce3d53a52323"
-uuid = "2904ab23-551e-5aed-883f-487f97af5226"
-version = "0.2.2"
+[[deps.DualNumbers]]
+deps = ["Calculus", "NaNMath", "SpecialFunctions"]
+git-tree-sha1 = "5837a837389fccf076445fce071c8ddaea35a566"
+uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
+version = "0.6.8"
 
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
@@ -1778,12 +1338,6 @@ git-tree-sha1 = "c6033cc3892d0ef5bb9cd29b7f2f0331ea5184ea"
 uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
 version = "3.3.10+0"
 
-[[deps.FastGaussQuadrature]]
-deps = ["LinearAlgebra", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "58d83dd5a78a36205bdfddb82b1bb67682e64487"
-uuid = "442a2c76-b920-505d-bb47-c5924d526838"
-version = "0.4.9"
-
 [[deps.FileIO]]
 deps = ["Pkg", "Requires", "UUIDs"]
 git-tree-sha1 = "299dc33549f68299137e51e6d49a13b5b1da9673"
@@ -1795,25 +1349,9 @@ uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "e5556303fd8c9ad4a8fceccd406ef3433ddb4c45"
+git-tree-sha1 = "f0af9b12329a637e8fba7d6543f915fff6ba0090"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "1.4.0"
-
-[[deps.FiniteDiff]]
-deps = ["ArrayInterface", "LinearAlgebra", "Requires", "Setfield", "SparseArrays"]
-git-tree-sha1 = "c6e4a1fbe73b31a3dea94b1da449503b8830c306"
-uuid = "6a86dc24-6348-571c-b903-95158fe2bd41"
-version = "2.21.1"
-
-    [deps.FiniteDiff.extensions]
-    FiniteDiffBandedMatricesExt = "BandedMatrices"
-    FiniteDiffBlockBandedMatricesExt = "BlockBandedMatrices"
-    FiniteDiffStaticArraysExt = "StaticArrays"
-
-    [deps.FiniteDiff.weakdeps]
-    BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
-    BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+version = "1.4.2"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -1833,16 +1371,6 @@ git-tree-sha1 = "8339d61043228fdd3eb658d86c926cb282ae72a8"
 uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
 version = "0.4.2"
 
-[[deps.ForwardDiff]]
-deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions"]
-git-tree-sha1 = "00e252f4d706b3d55a8863432e742bf5717b498d"
-uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.35"
-weakdeps = ["StaticArrays"]
-
-    [deps.ForwardDiff.extensions]
-    ForwardDiffStaticArraysExt = "StaticArrays"
-
 [[deps.FreeType2_jll]]
 deps = ["Artifacts", "Bzip2_jll", "JLLWrappers", "Libdl", "Zlib_jll"]
 git-tree-sha1 = "d8db6a5a2fe1381c1ea4ef2cab7c69c2de7f9ea0"
@@ -1855,10 +1383,6 @@ git-tree-sha1 = "aa31987c2ba8704e23c6c8ba8a4f769d5d7e4f91"
 uuid = "559328eb-81f9-559d-9380-de523a88c83c"
 version = "1.0.10+0"
 
-[[deps.Future]]
-deps = ["Random"]
-uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
-
 [[deps.GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
 git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
@@ -1867,33 +1391,21 @@ version = "3.3.8+0"
 
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
-git-tree-sha1 = "8b8a2fd4536ece6e554168c21860b6820a8a83db"
+git-tree-sha1 = "8e2d86e06ceb4580110d9e716be26658effc5bfd"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.72.7"
+version = "0.72.8"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "19fad9cd9ae44847fe842558a744748084a722d1"
+git-tree-sha1 = "da121cbdc95b065da07fbb93638367737969693f"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.72.7+0"
-
-[[deps.GaussianProcesses]]
-deps = ["Distances", "Distributions", "ElasticArrays", "ElasticPDMats", "FastGaussQuadrature", "ForwardDiff", "LinearAlgebra", "Optim", "PDMats", "Printf", "ProgressMeter", "Random", "RecipesBase", "ScikitLearnBase", "SpecialFunctions", "StaticArrays", "Statistics", "StatsFuns"]
-git-tree-sha1 = "31749ff6868caf6dd50902eec652a724071dbed3"
-uuid = "891a1506-143c-57d2-908e-e1f8e92e6de9"
-version = "0.12.5"
+version = "0.72.8+0"
 
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "9b02998aba7bf074d14de89f9d37ca24a1a0b046"
 uuid = "78b55507-aeef-58d4-861c-77aaff3498b1"
 version = "0.21.0+0"
-
-[[deps.Ghostscript_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "43ba3d3c82c18d88471cfd2924931658838c9d8f"
-uuid = "61579ee1-b43e-5ca0-a5da-69d92c66a64b"
-version = "9.55.0+4"
 
 [[deps.Glib_jll]]
 deps = ["Artifacts", "Gettext_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE2_jll", "Pkg", "Zlib_jll"]
@@ -1926,15 +1438,33 @@ version = "1.0.2"
 
 [[deps.HTTP]]
 deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "ExceptionUnwrapping", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
-git-tree-sha1 = "3e008a7aa28d717a5badd05cb70c834e31001077"
+git-tree-sha1 = "cb56ccdd481c0dd7f975ad2b3b62d9eda088f7e2"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "1.9.13"
+version = "1.9.14"
 
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
 git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
 uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
 version = "2.8.1+1"
+
+[[deps.HistogramThresholding]]
+deps = ["ImageBase", "LinearAlgebra", "MappedArrays"]
+git-tree-sha1 = "7194dfbb2f8d945abdaf68fa9480a965d6661e69"
+uuid = "2c695a8d-9458-5d45-9878-1b8a99cf7853"
+version = "0.3.1"
+
+[[deps.HostCPUFeatures]]
+deps = ["BitTwiddlingConvenienceFunctions", "IfElse", "Libdl", "Static"]
+git-tree-sha1 = "d38bd0d9759e3c6cfa19bdccc314eccf8ce596cc"
+uuid = "3e5b6fbb-0976-4d2c-9146-d79de83f2fb0"
+version = "0.1.15"
+
+[[deps.HypergeometricFunctions]]
+deps = ["DualNumbers", "LinearAlgebra", "OpenLibm_jll", "SpecialFunctions"]
+git-tree-sha1 = "83e95aaab9dc184a6dcd9c4c52aa0dc26cd14a1d"
+uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
+version = "0.3.21"
 
 [[deps.Hyperscript]]
 deps = ["Test"]
@@ -1954,101 +1484,118 @@ git-tree-sha1 = "d75853a0bdbfb1ac815478bacd89cd27b550ace6"
 uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
 version = "0.2.3"
 
+[[deps.IfElse]]
+git-tree-sha1 = "debdd00ffef04665ccbb3e150747a77560e8fad1"
+uuid = "615f187c-cbe4-4ef1-ba3b-2fcf58d6d173"
+version = "0.1.1"
+
 [[deps.ImageAxes]]
 deps = ["AxisArrays", "ImageBase", "ImageCore", "Reexport", "SimpleTraits"]
-git-tree-sha1 = "c54b581a83008dc7f292e205f4c409ab5caa0f04"
+git-tree-sha1 = "2e4520d67b0cef90865b3ef727594d2a58e0e1f8"
 uuid = "2803e5a7-5153-5ecf-9a86-9b4c37f5f5ac"
-version = "0.6.10"
+version = "0.6.11"
 
 [[deps.ImageBase]]
 deps = ["ImageCore", "Reexport"]
-git-tree-sha1 = "b51bb8cae22c66d0f6357e3bcb6363145ef20835"
+git-tree-sha1 = "eb49b82c172811fd2c86759fa0553a2221feb909"
 uuid = "c817782e-172a-44cc-b673-b171935fbb9e"
-version = "0.1.5"
+version = "0.1.7"
+
+[[deps.ImageBinarization]]
+deps = ["HistogramThresholding", "ImageCore", "LinearAlgebra", "Polynomials", "Reexport", "Statistics"]
+git-tree-sha1 = "f5356e7203c4a9954962e3757c08033f2efe578a"
+uuid = "cbc4b850-ae4b-5111-9e64-df94c024a13d"
+version = "0.3.0"
 
 [[deps.ImageContrastAdjustment]]
-deps = ["ImageCore", "ImageTransformations", "Parameters"]
-git-tree-sha1 = "0d75cafa80cf22026cea21a8e6cf965295003edc"
+deps = ["ImageBase", "ImageCore", "ImageTransformations", "Parameters"]
+git-tree-sha1 = "eb3d4365a10e3f3ecb3b115e9d12db131d28a386"
 uuid = "f332f351-ec65-5f6a-b3d1-319c6670881a"
-version = "0.3.10"
+version = "0.3.12"
 
 [[deps.ImageCore]]
-deps = ["AbstractFFTs", "ColorVectorSpace", "Colors", "FixedPointNumbers", "Graphics", "MappedArrays", "MosaicViews", "OffsetArrays", "PaddedViews", "Reexport"]
-git-tree-sha1 = "acf614720ef026d38400b3817614c45882d75500"
+deps = ["AbstractFFTs", "ColorVectorSpace", "Colors", "FixedPointNumbers", "MappedArrays", "MosaicViews", "OffsetArrays", "PaddedViews", "PrecompileTools", "Reexport"]
+git-tree-sha1 = "fc5d1d3443a124fde6e92d0260cd9e064eba69f8"
 uuid = "a09fc81d-aa75-5fe9-8630-4744c3626534"
-version = "0.9.4"
+version = "0.10.1"
+
+[[deps.ImageCorners]]
+deps = ["ImageCore", "ImageFiltering", "PrecompileTools", "StaticArrays", "StatsBase"]
+git-tree-sha1 = "24c52de051293745a9bad7d73497708954562b79"
+uuid = "89d5987c-236e-4e32-acd0-25bd6bd87b70"
+version = "0.1.3"
 
 [[deps.ImageDistances]]
 deps = ["Distances", "ImageCore", "ImageMorphology", "LinearAlgebra", "Statistics"]
-git-tree-sha1 = "b1798a4a6b9aafb530f8f0c4a7b2eb5501e2f2a3"
+git-tree-sha1 = "08b0e6354b21ef5dd5e49026028e41831401aca8"
 uuid = "51556ac3-7006-55f5-8cb3-34580c88182d"
-version = "0.2.16"
+version = "0.2.17"
 
 [[deps.ImageFiltering]]
-deps = ["CatIndices", "ComputationalResources", "DataStructures", "FFTViews", "FFTW", "ImageBase", "ImageCore", "LinearAlgebra", "OffsetArrays", "Reexport", "SnoopPrecompile", "SparseArrays", "StaticArrays", "Statistics", "TiledIteration"]
-git-tree-sha1 = "d90867cbe037730a73c9a9499b3591eedbe387a0"
+deps = ["CatIndices", "ComputationalResources", "DataStructures", "FFTViews", "FFTW", "ImageBase", "ImageCore", "LinearAlgebra", "OffsetArrays", "PrecompileTools", "Reexport", "SparseArrays", "StaticArrays", "Statistics", "TiledIteration"]
+git-tree-sha1 = "c371a39622dc3b941ffd7c00e6b519d63b3f3f06"
 uuid = "6a3955dd-da59-5b1f-98d4-e7296123deb5"
-version = "0.7.5"
+version = "0.7.7"
 
 [[deps.ImageIO]]
 deps = ["FileIO", "IndirectArrays", "JpegTurbo", "LazyModules", "Netpbm", "OpenEXR", "PNGFiles", "QOI", "Sixel", "TiffImages", "UUIDs"]
-git-tree-sha1 = "342f789fd041a55166764c351da1710db97ce0e0"
+git-tree-sha1 = "bca20b2f5d00c4fbc192c3212da8fa79f4688009"
 uuid = "82e4d734-157c-48bb-816b-45c225c6df19"
-version = "0.6.6"
+version = "0.6.7"
 
 [[deps.ImageMagick]]
-deps = ["FileIO", "ImageCore", "ImageMagick_jll", "InteractiveUtils", "Libdl", "Pkg", "Random"]
-git-tree-sha1 = "5bc1cb62e0c5f1005868358db0692c994c3a13c6"
+deps = ["FileIO", "ImageCore", "ImageMagick_jll", "InteractiveUtils"]
+git-tree-sha1 = "b0b765ff0b4c3ee20ce6740d843be8dfce48487c"
 uuid = "6218d12a-5da1-5696-b52f-db25d2ecc6d1"
-version = "1.2.1"
+version = "1.3.0"
 
 [[deps.ImageMagick_jll]]
-deps = ["Artifacts", "Ghostscript_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "OpenJpeg_jll", "Pkg", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "7607ad4100c75908a79ff31fabb792cd37711d70"
+deps = ["JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pkg", "Zlib_jll", "libpng_jll"]
+git-tree-sha1 = "1c0a2295cca535fabaf2029062912591e9b61987"
 uuid = "c73af94c-d91f-53ed-93a7-00f77d67a9d7"
-version = "6.9.12+4"
+version = "6.9.10-12+3"
 
 [[deps.ImageMetadata]]
 deps = ["AxisArrays", "ImageAxes", "ImageBase", "ImageCore"]
-git-tree-sha1 = "36cbaebed194b292590cba2593da27b34763804a"
+git-tree-sha1 = "355e2b974f2e3212a75dfb60519de21361ad3cb7"
 uuid = "bc367c6b-8a6b-528e-b4bd-a4b897500b49"
-version = "0.9.8"
+version = "0.9.9"
 
 [[deps.ImageMorphology]]
-deps = ["ImageCore", "LinearAlgebra", "Requires", "TiledIteration"]
-git-tree-sha1 = "e7c68ab3df4a75511ba33fc5d8d9098007b579a8"
+deps = ["DataStructures", "ImageCore", "LinearAlgebra", "LoopVectorization", "OffsetArrays", "Requires", "TiledIteration"]
+git-tree-sha1 = "6f0a801136cb9c229aebea0df296cdcd471dbcd1"
 uuid = "787d08f9-d448-5407-9aad-5290dd7ab264"
-version = "0.3.2"
+version = "0.4.5"
 
 [[deps.ImageQualityIndexes]]
 deps = ["ImageContrastAdjustment", "ImageCore", "ImageDistances", "ImageFiltering", "LazyModules", "OffsetArrays", "PrecompileTools", "Statistics"]
-git-tree-sha1 = "bfb3a198ef5c96582b8095f8a6eece8937c8ceb3"
+git-tree-sha1 = "783b70725ed326340adf225be4889906c96b8fd1"
 uuid = "2996bd0c-7a13-11e9-2da2-2f5ce47296a9"
-version = "0.3.6"
+version = "0.3.7"
 
 [[deps.ImageSegmentation]]
 deps = ["Clustering", "DataStructures", "Distances", "Graphs", "ImageCore", "ImageFiltering", "ImageMorphology", "LinearAlgebra", "MetaGraphs", "RegionTrees", "SimpleWeightedGraphs", "StaticArrays", "Statistics"]
-git-tree-sha1 = "44664eea5408828c03e5addb84fa4f916132fc26"
+git-tree-sha1 = "3ff0ca203501c3eedde3c6fa7fd76b703c336b5f"
 uuid = "80713f31-8817-5129-9cf8-209ff8fb23e1"
-version = "1.8.1"
+version = "1.8.2"
 
 [[deps.ImageShow]]
 deps = ["Base64", "ColorSchemes", "FileIO", "ImageBase", "ImageCore", "OffsetArrays", "StackViews"]
-git-tree-sha1 = "ce28c68c900eed3cdbfa418be66ed053e54d4f56"
+git-tree-sha1 = "3b5344bcdbdc11ad58f3b1956709b5b9345355de"
 uuid = "4e3cecfd-b093-5904-9786-8bbb286a6a31"
-version = "0.3.7"
+version = "0.3.8"
 
 [[deps.ImageTransformations]]
-deps = ["AxisAlgorithms", "ColorVectorSpace", "CoordinateTransformations", "ImageBase", "ImageCore", "Interpolations", "OffsetArrays", "Rotations", "StaticArrays"]
-git-tree-sha1 = "8717482f4a2108c9358e5c3ca903d3a6113badc9"
+deps = ["AxisAlgorithms", "CoordinateTransformations", "ImageBase", "ImageCore", "Interpolations", "OffsetArrays", "Rotations", "StaticArrays"]
+git-tree-sha1 = "7ec124670cbce8f9f0267ba703396960337e54b5"
 uuid = "02fcd773-0e25-5acc-982a-7f6622650795"
-version = "0.9.5"
+version = "0.10.0"
 
 [[deps.Images]]
-deps = ["Base64", "FileIO", "Graphics", "ImageAxes", "ImageBase", "ImageContrastAdjustment", "ImageCore", "ImageDistances", "ImageFiltering", "ImageIO", "ImageMagick", "ImageMetadata", "ImageMorphology", "ImageQualityIndexes", "ImageSegmentation", "ImageShow", "ImageTransformations", "IndirectArrays", "IntegralArrays", "Random", "Reexport", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "TiledIteration"]
-git-tree-sha1 = "5fa9f92e1e2918d9d1243b1131abe623cdf98be7"
+deps = ["Base64", "FileIO", "Graphics", "ImageAxes", "ImageBase", "ImageBinarization", "ImageContrastAdjustment", "ImageCore", "ImageCorners", "ImageDistances", "ImageFiltering", "ImageIO", "ImageMagick", "ImageMetadata", "ImageMorphology", "ImageQualityIndexes", "ImageSegmentation", "ImageShow", "ImageTransformations", "IndirectArrays", "IntegralArrays", "Random", "Reexport", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "TiledIteration"]
+git-tree-sha1 = "d438268ed7a665f8322572be0dabda83634d5f45"
 uuid = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
-version = "0.25.3"
+version = "0.26.0"
 
 [[deps.Imath_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -2094,16 +1641,10 @@ git-tree-sha1 = "16c0cc91853084cb5f58a78bd209513900206ce6"
 uuid = "8197267c-284f-5f27-9208-e0e47529a953"
 version = "0.7.4"
 
-[[deps.InverseFunctions]]
-deps = ["Test"]
-git-tree-sha1 = "eabe3125edba5c9c10b60a160b1779a000dc8b29"
-uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
-version = "0.1.11"
-
 [[deps.IrrationalConstants]]
-git-tree-sha1 = "7fd44fd4ff43fc60815f8e764c0f352b83c49151"
+git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
 uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
-version = "0.1.1"
+version = "0.2.2"
 
 [[deps.IterTools]]
 git-tree-sha1 = "4ced6667f9974fc5c5943fa5e2ef1ca43ea9e450"
@@ -2141,9 +1682,9 @@ version = "0.21.4"
 
 [[deps.JpegTurbo]]
 deps = ["CEnum", "FileIO", "ImageCore", "JpegTurbo_jll", "TOML"]
-git-tree-sha1 = "106b6aa272f294ba47e96bd3acbabdc0407b5c60"
+git-tree-sha1 = "327713faef2a3e5c80f96bf38d1fa26f7a6ae29e"
 uuid = "b835a17e-a41a-41e7-81f0-2f016b05efe0"
-version = "0.1.2"
+version = "0.1.3"
 
 [[deps.JpegTurbo_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -2209,6 +1750,12 @@ version = "0.15.21"
     DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
     DiffEqBiological = "eb300fae-53e8-50a0-950c-e21f52c2b7e0"
     SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
+
+[[deps.LayoutPointers]]
+deps = ["ArrayInterface", "LinearAlgebra", "ManualMemory", "SIMDTypes", "Static", "StaticArrayInterface"]
+git-tree-sha1 = "88b8f66b604da079a627b6fb2860d3704a6729a1"
+uuid = "10f19ff3-798f-405d-979b-55457f8fc047"
+version = "0.1.14"
 
 [[deps.LazyArtifacts]]
 deps = ["Artifacts", "Pkg"]
@@ -2289,21 +1836,9 @@ git-tree-sha1 = "7f3efec06033682db852f8b3bc3c1d2b0a0ab066"
 uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.36.0+0"
 
-[[deps.LineSearches]]
-deps = ["LinearAlgebra", "NLSolversBase", "NaNMath", "Parameters", "Printf"]
-git-tree-sha1 = "7bbea35cec17305fc70a0e5b4641477dc0789d9d"
-uuid = "d3d80556-e9d4-5f37-9878-2ab0fcc64255"
-version = "7.2.0"
-
 [[deps.LinearAlgebra]]
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-
-[[deps.LittleCMS_jll]]
-deps = ["Artifacts", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pkg"]
-git-tree-sha1 = "110897e7db2d6836be22c18bffd9422218ee6284"
-uuid = "d3a379c0-f9a3-5b72-a4c0-6bf4d2e8af0f"
-version = "2.12.0+0"
 
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
@@ -2330,6 +1865,21 @@ git-tree-sha1 = "cedb76b37bc5a6c702ade66be44f831fa23c681e"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.0"
 
+[[deps.LoopVectorization]]
+deps = ["ArrayInterface", "ArrayInterfaceCore", "CPUSummary", "CloseOpenIntervals", "DocStringExtensions", "HostCPUFeatures", "IfElse", "LayoutPointers", "LinearAlgebra", "OffsetArrays", "PolyesterWeave", "PrecompileTools", "SIMDTypes", "SLEEFPirates", "Static", "StaticArrayInterface", "ThreadingUtilities", "UnPack", "VectorizationBase"]
+git-tree-sha1 = "c88a4afe1703d731b1c4fdf4e3c7e77e3b176ea2"
+uuid = "bdcacae8-1622-11e9-2a5c-532679323890"
+version = "0.12.165"
+
+    [deps.LoopVectorization.extensions]
+    ForwardDiffExt = ["ChainRulesCore", "ForwardDiff"]
+    SpecialFunctionsExt = "SpecialFunctions"
+
+    [deps.LoopVectorization.weakdeps]
+    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+    ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+    SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+
 [[deps.LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
 git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
@@ -2352,6 +1902,11 @@ deps = ["Markdown", "Random"]
 git-tree-sha1 = "42324d08725e200c23d4dfb549e0d5d89dede2d2"
 uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.10"
+
+[[deps.ManualMemory]]
+git-tree-sha1 = "bcaef4fc7a0cfe2cba636d84cda54b5e4e4ca3cd"
+uuid = "d125e4d3-2237-4719-b19c-fa641b8a4667"
+version = "0.1.8"
 
 [[deps.MappedArrays]]
 git-tree-sha1 = "2dab0221fe2b0f2cb6754eaa743cc266339f527e"
@@ -2409,12 +1964,6 @@ git-tree-sha1 = "68bf5103e002c44adfd71fea6bd770b3f0586843"
 uuid = "6f286f6a-111f-5878-ab1e-185364afe411"
 version = "0.10.2"
 
-[[deps.NLSolversBase]]
-deps = ["DiffResults", "Distributed", "FiniteDiff", "ForwardDiff"]
-git-tree-sha1 = "a0b464d183da839699f4c79e7606d9d186ec172c"
-uuid = "d41bc354-129a-5804-8e4c-c37616107c6c"
-version = "7.8.3"
-
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
 git-tree-sha1 = "0877504529a3e5c3343c6f8b4c0381e57e4387e4"
@@ -2429,9 +1978,9 @@ version = "0.4.13"
 
 [[deps.Netpbm]]
 deps = ["FileIO", "ImageCore", "ImageMetadata"]
-git-tree-sha1 = "5ae7ca23e13855b3aba94550f26146c01d259267"
+git-tree-sha1 = "d92b107dbb887293622df7697a2223f9f8176fcd"
 uuid = "f09324ee-3d7c-5217-9330-fc30815ba969"
-version = "1.1.0"
+version = "1.1.1"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -2471,12 +2020,6 @@ git-tree-sha1 = "a4ca623df1ae99d09bc9868b008262d0c0ac1e4f"
 uuid = "18a262bb-aa17-5467-a713-aee519bc75cb"
 version = "3.1.4+0"
 
-[[deps.OpenJpeg_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Libtiff_jll", "LittleCMS_jll", "Pkg", "libpng_jll"]
-git-tree-sha1 = "76374b6e7f632c130e78100b166e5a48464256f8"
-uuid = "643b3616-a352-519d-856d-80112ee9badc"
-version = "2.4.0+0"
-
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
@@ -2500,12 +2043,6 @@ git-tree-sha1 = "13652491f6856acfd2db29360e1bbcd4565d04f1"
 uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
 version = "0.5.5+0"
 
-[[deps.Optim]]
-deps = ["Compat", "FillArrays", "ForwardDiff", "LineSearches", "LinearAlgebra", "NLSolversBase", "NaNMath", "Parameters", "PositiveFactorizations", "Printf", "SparseArrays", "StatsBase"]
-git-tree-sha1 = "e3a6546c1577bfd701771b477b794a52949e7594"
-uuid = "429524aa-4258-5aef-a3af-852621145aeb"
-version = "1.7.6"
-
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "51a08fb14ec28da2ec7a927c4337e4332c2a4720"
@@ -2513,9 +2050,9 @@ uuid = "91d4177d-7536-5919-b921-800302f37372"
 version = "1.3.2+0"
 
 [[deps.OrderedCollections]]
-git-tree-sha1 = "d321bf2de576bf25ec4d3e4360faca399afca282"
+git-tree-sha1 = "2e73fe17cac3c62ad1aebe70d44c963c3cfdc3e3"
 uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
-version = "1.6.0"
+version = "1.6.2"
 
 [[deps.PCRE2_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -2523,16 +2060,16 @@ uuid = "efcefdf7-47ab-520b-bdef-62a2eaa19f15"
 version = "10.42.0+0"
 
 [[deps.PDMats]]
-deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse", "Test"]
-git-tree-sha1 = "95a4038d1011dfdbde7cecd2ad0ac411e53ab1bc"
+deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
+git-tree-sha1 = "67eae2738d63117a196f497d7db789821bce61d1"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
-version = "0.10.1"
+version = "0.11.17"
 
 [[deps.PNGFiles]]
 deps = ["Base64", "CEnum", "ImageCore", "IndirectArrays", "OffsetArrays", "libpng_jll"]
-git-tree-sha1 = "f809158b27eba0c18c269cf2a2be6ed751d3e81d"
+git-tree-sha1 = "9b02b27ac477cad98114584ff964e3052f656a0f"
 uuid = "f57f5aa1-a3ce-4bc8-8ab9-96f992907883"
-version = "0.3.17"
+version = "0.4.0"
 
 [[deps.PaddedViews]]
 deps = ["OffsetArrays"]
@@ -2626,15 +2163,31 @@ version = "0.2.12"
 
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
-git-tree-sha1 = "b478a748be27bd2f2c73a7690da219d0844db305"
+git-tree-sha1 = "e47cd150dbe0443c3a3651bc5b9cbd5576ab75b7"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.51"
+version = "0.7.52"
 
-[[deps.PositiveFactorizations]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "17275485f373e6673f7e7f97051f703ed5b15b20"
-uuid = "85a6dd25-e78a-55b7-8502-1745935b8125"
-version = "0.2.4"
+[[deps.PolyesterWeave]]
+deps = ["BitTwiddlingConvenienceFunctions", "CPUSummary", "IfElse", "Static", "ThreadingUtilities"]
+git-tree-sha1 = "240d7170f5ffdb285f9427b92333c3463bf65bf6"
+uuid = "1d0040c9-8b98-4ee7-8388-3f51789ca0ad"
+version = "0.2.1"
+
+[[deps.Polynomials]]
+deps = ["LinearAlgebra", "RecipesBase"]
+git-tree-sha1 = "3aa2bb4982e575acd7583f01531f241af077b163"
+uuid = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
+version = "3.2.13"
+
+    [deps.Polynomials.extensions]
+    PolynomialsChainRulesCoreExt = "ChainRulesCore"
+    PolynomialsMakieCoreExt = "MakieCore"
+    PolynomialsMutableArithmeticsExt = "MutableArithmetics"
+
+    [deps.Polynomials.weakdeps]
+    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+    MakieCore = "20f20a25-4f0e-4fdf-b5d1-57303727442b"
+    MutableArithmetics = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
 
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
@@ -2774,11 +2327,16 @@ version = "1.5.1"
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 version = "0.7.0"
 
-[[deps.ScikitLearnBase]]
-deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "7877e55c1523a4b336b433da39c8e8c08d2f221f"
-uuid = "6e75b9c4-186b-50bd-896f-2d2496a4843e"
-version = "0.5.0"
+[[deps.SIMDTypes]]
+git-tree-sha1 = "330289636fb8107c5f32088d2741e9fd7a061a5c"
+uuid = "94e857df-77ce-4151-89e5-788b33177be4"
+version = "0.1.0"
+
+[[deps.SLEEFPirates]]
+deps = ["IfElse", "Static", "VectorizationBase"]
+git-tree-sha1 = "4b8586aece42bee682399c4c4aee95446aa5cd19"
+uuid = "476501e8-09a2-5ece-8869-fb82de89a1fa"
+version = "0.6.39"
 
 [[deps.Scratch]]
 deps = ["Dates"]
@@ -2794,12 +2352,6 @@ version = "1.4.0"
 
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
-
-[[deps.Setfield]]
-deps = ["ConstructionBase", "Future", "MacroTools", "StaticArraysCore"]
-git-tree-sha1 = "e2cc6d8c88613c05e1defb55170bf5ff211fbeac"
-uuid = "efcf1570-3423-57d1-acb7-fd33fddbac46"
-version = "1.1.1"
 
 [[deps.SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
@@ -2830,9 +2382,9 @@ version = "1.4.0"
 
 [[deps.Sixel]]
 deps = ["Dates", "FileIO", "ImageCore", "IndirectArrays", "OffsetArrays", "REPL", "libsixel_jll"]
-git-tree-sha1 = "8fb59825be681d451c246a795117f317ecbcaa28"
+git-tree-sha1 = "2da10356e31327c7096832eb9cd86307a50b1eb6"
 uuid = "45858cf5-a6b0-47a3-bbea-62219f50df47"
-version = "0.1.2"
+version = "0.1.3"
 
 [[deps.SnoopPrecompile]]
 deps = ["Preferences"]
@@ -2869,20 +2421,37 @@ git-tree-sha1 = "46e589465204cd0c08b4bd97385e4fa79a0c770c"
 uuid = "cae243ae-269e-4f55-b966-ac2d0dc13c15"
 version = "0.1.1"
 
+[[deps.Static]]
+deps = ["IfElse"]
+git-tree-sha1 = "f295e0a1da4ca425659c57441bcb59abb035a4bc"
+uuid = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
+version = "0.8.8"
+
+[[deps.StaticArrayInterface]]
+deps = ["ArrayInterface", "Compat", "IfElse", "LinearAlgebra", "Requires", "SnoopPrecompile", "SparseArrays", "Static", "SuiteSparse"]
+git-tree-sha1 = "33040351d2403b84afce74dae2e22d3f5b18edcb"
+uuid = "0d7ed370-da01-4f52-bd93-41d350b8b718"
+version = "1.4.0"
+weakdeps = ["OffsetArrays", "StaticArrays"]
+
+    [deps.StaticArrayInterface.extensions]
+    StaticArrayInterfaceOffsetArraysExt = "OffsetArrays"
+    StaticArrayInterfaceStaticArraysExt = "StaticArrays"
+
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "StaticArraysCore"]
-git-tree-sha1 = "0da7e6b70d1bb40b1ace3b576da9ea2992f76318"
+git-tree-sha1 = "9cabadf6e7cd2349b6cf49f1915ad2028d65e881"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.6.0"
+version = "1.6.2"
 weakdeps = ["Statistics"]
 
     [deps.StaticArrays.extensions]
     StaticArraysStatisticsExt = "Statistics"
 
 [[deps.StaticArraysCore]]
-git-tree-sha1 = "1d5708d926c76a505052d0d24a846d5da08bc3a4"
+git-tree-sha1 = "36b3d696ce6366023a0ea192b4cd442268995a0d"
 uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
-version = "1.4.1"
+version = "1.4.2"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -2902,16 +2471,24 @@ uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.34.0"
 
 [[deps.StatsFuns]]
-deps = ["ChainRulesCore", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
-git-tree-sha1 = "5950925ff997ed6fb3e985dcce8eb1ba42a0bbe7"
+deps = ["HypergeometricFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
+git-tree-sha1 = "f625d686d5a88bcd2b15cd81f18f98186fdc0c9a"
 uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
-version = "0.9.18"
+version = "1.3.0"
+
+    [deps.StatsFuns.extensions]
+    StatsFunsChainRulesCoreExt = "ChainRulesCore"
+    StatsFunsInverseFunctionsExt = "InverseFunctions"
+
+    [deps.StatsFuns.weakdeps]
+    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
 
 [[deps.StatsPlots]]
 deps = ["AbstractFFTs", "Clustering", "DataStructures", "Distributions", "Interpolations", "KernelDensity", "LinearAlgebra", "MultivariateStats", "NaNMath", "Observables", "Plots", "RecipesBase", "RecipesPipeline", "Reexport", "StatsBase", "TableOperations", "Tables", "Widgets"]
-git-tree-sha1 = "14ef622cf28b05e38f8af1de57bc9142b03fbfe3"
+git-tree-sha1 = "9115a29e6c2cf66cf213ccc17ffd61e27e743b24"
 uuid = "f3b207a7-027a-5e70-b257-86293d7955fd"
-version = "0.15.5"
+version = "0.15.6"
 
 [[deps.SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
@@ -2960,6 +2537,12 @@ version = "0.1.1"
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[[deps.ThreadingUtilities]]
+deps = ["ManualMemory"]
+git-tree-sha1 = "eda08f7e9818eb53661b3deb74e3159460dfbc27"
+uuid = "8290d209-cae3-49c0-8002-c8c24d57dab5"
+version = "0.5.2"
+
 [[deps.TiffImages]]
 deps = ["ColorTypes", "DataStructures", "DocStringExtensions", "FileIO", "FixedPointNumbers", "IndirectArrays", "Inflate", "Mmap", "OffsetArrays", "PkgVersion", "ProgressMeter", "UUIDs"]
 git-tree-sha1 = "8621f5c499a8aa4aa970b1ae381aae0ef1576966"
@@ -2967,10 +2550,10 @@ uuid = "731e570b-9d59-4bfa-96dc-6df516fadf69"
 version = "0.6.4"
 
 [[deps.TiledIteration]]
-deps = ["OffsetArrays"]
-git-tree-sha1 = "5683455224ba92ef59db72d10690690f4a8dc297"
+deps = ["OffsetArrays", "StaticArrayInterface"]
+git-tree-sha1 = "1176cc31e867217b06928e2f140c90bd1bc88283"
 uuid = "06e1c1a7-607b-532d-9fad-de7d9aa2abac"
-version = "0.3.1"
+version = "0.5.0"
 
 [[deps.TranscodingStreams]]
 deps = ["Random", "Test"]
@@ -3011,11 +2594,14 @@ deps = ["Dates", "LinearAlgebra", "Random"]
 git-tree-sha1 = "c4d2a349259c8eba66a00a540d550f122a3ab228"
 uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
 version = "1.15.0"
-weakdeps = ["ConstructionBase", "InverseFunctions"]
 
     [deps.Unitful.extensions]
     ConstructionBaseUnitfulExt = "ConstructionBase"
     InverseFunctionsUnitfulExt = "InverseFunctions"
+
+    [deps.Unitful.weakdeps]
+    ConstructionBase = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
+    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
 
 [[deps.UnitfulLatexify]]
 deps = ["LaTeXStrings", "Latexify", "Unitful"]
@@ -3027,6 +2613,12 @@ version = "1.6.3"
 git-tree-sha1 = "ca0969166a028236229f63514992fc073799bb78"
 uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
 version = "0.2.0"
+
+[[deps.VectorizationBase]]
+deps = ["ArrayInterface", "CPUSummary", "HostCPUFeatures", "IfElse", "LayoutPointers", "Libdl", "LinearAlgebra", "SIMDTypes", "Static", "StaticArrayInterface"]
+git-tree-sha1 = "b182207d4af54ac64cbc71797765068fdeff475d"
+uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
+version = "0.21.64"
 
 [[deps.Wayland_jll]]
 deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
@@ -3283,95 +2875,61 @@ version = "1.4.1+0"
 # ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
-# ╟─7091d2cf-9237-45b2-b609-f442cd1cdba5
-# ╟─bf362b4d-6ecf-495f-9b7d-3348613b2fc3
-# ╟─ae45b0e8-7497-44d3-b1d8-5acdf8a953f2
-# ╟─72fb156d-edb5-4505-aedc-b1495bd19ed9
-# ╟─50119d87-3724-4f71-b031-19a79c1fbdae
-# ╟─b67afb1b-8f6b-42e1-8f3a-da8a94f1c864
-# ╟─91b44119-c905-4a10-8fa2-97687f8913f7
-# ╟─84916718-b19c-473b-9c39-e1055ccad467
-# ╟─1e927760-4dc6-4ecf-86ec-8fed16dbb0d6
-# ╟─7d8ed44a-06ba-4432-8345-55bb31eb8f1d
-# ╟─9e27864c-f5cb-4780-bcd3-e3d29a69742a
-# ╟─5bd15469-e888-4505-a53d-49fef3329ea4
-# ╟─3b4a2f77-587b-41fd-af92-17e9411929c8
-# ╟─c9e0eaae-b340-434e-bdc9-dfdbc747221e
-# ╟─59a38e32-c2f3-465f-928d-c05f8d69f496
-# ╟─e8fd61f1-33a6-43d8-8056-fb7cf97291b5
-# ╟─81ab9972-07bc-4ce9-9138-3359d4e34025
-# ╟─a7a24713-a29a-4f0c-996b-f98305bac09c
-# ╟─fc9e9bb6-2287-46c8-8518-c9d0804c094e
-# ╟─2ce6c56b-733c-42e8-a63b-d774cb6c199c
-# ╟─dc8a3e36-2021-42dd-bc49-0eb6ab784fac
-# ╟─2e4df75b-0778-4ed4-840a-417da2d65204
-# ╟─8730b9a2-a1b4-456c-974c-ecd8880e6834
-# ╟─c5be7eb8-e0b6-48cc-8dbe-788fa6624999
 # ╟─ff61cd9d-a193-44b3-a715-3c372ade7f79
-# ╟─443fa256-ee34-43c0-8efd-c12560c00492
-# ╟─b742a37d-b49a-467b-bda7-6d39cce33125
-# ╟─89df7ccb-53da-4b96-bbb4-fe39109467dd
-# ╟─f44b5a95-95b5-4d88-927a-61d91ed51c53
-# ╟─221b8f09-6727-4613-8b96-02d70d337280
-# ╟─340c9b5b-5ca0-4313-870e-912d5c2dc451
-# ╟─bce5c041-be39-4ed1-8935-c389293400bc
-# ╟─db6eb97c-558c-4206-a112-6ab3b0ad04c8
-# ╟─1afdb42f-6bce-4fb1-860a-820d98df0f9d
-# ╟─ae5c476b-193e-44e3-b3a6-36c8944d4816
-# ╟─deedb2db-8483-4026-975f-3d5af5a249b7
-# ╟─128b6ad8-aa21-4d0a-8124-2cf433bc79c4
-# ╟─403af436-d7f2-43c0-803a-8104ba69fcfd
-# ╟─4d99c216-e32f-43a3-a122-ccbb697711fc
-# ╟─5b500acf-7029-43ff-9835-a26d8fe05194
-# ╟─4bf768de-833f-45bf-9429-4820ff61553f
-# ╟─656da51f-fd35-4e89-9af5-b5f0fdf8618f
-# ╟─7c03a15f-9ac1-465f-86a4-d2a6087e5970
-# ╟─80038fee-b922-479d-9687-771e7e258fcf
-# ╟─e28e8089-f52b-440a-9861-895f9c378c84
-# ╟─1e52d388-1e8d-4c20-b6e7-bcdd674ea406
-# ╟─b662605e-30ef-4e93-a71f-696e76e3ab45
-# ╟─c7210d17-bf91-4434-840f-393eeef1ebd4
-# ╟─556617f4-4e88-45f4-9d91-066c24473c44
-# ╟─4d6badcc-c061-4e63-a156-167376f131eb
-# ╟─c3910dd8-4919-463f-9af0-bc554566c681
-# ╟─f664e72d-e762-4dea-ba11-bc8c6b2863f9
-# ╟─c134a0b6-8754-48bd-a2ca-932542744407
-# ╟─cd746d93-135e-4d10-9a44-50b610344fd9
-# ╟─a4980317-32aa-44b8-97a8-8887c0e65bb4
-# ╟─197e2d17-fd19-46b1-8f51-0fa2748340e5
-# ╟─2bad0f9a-2b21-4686-aa41-2b430c354454
-# ╟─9594d76f-3274-48fa-b833-f0c26daa229a
-# ╟─ce1d7bad-179a-48c0-86c7-2de82c55a96d
-# ╟─09f78f45-3790-4218-847f-b9ea1e61176a
 # ╟─b89ac105-597e-44ac-9b58-c1c3c5ac59e9
-# ╟─6bcfe759-0010-400e-bb9b-62c089bd5230
-# ╟─d3f51b03-384c-428c-b7e4-bdc1508e6a02
-# ╟─875a06b7-eb90-451e-a888-3e4f13832053
-# ╟─c2497681-0729-451a-ab5f-43937bc9e100
-# ╟─00c8c5a4-c58f-4a62-ba88-ca3f590977d7
-# ╟─06e178a8-bcd1-4646-8e51-1b90a2e09784
-# ╟─ab5612b9-9681-4984-b58e-3783c0c0c6e4
-# ╟─6e7ace1b-6c6f-44e4-8377-dd7804f94ee0
-# ╟─cb3f15a1-3d04-447a-a5a2-50c66f356922
-# ╟─43f6f92c-fe29-484f-ad1b-18a674574ef2
+# ╟─40f334b3-60fa-4ca1-8146-06e00fa14d45
+# ╟─bb02b467-0269-4047-8c0b-ee61e0185df8
+# ╟─d9829c67-d346-4145-ae75-028f9fdd103d
 # ╟─72af797b-5340-482e-be00-2cda375dd734
 # ╟─723365e7-1fad-4899-8ac1-fb8674e2b9a7
+# ╟─ff303022-1eff-4278-be92-edf46c747bec
 # ╟─a862e9d6-c31d-4b21-80c0-e359a5435b6b
-# ╟─e44e47c4-fce6-4559-ae32-c315508bbf9c
-# ╟─e557ad8b-9e4f-4209-908f-2251e2e2cde9
-# ╟─25c1c999-c9b0-437a-99f3-6bb59482ca7d
-# ╟─1877ebc8-790f-483a-acf3-9288df9ee7cc
+# ╟─6dba8be7-b62b-42d4-835a-d5ed827befa9
+# ╟─4e55339d-4b61-4584-81c8-a9f35312830d
+# ╟─3f189707-d21d-4bf6-bc86-35304206281a
 # ╟─66a08217-481a-4956-ba8a-c4c822f3d0d2
-# ╟─271009dc-c42b-40bc-9896-e6fc16238a73
-# ╟─a01ebe11-dba2-45df-9fe3-1343576c2071
-# ╟─738c0c4c-d66e-42a5-8b7f-0cb4bb576d18
-# ╟─62627b47-5ec9-4d7d-9e94-2148ff198f66
-# ╟─fc09b97a-13c9-4721-83ca-f7caa5f55079
-# ╟─ef112987-74b4-41fc-842f-ebf1c901b59b
-# ╟─95779ca4-b743-43f1-af12-6b14c0e28f0b
-# ╟─0f280847-2404-4211-8221-e30418cf4d42
-# ╟─b682cc8d-4eeb-4ecd-897c-e15a3e40f76d
+# ╟─b02d6493-8da9-4d4d-a090-353f96addbdd
+# ╟─b88ce59d-a715-48af-b7f6-cc867ef2b50e
+# ╟─dc64c064-6cee-4fba-8a36-e9b3264ebbbf
+# ╟─2d72550f-6dd4-496b-a763-125ec7f9d251
+# ╟─848c79ff-61b3-47e1-a574-4549afe9900f
+# ╟─7d625061-fdef-440b-b541-0dd141a50c95
+# ╟─aecdb616-d38b-4db6-af4c-55c988a3139d
+# ╟─82c78222-131f-4a38-a014-00cfee6d09ed
+# ╟─3864434a-0f66-4872-81c6-84353d870f50
+# ╟─a0a1eb6a-74e1-4d1e-8097-b7b3c04cffa2
+# ╟─85a0636b-5475-4ece-a03d-cbbc4603cbc5
+# ╟─4ce3cb20-e70d-4d39-8572-ee7ac6d8e441
+# ╟─b0f0628e-ceff-4e6c-819b-2778ca4d4b08
+# ╟─8c72fd4f-d783-48bb-8f62-c00e16399e2a
+# ╟─ae216b5f-59bb-4d0e-ab58-ddea82d5ee2f
+# ╟─c1ac8263-f226-4ae9-b0de-ab4eacb4ff42
+# ╟─c07428c0-1c9d-41ba-9702-e3dffe2e0159
+# ╟─bfedf482-2ef2-4d3d-93d1-796ae61ef48d
+# ╟─a08f53bd-91d3-45b2-ab73-42e9b4bae563
+# ╟─e69bbba2-3167-4edd-b9db-6aba7a0dceed
+# ╟─d2085d25-1867-4037-92e0-8cbd2d1ada39
+# ╟─bec564e6-fea8-4645-8f25-8babbe0b13df
+# ╟─55b63786-4e04-497a-abae-e6e229a7edf2
+# ╟─0d38b7f0-39e7-44db-8343-3c80f32a5c30
+# ╟─434a9163-bddb-4702-b97b-b193a6f08b77
+# ╟─001496ae-65ca-4de1-a211-4cbbafc7777f
+# ╟─1663b630-a57a-44c5-90c6-95be2ac42aa8
+# ╟─5acb28a1-49f1-412d-9c6e-b840cab687aa
+# ╟─2c152ff3-050f-42de-b434-21b2658d572f
+# ╟─da1fd88b-0e2a-49e6-8fb5-135a9d18be6e
+# ╟─bda9fe31-88ae-4ce3-8038-9ca7f0a24378
+# ╟─b20f121e-781a-4d17-8833-43d34396bf44
+# ╟─1fb9b4c4-e7c7-4ceb-9193-3c1e83244445
+# ╟─dd2fc1a7-4684-4956-aff3-25b23e1548e0
+# ╟─0f7e65e5-5eea-4e4d-8ea4-0f04ce52f91d
+# ╟─492c3edd-772c-4d07-88bc-92a046190f29
+# ╟─295644e3-b8ee-4d06-a17d-9a37b5f965ce
+# ╟─1d0a3487-363e-4353-904a-73e2718748af
+# ╟─2d94f5ba-9a3b-4615-b451-3ef3b393057d
+# ╟─f870fc82-56d4-4a39-991e-d42bc31cd9c8
 # ╟─0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
+# ╟─9fc9a421-194e-4163-87f2-30989354932a
 # ╟─8687dbd1-4857-40e4-b9cb-af469b8563e2
 # ╟─fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
 # ╟─00000000-0000-0000-0000-000000000001
