@@ -1079,8 +1079,7 @@ The **gradient** for _softmax regression_ is
 the gradient is the generalisation of the binary logistic regression case, where
 
 ```math
-\large
-\nabla L^{(i)}(\mathbf{w})  = -  \underbrace{({y}^{(i)} - \hat{{y}}^{(i)})}_{\text{pred. error for }i} \cdot \mathbf{x}^{(i)}
+\nabla L^{(i)}(\mathbf{w})  = -  \underbrace{({y}^{(i)} - \hat{{y}}^{(i)})}_{\text{pred. error for }i} \cdot \mathbf{x}^{(i)}\;\;\; \# \text{binary loss's gradient}
 ```
 """
 
@@ -1336,7 +1335,7 @@ therefore, the gradient *w.r.t* ``\mathbf{z}`` is
 According to **multi-variate chain rule**, the gradient *w.r.t* ``\mathbf{w}_c`` is
 
 ```math
-\frac{\partial L^{(i)}}{\partial \mathbf{w}_c^\top}  = \sum_{j=1}^C \frac{\partial L^{(i)}}{\partial z_j} \frac{\partial z_j}{\partial \mathbf{w}_c}
+\frac{\partial L^{(i)}}{\partial \mathbf{w}_c}  = \sum_{j=1}^C \frac{\partial L^{(i)}}{\partial z_j} \frac{\partial z_j}{\partial \mathbf{w}_c}
 ```
 
 
@@ -1345,7 +1344,7 @@ According to **multi-variate chain rule**, the gradient *w.r.t* ``\mathbf{w}_c``
 # ╔═╡ 29d42ace-2fce-4472-8c93-bd291be25e91
 md"""
 
-## Aside: ``\frac{\partial z}{\partial \mathbf{w}}``
+## Aside: ``\frac{\partial z_j}{\partial \mathbf{w}}``
 
 
 Note that 
@@ -1464,7 +1463,23 @@ According to multi-variate chain rule, the gradient w.r.t ``\mathbf{w}_c`` is
 Finally, the gradient w.r.t ``\mathbf{W}`` is
 
 ```math
+\large
 \frac{\partial L^{(i)}}{\partial \mathbf{W}}  = \begin{bmatrix}\frac{\partial L^{(i)}}{\partial \mathbf{w}_1^\top} \\ \frac{\partial L^{(i)}}{\partial \mathbf{w}_2^\top}\\ \vdots \\ \frac{\partial L^{(i)}}{\partial \mathbf{w}_C^\top}\end{bmatrix} = \begin{bmatrix}- (y_1 - \hat{y}_1)\\ - (y_2 - \hat{y}_2)\\ \vdots \\- (y_C - \hat{y}_C)\end{bmatrix}\cdot [\rule[.5ex]{2.5ex}{0.5pt} \,\, \mathbf{x}^\top \rule[.5ex]{2.5ex}{0.5pt}]
+```
+"""
+
+# ╔═╡ 2d470200-a598-4645-ba01-8814f2af189d
+md"""
+
+Note that gradient for ``\mathbf{b}`` can be readily obtained by augmenting the input with a dummy ``1``:
+
+```math
+\frac{\partial L^{(i)}}{\partial \tilde{\mathbf{ W}}}  = \begin{bmatrix}[\frac{\partial L^{(i)}}{\partial b_1} & \frac{\partial L^{(i)}}{\partial  \mathbf{w}_1^\top}] \\ [\frac{\partial L^{(i)}}{\partial b_2} & \frac{\partial L^{(i)}}{\partial \mathbf{w}_2^\top}]\\ \vdots \\ [\frac{\partial L^{(i)}}{\partial b_C} & \frac{\partial L^{(i)}}{\partial  \mathbf{w}_C^\top}]\end{bmatrix} = \begin{bmatrix}- (y_1 - \hat{y}_1)\\ - (y_2 - \hat{y}_2)\\ \vdots \\- (y_C - \hat{y}_C)\end{bmatrix}\cdot [1, \;\;\rule[.5ex]{2.5ex}{0.5pt} \,\, \mathbf{x}^\top \rule[.5ex]{2.5ex}{0.5pt}]
+```
+
+Therefore ,
+```math
+\frac{\partial L^{(i)}}{\partial {\mathbf{b}}}  = \begin{bmatrix}\frac{\partial L^{(i)}}{\partial b_1}\\ \frac{\partial L^{(i)}}{\partial b_2} \\ \vdots \\ \frac{\partial L^{(i)}}{\partial b_C} \end{bmatrix} = \begin{bmatrix}- (y_1 - \hat{y}_1)\\ - (y_2 - \hat{y}_2)\\ \vdots \\- (y_C - \hat{y}_C)\end{bmatrix}\cdot 1 = - (\mathbf{y} -\hat{\mathbf{y}})
 ```
 """
 
@@ -2345,7 +2360,7 @@ uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
 version = "0.72.9"
 
 [[deps.GR_jll]]
-deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt6Base_jll", "Zlib_jll", "libpng_jll"]
+deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "FreeType2_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt6Base_jll", "Zlib_jll", "libpng_jll"]
 git-tree-sha1 = "f61f768bf090d97c532d24b64e07b237e9bb7b6b"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
 version = "0.72.9+0"
@@ -3740,6 +3755,7 @@ version = "1.4.1+0"
 # ╟─0c00a9a8-f903-4646-8a0d-a197993d89a3
 # ╟─477d1ddb-4488-4ad9-9329-24713001de2c
 # ╟─54ee84d1-c856-4404-86d2-c8170c430359
+# ╟─2d470200-a598-4645-ba01-8814f2af189d
 # ╟─ba883d58-6723-458f-b9a8-a7ff9c1f0a71
 # ╠═41b227d5-fbbc-49f2-9d79-f928a7e66a3f
 # ╠═b6cd5910-4cee-4ac5-81b8-a3bf75da15f0
