@@ -34,6 +34,12 @@ begin
 	
 end
 
+# ╔═╡ 587b7208-2559-4e4d-958c-09b0eec20caf
+begin
+	using Logging
+	Logging.disable_logging(Logging.Info) ; # or e.g. Logging.Info
+end;
+
 # ╔═╡ a0c70958-56fc-4536-ac9a-c5feea3e025b
 using PalmerPenguins
 
@@ -1147,342 +1153,6 @@ md"""
 ## Comparison
 """
 
-# ╔═╡ f1b3460a-525f-4dcb-88c0-dfb016f4cc1a
-md"""
-
-
-# Softmax regression: gradient derivation*
-"""
-
-# ╔═╡ d9d59d83-57cf-4c04-8a00-939c55bc5844
-md"""
-
-## Gradient of softmax regression
-
-In this section, we are going to derive the **gradient** for _softmax regression_
-
-```math
-\large
-\nabla L^{(i)}(\mathbf{W})  = -  {(\mathbf{y}^{(i)} - \hat{\mathbf{y}}^{(i)})} \cdot (\mathbf{x}^{(i)})^\top
-```
-* ``\mathbf{y}``: one-hot vector
-* ``\hat{\mathbf{y}}``: softmax output vector
-
-* note the gradient dimension is ``C\times m`` which is of the same dimension of ``\mathbf{W}``
-
-```math
--\boxed{(\mathbf{y}^{(i)} - \hat{\mathbf{y}}^{(i)})}_{C\times 1} \cdot \boxed{(\mathbf{x}^{(i)})^\top}_{1\times m}
-```
-
-"""
-
-# ╔═╡ 99e62f1e-4401-4e57-9706-6a534bf0d32e
-md"""
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only, (``i`` index is omit here for cleaner presentation)
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}
-\end{align}$$
-
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}\\
-&=-\sum_{j=1}^C  {y}_j \left \{\ln e^{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln\frac{a}{b} =\ln a-\ln b$} 
-\end{align}$$
-
-
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}\\
-&=-\sum_{j=1}^C  {y}_j \left \{\ln e^{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln\frac{a}{b} =\ln a-\ln b$} \\
-&=-\sum_{j=1}^C  {y}_j \left \{{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln a^b =b\ln a$} 
-\end{align}$$
-
-
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}\\
-&=-\sum_{j=1}^C  {y}_j \left \{\ln e^{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln\frac{a}{b} =\ln a-\ln b$} \\
-&=-\sum_{j=1}^C  {y}_j \left \{{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln a^b =b\ln a$} \\
-&= -\sum_{j=1}^C  {y}_j z_j + \underbrace{\sum_{j=1}^C  {y}_j}_{=1} \cdot \ln \sum_{k=1}^C e^{z_k}\tag{distribution law}
-\end{align}$$
-
-
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}\\
-&=-\sum_{j=1}^C  {y}_j \left \{\ln e^{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln\frac{a}{b} =\ln a-\ln b$} \\
-&=-\sum_{j=1}^C  {y}_j \left \{{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln a^b =b\ln a$} \\
-&= -\sum_{j=1}^C  {y}_j z_j + \underbrace{\sum_{j=1}^C  {y}_j}_{=1} \cdot \ln \sum_{k=1}^C e^{z_k}\tag{distribution law}\\
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-
-
-
-
-"""
-
-# ╔═╡ 457eeca6-b53b-4a55-b854-dc18c63405d4
-md"""
-
-
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}\\
-&=-\sum_{j=1}^C  {y}_j \left \{\ln e^{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln\frac{a}{b} =\ln a-\ln b$} \\
-&=-\sum_{j=1}^C  {y}_j \left \{{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln a^b =b\ln a$} \\
-&= -\sum_{j=1}^C  {y}_j z_j + \underbrace{\sum_{j=1}^C  {y}_j}_{=1} \cdot \ln \sum_{k=1}^C e^{z_k}\tag{distribution law}\\
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-The partial derivative *w.r.t* ``z_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial z_c} = - y_c + \frac{e^{z_c}}{\sum_k e^{z_k}} = - (y_c - \hat{y}_c);
-```
-
-"""
-
-# ╔═╡ 21a7065a-b2bc-4999-bdc1-f64436b7302e
-md"""
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-The partial derivative *w.r.t* ``z_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial z_c} = - y_c + \frac{e^{z_c}}{\sum_k e^{z_k}} = - (y_c - \hat{y}_c);
-```
-
-therefore, the gradient *w.r.t* ``\mathbf{z}`` is
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{z}}  = \left [\frac{\partial L^{(i)}}{\partial {z}_1}, \frac{\partial L^{(i)}}{\partial {z}_2}, \ldots, \frac{\partial L^{(i)}}{\partial {z}_C } \right ]^\top= - (\mathbf{y} - \hat{\mathbf{y}})
-```
-"""
-
-# ╔═╡ aec48a4c-89a3-46ce-a47f-a96f370edef3
-md"""
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-The partial derivative *w.r.t* ``z_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial z_c} = - y_c + \frac{e^{z_c}}{\sum_k e^{z_k}} = - (y_c - \hat{y}_c);
-```
-
-therefore, the gradient *w.r.t* ``\mathbf{z}`` is
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{z}}  = \left [\frac{\partial L^{(i)}}{\partial {z}_1}, \frac{\partial L^{(i)}}{\partial {z}_2}, \ldots, \frac{\partial L^{(i)}}{\partial {z}_C } \right ]^\top= - (\mathbf{y} - \hat{\mathbf{y}})
-```
-
-According to **multi-variate chain rule**, the gradient *w.r.t* ``\mathbf{w}_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{w}_c}  = \sum_{j=1}^C \frac{\partial L^{(i)}}{\partial z_j} \frac{\partial z_j}{\partial \mathbf{w}_c}
-```
-
-
-"""
-
-# ╔═╡ 29d42ace-2fce-4472-8c93-bd291be25e91
-md"""
-
-## Aside: ``\frac{\partial z_j}{\partial \mathbf{w}}``
-
-
-Note that 
-
-```math
-\large
-\mathbf{z}_{C\times 1} = \mathbf{W}_{C\times m}\mathbf{x}_{m \times 1} +\mathbf{b}_{C\times 1}
-```
-
-
-which is:
-
-
-```math
-\large
-\begin{bmatrix}z_1 \\ z_2 \\ \vdots\\ z_C \end{bmatrix} = \begin{bmatrix} \rule[.5ex]{2.5ex}{0.5pt} & \mathbf{w}_1^\top &\rule[.5ex]{2.5ex}{0.5pt}\\ \rule[.5ex]{2.5ex}{0.5pt} & \mathbf{w}_2^\top&\rule[.5ex]{2.5ex}{0.5pt}\\ &\vdots &\\ \rule[.5ex]{2.5ex}{0.5pt} & \mathbf{w}_C^\top &\rule[.5ex]{2.5ex}{0.5pt}\end{bmatrix}\begin{bmatrix}\vert \\ \mathbf{x} \\ \vert \end{bmatrix} +\begin{bmatrix}b_1 \\ b_2 \\ \vdots \\b_C \end{bmatrix} ,
-```
-
-therefore, 
-
-```math 
-\large z_j = \mathbf{w}_j^\top\mathbf{x} +b_j
-```
-
-which implies for ``z_j`` and ``\mathbf{w}_j``:
-
-```math
-\frac{\partial z_j}{\partial \mathbf{w}_j} =\mathbf{x}; \;\;\text{or for row vector  }\mathbf{w}^\top: \frac{\partial z_j}{\partial \mathbf{w}_j^\top} =\mathbf{x}^\top
-```
-
-for ``i\neq j``
-
-```math
-\frac{\partial z_j}{\partial \mathbf{w}_{i}} =\mathbf{0}; \;\;\text{or for row vector  }\mathbf{w}_i^\top: \frac{\partial z_j}{\partial \mathbf{w}_j^\top} =\mathbf{0}^\top
-```
-
-"""
-
-# ╔═╡ 0c00a9a8-f903-4646-8a0d-a197993d89a3
-md"""
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-The partial derivative *w.r.t* ``z_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial z_c} = - y_c + \frac{e^{z_c}}{\sum_k e^{z_k}} = - (y_c - \hat{y}_c);
-```
-
-therefore, the gradient *w.r.t* ``\mathbf{z}`` is
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{z}}  = \left [\frac{\partial L^{(i)}}{\partial {z}_1}, \frac{\partial L^{(i)}}{\partial {z}_2}, \ldots, \frac{\partial L^{(i)}}{\partial {z}_C } \right ]^\top= - (\mathbf{y} - \hat{\mathbf{y}})
-```
-
-According to multi-variate chain rule, the gradient w.r.t ``\mathbf{w}_c`` is
-
-```math
-\begin{align}
-\frac{\partial L^{(i)}}{\partial \mathbf{w}_c^\top}  &= \sum_{j=1}^C \frac{\partial L^{(i)}}{\partial z_j} \frac{\partial z_j}{\partial \mathbf{w}_c^\top}\\
-&= - (y_1 - \hat{y}_1)\cdot \mathbf{0}^\top  \ldots - (y_c - \hat{y}_c)\cdot \mathbf{x}^\top  - (y_C - \hat{y}_C)\cdot \mathbf{0}^\top\\
-&=- (y_c - \hat{y}_c)\cdot \mathbf{x}^\top
-
-\end{align}
-```
-
-
-"""
-
-# ╔═╡ 477d1ddb-4488-4ad9-9329-24713001de2c
-aside(tip(md"""
-
-```math
-\frac{\partial z_j}{\partial \mathbf{w}_i^\top} =\begin{cases}\mathbf{x}^\top & j=i\\
-\mathbf{0}^\top & j\neq i
-\end{cases}
-```
-"""))
-
-# ╔═╡ 54ee84d1-c856-4404-86d2-c8170c430359
-md"""
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-The partial derivative *w.r.t* ``z_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial z_c} = - y_c + \frac{e^{z_c}}{\sum_k e^{z_k}} = - (y_c - \hat{y}_c);
-```
-
-therefore, the gradient *w.r.t* ``\mathbf{z}`` is
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{z}}  = \left [\frac{\partial L^{(i)}}{\partial {z}_1}, \frac{\partial L^{(i)}}{\partial {z}_2}, \ldots, \frac{\partial L^{(i)}}{\partial {z}_C } \right ]^\top= - (\mathbf{y} - \hat{\mathbf{y}})
-```
-
-According to multi-variate chain rule, the gradient w.r.t ``\mathbf{w}_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{w}_c^\top}  = \sum_{j=1}^C \frac{\partial L^{(i)}}{\partial z_j} \frac{\partial z_j}{\partial \mathbf{w}_c}=- (y_c - \hat{y}_c)\cdot \mathbf{x}^\top
-```
-
-
-Finally, the gradient w.r.t ``\mathbf{W}`` is
-
-```math
-\large
-\frac{\partial L^{(i)}}{\partial \mathbf{W}}  = \begin{bmatrix}\frac{\partial L^{(i)}}{\partial \mathbf{w}_1^\top} \\ \frac{\partial L^{(i)}}{\partial \mathbf{w}_2^\top}\\ \vdots \\ \frac{\partial L^{(i)}}{\partial \mathbf{w}_C^\top}\end{bmatrix} = \begin{bmatrix}- (y_1 - \hat{y}_1)\\ - (y_2 - \hat{y}_2)\\ \vdots \\- (y_C - \hat{y}_C)\end{bmatrix}\cdot [\rule[.5ex]{2.5ex}{0.5pt} \,\, \mathbf{x}^\top \rule[.5ex]{2.5ex}{0.5pt}]
-```
-"""
-
-# ╔═╡ 2d470200-a598-4645-ba01-8814f2af189d
-md"""
-
-Note that gradient for ``\mathbf{b}`` can be readily obtained by augmenting the input with a dummy ``1``:
-
-```math
-\frac{\partial L^{(i)}}{\partial \tilde{\mathbf{ W}}}  = \begin{bmatrix}[\frac{\partial L^{(i)}}{\partial b_1} & \frac{\partial L^{(i)}}{\partial  \mathbf{w}_1^\top}] \\ [\frac{\partial L^{(i)}}{\partial b_2} & \frac{\partial L^{(i)}}{\partial \mathbf{w}_2^\top}]\\ \vdots \\ [\frac{\partial L^{(i)}}{\partial b_C} & \frac{\partial L^{(i)}}{\partial  \mathbf{w}_C^\top}]\end{bmatrix} = \begin{bmatrix}- (y_1 - \hat{y}_1)\\ - (y_2 - \hat{y}_2)\\ \vdots \\- (y_C - \hat{y}_C)\end{bmatrix}\cdot [1, \;\;\rule[.5ex]{2.5ex}{0.5pt} \,\, \mathbf{x}^\top \rule[.5ex]{2.5ex}{0.5pt}]
-```
-
-Therefore ,
-```math
-\frac{\partial L^{(i)}}{\partial {\mathbf{b}}}  = \begin{bmatrix}\frac{\partial L^{(i)}}{\partial b_1}\\ \frac{\partial L^{(i)}}{\partial b_2} \\ \vdots \\ \frac{\partial L^{(i)}}{\partial b_C} \end{bmatrix} = \begin{bmatrix}- (y_1 - \hat{y}_1)\\ - (y_2 - \hat{y}_2)\\ \vdots \\- (y_C - \hat{y}_C)\end{bmatrix}\cdot 1 = - (\mathbf{y} -\hat{\mathbf{y}})
-```
-"""
-
 # ╔═╡ ba883d58-6723-458f-b9a8-a7ff9c1f0a71
 md"""
 
@@ -1563,7 +1233,8 @@ end;
 
 # ╔═╡ 9f88f71b-f339-4fbe-8368-bd1d9daefe2b
 begin
-	target = Flux.onehotbatch(Ytrain, unique(Ys))
+	labels = unique(Ys)
+	target = Flux.onehotbatch(Ytrain, labels)
 	X_input = X_train_stand[1:2, :]
 	train_loader = DataLoader((data=X_input, label=target), batchsize=50, shuffle=true);
 	imput_dim = size(X_input)[1]
@@ -1683,11 +1354,11 @@ begin
 	pred_sf_train = model(X_train_stand[1:2,:]) 
 	pred_ova_train = model2(X_train_stand[1:2,:]) 
 
-	test_acc_sf = mean(Flux.onecold(pred_sf_test, unique(Ytrain)) .==Ytest)
+	test_acc_sf = mean(Flux.onecold(pred_sf_test, labels) .==Ytest)
 	
-	test_acc_ova = mean(Flux.onecold(pred_ova_test, unique(Ytrain)) .==Ytest)
-	train_acc_sf = mean(Flux.onecold(pred_sf_train, unique(Ytrain)) .==Ytrain)
-	train_acc_ova = mean(Flux.onecold(pred_ova_train, unique(Ytrain)) .==Ytrain)
+	test_acc_ova = mean(Flux.onecold(pred_ova_test, labels) .==Ytest)
+	train_acc_sf = mean(Flux.onecold(pred_sf_train, labels) .==Ytrain)
+	train_acc_ova = mean(Flux.onecold(pred_ova_train, labels) .==Ytrain)
 end;
 
 # ╔═╡ afe288e2-cd11-4f6a-bcae-28f8b2f8d15b
@@ -1776,7 +1447,7 @@ let
 	# if add_sf
 	plot!(plt_predicted_ova, -2.5:0.02:2.5, -2.5:0.02:2.5, (x,y) -> model2([x, y])  |> argmax, st=:heatmap, alpha=0.3, xlim = (-2.5, 2.5), c=:jet, ylim=(-2.5, 2.5), colorbar=false, title="one vs all")
 
-	plot(plt_predicted_sf, plt_predicted_ova)
+	plot(plt_predicted_sf, plt_predicted_ova, titlefontsize=12)
 end
 
 # ╔═╡ 23196682-02ae-4caf-9d75-3aba91df5b86
@@ -1817,6 +1488,7 @@ HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 MLUtils = "f1d291b0-491e-4a28-83b9-f70985020b54"
 PalmerPenguins = "8b842266-38fa-440a-9b57-31493939ab85"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
@@ -1830,28 +1502,28 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
 DataFrames = "~1.6.0"
-Distributions = "~0.25.99"
-Flux = "~0.14.1"
+Distributions = "~0.25.100"
+Flux = "~0.14.4"
 HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
-Latexify = "~0.15.21"
+Latexify = "~0.16.1"
 MLUtils = "~0.4.3"
 PalmerPenguins = "~0.1.4"
 Plots = "~1.38.17"
-PlutoTeachingTools = "~0.2.12"
+PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.51"
 StatsBase = "~0.34.0"
 StatsPlots = "~0.15.5"
-Zygote = "~0.6.62"
+Zygote = "~0.6.63"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.2"
+julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "4115328a5295627d54fae6b636e2a4cf063d82a9"
+project_hash = "1aa6f63f48323f92fb83fa3f5070b182536fab93"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1998,9 +1670,9 @@ version = "0.15.4"
 
 [[deps.CodeTracking]]
 deps = ["InteractiveUtils", "UUIDs"]
-git-tree-sha1 = "8dd599a2fdbf3132d4c0be3a016f8f1518e28fa8"
+git-tree-sha1 = "a1296f0fe01a4c3f9bf0dc2934efbf4416f5db31"
 uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
-version = "1.3.2"
+version = "1.3.4"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -2010,9 +1682,9 @@ version = "0.7.2"
 
 [[deps.ColorSchemes]]
 deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "PrecompileTools", "Random"]
-git-tree-sha1 = "dd3000d954d483c1aad05fe1eb9e6a715c97013e"
+git-tree-sha1 = "d9a8f86737b665e15a9641ecbac64deef9ce6724"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.22.0"
+version = "3.23.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -2175,9 +1847,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.Distributions]]
 deps = ["FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SpecialFunctions", "Statistics", "StatsAPI", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "27a18994a5991b1d2e2af7833c4f8ecf9af6b9ea"
+git-tree-sha1 = "938fe2981db009f531b6332e31c58e9584a2f9bd"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.99"
+version = "0.25.100"
 
     [deps.Distributions.extensions]
     DistributionsChainRulesCoreExt = "ChainRulesCore"
@@ -2262,10 +1934,15 @@ version = "0.9.20"
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
-deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "f372472e8672b1d993e93dada09e23139b509f9e"
+deps = ["LinearAlgebra", "Random"]
+git-tree-sha1 = "a20eaa3ad64254c61eeb5f230d9306e937405434"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "1.5.0"
+version = "1.6.1"
+weakdeps = ["SparseArrays", "Statistics"]
+
+    [deps.FillArrays.extensions]
+    FillArraysSparseArraysExt = "SparseArrays"
+    FillArraysStatisticsExt = "Statistics"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -2275,9 +1952,9 @@ version = "0.8.4"
 
 [[deps.Flux]]
 deps = ["Adapt", "ChainRulesCore", "Functors", "LinearAlgebra", "MLUtils", "MacroTools", "NNlib", "OneHotArrays", "Optimisers", "Preferences", "ProgressLogging", "Random", "Reexport", "SparseArrays", "SpecialFunctions", "Statistics", "Zygote"]
-git-tree-sha1 = "e0a829d77e750a916a52df71b82fde7f6b336a92"
+git-tree-sha1 = "723a8ec75b26fe278256c89c363e370ba733c12e"
 uuid = "587475ba-b771-5e3f-ad9e-33799f191a9c"
-version = "0.14.1"
+version = "0.14.4"
 
     [deps.Flux.extensions]
     FluxAMDGPUExt = "AMDGPU"
@@ -2305,9 +1982,9 @@ version = "0.4.2"
 
 [[deps.ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions"]
-git-tree-sha1 = "00e252f4d706b3d55a8863432e742bf5717b498d"
+git-tree-sha1 = "cf0fe81336da9fb90944683b8c41984b08793dad"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.35"
+version = "0.10.36"
 weakdeps = ["StaticArrays"]
 
     [deps.ForwardDiff.extensions]
@@ -2361,9 +2038,9 @@ version = "0.72.9"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "FreeType2_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt6Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "f61f768bf090d97c532d24b64e07b237e9bb7b6b"
+git-tree-sha1 = "1596bab77f4f073a14c62424283e7ebff3072eca"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.72.9+0"
+version = "0.72.9+1"
 
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
@@ -2443,9 +2120,9 @@ version = "1.4.0"
 
 [[deps.IntelOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "0cb9352ef2e01574eeebdb102948a58740dcaf83"
+git-tree-sha1 = "ad37c091f7d7daf900963171600d7c1c5c3ede32"
 uuid = "1d5cc7b8-4909-519e-a0f8-d0f5ad9712d0"
-version = "2023.1.0+0"
+version = "2023.2.0+0"
 
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
@@ -2479,10 +2156,10 @@ uuid = "1019f520-868f-41f5-a6de-eb00f4b6a39c"
 version = "0.1.5"
 
 [[deps.JLLWrappers]]
-deps = ["Preferences"]
-git-tree-sha1 = "abc9885a7ca2052a736a600f7fa66209f96506e1"
+deps = ["Artifacts", "Preferences"]
+git-tree-sha1 = "7e5d6779a1e09a36db2a7b6cff50942a0a7d0fca"
 uuid = "692b3bcd-3c85-4b1f-b108-f13ce0eb3210"
-version = "1.4.1"
+version = "1.5.0"
 
 [[deps.JSON]]
 deps = ["Dates", "Mmap", "Parsers", "Unicode"]
@@ -2498,9 +2175,9 @@ version = "2.1.91+0"
 
 [[deps.JuliaInterpreter]]
 deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
-git-tree-sha1 = "6a125e6a4cb391e0b9adbd1afa9e771c2179f8ef"
+git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
 uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
-version = "0.9.23"
+version = "0.9.25"
 
 [[deps.JuliaVariables]]
 deps = ["MLStyle", "NameResolution"]
@@ -2569,20 +2246,16 @@ version = "1.3.0"
 
 [[deps.Latexify]]
 deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "OrderedCollections", "Printf", "Requires"]
-git-tree-sha1 = "8c57307b5d9bb3be1ff2da469063628631d4d51e"
+git-tree-sha1 = "f428ae552340899a935973270b8d98e5a31c49fe"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-version = "0.15.21"
+version = "0.16.1"
 
     [deps.Latexify.extensions]
     DataFramesExt = "DataFrames"
-    DiffEqBiologicalExt = "DiffEqBiological"
-    ParameterizedFunctionsExt = "DiffEqBase"
     SymEngineExt = "SymEngine"
 
     [deps.Latexify.weakdeps]
     DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-    DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
-    DiffEqBiological = "eb300fae-53e8-50a0-950c-e21f52c2b7e0"
     SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
 
 [[deps.LazyArtifacts]]
@@ -2665,9 +2338,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "c3ce8e7420b3a6e071e0fe4745f5d4300e37b13f"
+git-tree-sha1 = "7d6dd4e9212aebaeed356de34ccf262a3cd415aa"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.24"
+version = "0.3.26"
 
     [deps.LogExpFunctions.extensions]
     LogExpFunctionsChainRulesCoreExt = "ChainRulesCore"
@@ -2684,9 +2357,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.LoggingExtras]]
 deps = ["Dates", "Logging"]
-git-tree-sha1 = "cedb76b37bc5a6c702ade66be44f831fa23c681e"
+git-tree-sha1 = "a03c77519ab45eb9a34d3cfe2ca223d79c064323"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
-version = "1.0.0"
+version = "1.0.1"
 
 [[deps.LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
@@ -2701,9 +2374,9 @@ version = "0.1.4"
 
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
-git-tree-sha1 = "154d7aaa82d24db6d8f7e4ffcfe596f40bff214b"
+git-tree-sha1 = "eb006abbd7041c28e0d16260e50a24f8f9104913"
 uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
-version = "2023.1.0+0"
+version = "2023.2.0+0"
 
 [[deps.MLStyle]]
 git-tree-sha1 = "bc38dff0548128765760c79eb7388a4b37fae2c8"
@@ -2718,9 +2391,9 @@ version = "0.4.3"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
-git-tree-sha1 = "42324d08725e200c23d4dfb549e0d5d89dede2d2"
+git-tree-sha1 = "9ee1618cbf5240e6d4e0371d6f24065083f60c48"
 uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
-version = "0.5.10"
+version = "0.5.11"
 
 [[deps.Markdown]]
 deps = ["Base64"]
@@ -2858,9 +2531,9 @@ version = "0.5.5+0"
 
 [[deps.Optimisers]]
 deps = ["ChainRulesCore", "Functors", "LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "16776280310aa5553c370b9c7b17f34aadaf3c8e"
+git-tree-sha1 = "af65afa916284e6c7e89f0ab974500cc9235618e"
 uuid = "3bd65402-5787-11e9-1adc-39752487f4e2"
-version = "0.2.19"
+version = "0.3.0"
 
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -2958,9 +2631,9 @@ version = "0.1.6"
 
 [[deps.PlutoTeachingTools]]
 deps = ["Downloads", "HypertextLiteral", "LaTeXStrings", "Latexify", "Markdown", "PlutoLinks", "PlutoUI", "Random"]
-git-tree-sha1 = "45f9e1b6f62a006a585885f5eb13fc22554a8865"
+git-tree-sha1 = "542de5acb35585afcf202a6d3361b430bc1c3fbd"
 uuid = "661c6b06-c737-4d37-b85c-46df65de6f69"
-version = "0.2.12"
+version = "0.2.13"
 
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
@@ -2976,9 +2649,9 @@ version = "1.4.2"
 
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
-git-tree-sha1 = "9673d39decc5feece56ef3940e5dafba15ba0f81"
+git-tree-sha1 = "03b4c25b43cb84cee5c90aa9b5ea0a78fd848d2f"
 uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
-version = "1.1.2"
+version = "1.2.0"
 
 [[deps.Preferences]]
 deps = ["TOML"]
@@ -3156,9 +2829,9 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[deps.SpecialFunctions]]
 deps = ["IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "7beb031cf8145577fbccacd94b8a8f4ce78428d3"
+git-tree-sha1 = "e2cfc4012a19088254b3950b85c3c1d8882d864d"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.3.0"
+version = "2.3.1"
 weakdeps = ["ChainRulesCore"]
 
     [deps.SpecialFunctions.extensions]
@@ -3312,9 +2985,9 @@ uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
 version = "0.1.7"
 
 [[deps.URIs]]
-git-tree-sha1 = "074f993b0ca030848b897beff716d93aca60f06a"
+git-tree-sha1 = "b7a5e99f24892b6824a954199a45e9ffcc1c70f0"
 uuid = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
-version = "1.4.2"
+version = "1.5.0"
 
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
@@ -3331,9 +3004,9 @@ version = "0.4.1"
 
 [[deps.Unitful]]
 deps = ["Dates", "LinearAlgebra", "Random"]
-git-tree-sha1 = "1cd9b6d3f637988ca788007b7466c132feebe263"
+git-tree-sha1 = "a72d22c7e13fe2de562feda8645aa134712a87ee"
 uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
-version = "1.16.1"
+version = "1.17.0"
 
     [deps.Unitful.extensions]
     ConstructionBaseUnitfulExt = "ConstructionBase"
@@ -3414,9 +3087,9 @@ version = "1.1.34+0"
 
 [[deps.XZ_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "2222b751598bd9f4885c9ce9cd23e83404baa8ce"
+git-tree-sha1 = "cf2c7de82431ca6f39250d2fc4aacd0daa1675c0"
 uuid = "ffd25f8a-64ca-5728-b0f7-c24cf3aae800"
-version = "5.4.3+1"
+version = "5.4.4+0"
 
 [[deps.Xorg_libX11_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libxcb_jll", "Xorg_xtrans_jll"]
@@ -3557,9 +3230,9 @@ version = "1.5.5+0"
 
 [[deps.Zygote]]
 deps = ["AbstractFFTs", "ChainRules", "ChainRulesCore", "DiffRules", "Distributed", "FillArrays", "ForwardDiff", "GPUArrays", "GPUArraysCore", "IRTools", "InteractiveUtils", "LinearAlgebra", "LogExpFunctions", "MacroTools", "NaNMath", "PrecompileTools", "Random", "Requires", "SparseArrays", "SpecialFunctions", "Statistics", "ZygoteRules"]
-git-tree-sha1 = "5be3ddb88fc992a7d8ea96c3f10a49a7e98ebc7b"
+git-tree-sha1 = "e2fe78907130b521619bc88408c859a472c4172b"
 uuid = "e88e6eb3-aa80-5325-afca-941959d7151f"
-version = "0.6.62"
+version = "0.6.63"
 
     [deps.Zygote.extensions]
     ZygoteColorsExt = "Colors"
@@ -3652,6 +3325,7 @@ version = "1.4.1+0"
 # ╟─e1d678d8-5a54-4f11-8fc6-5938c732c971
 # ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
 # ╟─53fece27-0cf8-42ac-a2d1-a60dafde5820
+# ╟─587b7208-2559-4e4d-958c-09b0eec20caf
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
 # ╟─a0c70958-56fc-4536-ac9a-c5feea3e025b
@@ -3745,17 +3419,6 @@ version = "1.4.1+0"
 # ╟─afe288e2-cd11-4f6a-bcae-28f8b2f8d15b
 # ╟─e838d2d1-46e5-4039-ba66-6ce9c228fc69
 # ╟─0826acba-18ca-441d-a802-7482b2c17faf
-# ╟─f1b3460a-525f-4dcb-88c0-dfb016f4cc1a
-# ╟─d9d59d83-57cf-4c04-8a00-939c55bc5844
-# ╟─99e62f1e-4401-4e57-9706-6a534bf0d32e
-# ╟─457eeca6-b53b-4a55-b854-dc18c63405d4
-# ╟─21a7065a-b2bc-4999-bdc1-f64436b7302e
-# ╟─aec48a4c-89a3-46ce-a47f-a96f370edef3
-# ╟─29d42ace-2fce-4472-8c93-bd291be25e91
-# ╟─0c00a9a8-f903-4646-8a0d-a197993d89a3
-# ╟─477d1ddb-4488-4ad9-9329-24713001de2c
-# ╟─54ee84d1-c856-4404-86d2-c8170c430359
-# ╟─2d470200-a598-4645-ba01-8814f2af189d
 # ╟─ba883d58-6723-458f-b9a8-a7ff9c1f0a71
 # ╠═41b227d5-fbbc-49f2-9d79-f928a7e66a3f
 # ╠═b6cd5910-4cee-4ac5-81b8-a3bf75da15f0
