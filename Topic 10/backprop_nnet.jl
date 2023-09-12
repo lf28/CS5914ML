@@ -4,16 +4,6 @@
 using Markdown
 using InteractiveUtils
 
-# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
-macro bind(def, element)
-    quote
-        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
-        local el = $(esc(element))
-        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
-        el
-    end
-end
-
 # ╔═╡ 9f90a18b-114f-4039-9aaf-f52c77205a49
 begin
 	using LinearAlgebra
@@ -25,15 +15,32 @@ begin
 	using Statistics
 	using HypertextLiteral
 	using Plots; default(fontfamily="Computer Modern", framestyle=:box) # LaTex-style
-	using Distributions
-	using StatsPlots
+	
 end
-
-# ╔═╡ 58204d30-9975-4546-8591-64dc44b3524b
-using Zygote
 
 # ╔═╡ 3e2e1ea8-3a7d-462f-ac38-43a087907a14
 TableOfContents()
+
+# ╔═╡ 275e626f-026b-4167-acaa-d9faa590bed7
+figure_url = "https://leo.host.cs.st-andrews.ac.uk/figs/";
+
+# ╔═╡ f6bbddfe-d23d-44d9-ba13-237c55b9567d
+function show_img(path_to_file; center=true, h = 400, w = nothing)
+	if center
+		if isnothing(w)
+			@htl """<center><img src= $(figure_url * path_to_file) height = '$(h)' /></center>"""
+		else
+			@htl """<center><img src= $(figure_url * path_to_file) width = '$(w)' /></center>"""
+		end
+
+	else
+		if isnothing(w)
+			@htl """<img src= $(figure_url * path_to_file) height = '$(h)' />"""
+		else
+			@htl """<img src= $(figure_url * path_to_file) width = '$(w)' />"""
+		end
+	end
+end;
 
 # ╔═╡ 7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 ChooseDisplayMode()
@@ -44,7 +51,7 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Probabilistic regression extensions
+#### Backpropagation
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -57,642 +64,1134 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 
 """
 
-# ╔═╡ fc4bb806-0c85-48d9-b4af-ed957af361d3
+# ╔═╡ 66906daa-899e-4083-98f3-09ae0fec90da
 md"""
 
-# Robust regression
-
+## Recap: backprop summary
 """
 
-# ╔═╡ a19e9007-e5b3-44d9-a071-92443ab21e28
+# ╔═╡ b1dcd923-5170-4aca-ac43-936d36c98a47
+show_img("CS5914/backprop/backprop_withfork.png", w=800)
+
+# ╔═╡ a87e105a-8ee3-45cb-9c8e-2fb0dd545c1f
 md"""
 
-## Why bother MLE?
+# Backpropagation for Neural Networks
+"""
+
+# ╔═╡ 787e8400-547d-4539-822a-31e97117148f
+md"""
 
 
-The likelihood function provides a **principled approach** to define *goodness* via negative log likelihood
+## The ground rules for backprop
+
+
+##### The first rule -- dimension match rule
+
+\
+
+
+It seems **daunting** to apply back propagation to _matricies and vectors_; 
+* _matrix calculus_ indeed can be a bit tricky!
+
+> ###### But if we stick to some *ground rules*, it is actually pretty straightforward!
+"""
+
+# ╔═╡ e027c8ff-dc8c-4d01-b53e-ac180f0bd7f6
+md"""
+
+
+## The ground rules for backprop
+
+
+##### The first rule -- dimension match rule
+
+\
+
+
+It seems **daunting** to apply back propagation to _matricies and vectors_; 
+* matrix calculus is indeed a bit complicated!
+
+###### But if we stick to some *ground rules*, it is actually pretty straightforward!
+
+\
+
+!!! important "The fundamental ground rule"
+	For all scalar valued output function (*e.g* the loss is a scalar for all neural nets), 
+	> the gradient of ``\bar{\mathbf{W}}`` has the same dimension as ``\mathbf{W}``
+	>
+	> *i.e.* `W̄.shape == W.shape`
+
+##
+
+*e.g.* if ``\mathbf{W}`` is a 2 by 3 matrix, 
 
 ```math
-\large
-\text{loss}(\mathbf{w}) = - \ln p(y^{(i)}|\mathbf{x}^{(i)}) 
+	{\mathbf{W}} = \begin{bmatrix} {W}_{1,1} & {W}_{1,2}  & {W}_{1,3} \\
+	{W}_{2,1} &  {W}_{2,2}  &  {W}_{2,3}
+	\end{bmatrix}_{2\times 3}
 ```
 
+Then its the gradient or adjoint is also ``2\times 3``
 
-* different models/loss depending on the nature of your data
+```math
+	\bar{\mathbf{W}} = \frac{\partial l}{ \partial \mathbf{W}} = \begin{bmatrix}\frac{\partial l}{\partial {W}_{1,1}} & \frac{\partial l}{\partial {W}_{1,2}}  & \frac{\partial l}{\partial {W}_{1,3}} \\
+	\frac{\partial l}{\partial {W}_{2,1}} & \frac{\partial l}{\partial {W}_{2,2}}  & \frac{\partial l}{\partial {W}_{2,3}}
+	\end{bmatrix}_{2\times 3}
+```
 
-  * *e.g.* ``y^{(i)}`` is continuous but noisy, we can assume Laplace or Cauchy likelihood for ``y^{(i)}``
-    * robust regression
-
-  * *e.g.* ``y^{(i)}`` is continuous but ``\sigma^2`` is not constant but depend on ``x^{(i)}``
-    * heterogeneous regression
-
+* this is straighforward but proved to be the most important and useful !
 
 """
 
-# ╔═╡ 0d0559e1-41b7-414d-83ee-6c1271baf1e7
-plt_heter = let
-	Random.seed!(123)
-	n0 = 200
-	xs = range(-0.5, 1; length = n0)
-	true_w = [1, 3]
-	true_σ = [0, 1]
-	lnσ = true_σ[1] .+ true_σ[2] * xs 
-	ys = true_w[1] .+ 3 * xs +  exp.(lnσ).* randn(n0)
-	plt = plot(xs, ys, st=:scatter, framestyle=:origin, label="observations", legend=:topleft, size=(300,300), ms=3, alpha=.5)
-	# plot!(xs_new, ys_outliers, st=:scatter, framestyle=:origin, label="outliers", legend=:topright)
-	# w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=3, lc=1, label="the true signal: " * L"h(x)", title="Heterogeneous noise")
-
-	xis = range(-.5, 1; length = 8)
-	for i in 1:length(xis)
-		x = xis[i]
-		μi = dot(true_w, [1, x])
-		σ = exp(true_σ[1] .+ true_σ[2] * x)
-		xs_ = μi- 4 * σ :0.1:μi+ 4 * σ
-		ys_ = pdf.(Normal(μi, σ), xs_)
-		ys_ = 0.1 *ys_ ./ maximum(ys_)
-		plot!(ys_ .+x, xs_, c=:grey, label="", linewidth=1)
-		# scatter!([xis[i]],[ys[i]], markershape = :circle, label="", c=1, markersize=4)
-	end
-	plt
-end;
-
-# ╔═╡ 173b7d36-4b5a-4297-b462-3d16fc564f41
-begin
-	Random.seed!(123)
-	n_obs = 100
-	# the input x is fixed; non-random
-	xs = range(-0.5, 1; length = n_obs)
-	true_w = [1.0, 1.0]
-	true_σ² = 0.05
-	ys = zeros(n_obs)
-	for (i, xⁱ) in enumerate(xs)
-		hⁱ = true_w' * [1, xⁱ]
-		ys[i] = hⁱ + rand(Normal(0, sqrt(true_σ²)))
-	end
-end
-
-# ╔═╡ 771b7002-24c3-44a9-994f-6522afb57dcd
-plt_out=let
-	Random.seed!(123)
-	n0 = 100
-	xs_new = collect(range(-0.55, -0.4, length=4))
-	ys_outliers = ones(length(xs_new)) * 5 + randn(length(xs_new))/5
-	xs_out = [xs; xs_new]
-	ys_out = [ys; ys_outliers]
-	outlier_plt = plot(xs, ys, st=:scatter, framestyle=:origin, c=1, alpha=.5, label="observations", legend=:topleft)
-	plot!(xs_new, ys_outliers, st=:scatter, framestyle=:origin,c=1, label="outliers", legend=:topright)
-	w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=3, lc=1, label="the true signal: " * L"h(x)", size=(300,300),  title="Outlier observations")
-	outlier_plt
-end;
-
-# ╔═╡ d04bc149-4815-40bc-9d65-c68cc107c5bb
-plot(plot(plt_out, title="Robust regression",size=(300,300)), plt_heter, size=(600,300))
-
-# ╔═╡ 7cdd0017-f485-4ded-a0f8-7f8635761b68
+# ╔═╡ e3926356-1f43-4fc0-8325-e9d84c4a5752
 md"""
-
-## Why bother MLE ?
-
-And nearly all discriminative ML models are *probabilistic regression* model
-  * **Binary classification**:  ``y^{(i)}`` is binary, we can assume Bernoulli likelihood for ``y^{(i)}``
-    * logistic regression 
-  * **Multi-class classification**:  ``y^{(i)}`` is categorical, we can assume Multinoulli likelihood for ``y^{(i)}``
-    * softmax regression 
-  * **Others**: ``y^{(i)}`` is count data, # of visitors of a webpage, we can assume a Poisson likelihood
-    * Poisson regression
-"""
-
-# ╔═╡ dd55a282-9e21-4111-9c2d-372d3eee26ce
-md"""
-
-
-## Outliers -- robust linear regression
-
-If our dataset contains outliers...
-
-* `Gaussian` likelihood is not *robust* to outliers
-* 4 noisy outliers change the regression line a lot
-"""
-
-# ╔═╡ 5e6b83d7-3551-4b5c-96c2-366bf8eb33e4
-md"Add `Gaussian` likelihood fit: $(@bind add_gaussian_plt CheckBox(default=false))"
-
-# ╔═╡ bbb449e1-f6ba-40fa-a892-09786419cda1
-md"""
-
-## `Laplace` distribution
+## Recap: scalar product `(*)` gate
 
 
 ```math
 \large
-	p(y|\mu, \sigma) = \frac{1}{2\sigma}\exp\left (-\frac{|y -\mu|}{\sigma}\right )
+\begin{gather}
+w * x =x*w= z\\
+\end{gather}
+```
+
+_for example_
+
+```math
+\begin{gather}
+2 * x = 2x \\
+4 * 3 = 12
+\end{gather}
 ```
 
 
-* ``\mu``: location
-* ``\sigma``: scale
 """
 
-# ╔═╡ 97fca6ae-f19c-4440-a5ca-633af08910e5
-md"Add `Gaussian` $(@bind add_gaussian CheckBox(default=false)),
-Add `Laplace` samples $(@bind add_lap_s CheckBox(default=false)),
-Add `Gaussian` samples $(@bind add_gauss_s CheckBox(default=false))
-"
+# ╔═╡ b342c23d-a7d4-4b62-adfc-ba29f02f8841
+md"""
+##
+###### Scalar _mult_ (*) behaves like an _exchanger_ in backward pass
+* _exchange_ the input signal
+"""
 
-# ╔═╡ a63881f1-9248-4052-ad56-04767d680f38
-let
-	# gr()
-	# μs = [ 0, 3]
-	# σ²s = [1 , 2 , 5]
-	Random.seed!(123456)
-	nn = 400
-	ys = rand(Laplace(), nn)
-	plt_gaussian = plot(title="Gaussian/Laplace distributions", xlabel=L"y",ylabel=L"p(y)", framestyle=:origin)
+# ╔═╡ 523828cf-2873-4842-8814-9ba4e6f65c56
+show_img("CS5914/backprop/scalar_prod_gate.svg", h=350)
 
-
-	plot!(plt_gaussian, -4.5:0.1:4.5, (x) -> pdf(Laplace(0, sqrt(1)), x), fill=true, alpha=0.5, label=L"\texttt{Laplace}(μ=0, σ=1)", c=1)
-
-	if add_gaussian
-		plot!(plt_gaussian, -4.5:0.1:4.5, (x) -> pdf(Normal(0, sqrt(1)), x), fill=true, alpha=0.5, label=L"\mathcal{N}(μ=0, σ^2=1)", c=2)
-	end
-
-
-	if add_lap_s
-		scatter!(ys, zeros(length(ys)) .-0.05, c=1,  markersize=3, alpha=.4, label="Laplace samples")
-	end
-
-	if add_gauss_s
-		ys_gaus = randn(nn)
-		scatter!(ys_gaus, zeros(length(ys)) .-0.025, c=2,  markersize=3, alpha=.4, label="Gaussian samples")
-	end
-
-	plt_gaussian
-	# # end
-	# plt_gaussian
-end
-
-# ╔═╡ 7cdf569c-a944-45ad-b672-c6e73cc7eacc
+# ╔═╡ 966d4638-ddfa-44c0-ba48-d1cd929fb59a
 md"""
 
-
-## Robust linear regression
-
-Just replace the `Gaussian` with `Laplace`!
-
-$$\large y^{(i)} = \mathbf{w}^\top \mathbf{x}^{(i)} + \epsilon^{(i)}, \;\; \epsilon^{(i)} \sim  \texttt{Laplace}(0, \sigma)$$
-
-which implies 
-
-$\large \begin{align}p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) &= \texttt{Laplace}(y^{(i)};  \mathbf{w}^\top \mathbf{x}^{(i)} , \sigma)\\
-&= \frac{1}{2\sigma}\text{exp}\left (-\frac{|y^{(i)}-{\mathbf{w}}^\top\mathbf{x}^{(i)}|}{\sigma}\right)\end{align}$
-
-* ``y^{(i)}`` is a univariate Laplace with mean $\mathbf{w}^\top \mathbf{x}^{(i)}$ and scale $\sigma$ 
+## How about other multiplications ?
 
 """
 
-# ╔═╡ 085f5bb8-0f1b-47b2-94a0-2f93629e446e
-md"``x_i`` $(@bind xᵢ0_lap Slider(-0.5:0.1:1, default=0.15));	``\sigma`` $(@bind σ0_lap Slider(0.01:0.01:0.5, default=0.1))"
-
-# ╔═╡ 996276c4-e8af-4c06-a5f5-bb7b63e1b744
-md"input $x^{(i)}=$ $(xᵢ0_lap); and ``\sigma =`` $(σ0_lap)"
-
-# ╔═╡ a373376c-368b-45b9-9a97-e0392d78c077
-begin
-	Random.seed!(123)
-	yy_laplace = true_w[1] .+ xs * true_w[2] + rand(Laplace(0, σ0_lap), n_obs);
-end;
-
-# ╔═╡ f5e88531-0cc4-49bc-93b3-f763b7c64e2b
-let
-	gr()
-	σ0 = σ0_lap
-	xᵢ0 = xᵢ0_lap
-	b_1 = 3.0
-	p_lr = plot(title="Robust regression's probabilistic model",legend=:bottomright)
-	β0 = true_w
-	n0 = n_obs
-	# xx = [ones(n0) collect(xs)]
-	yy = yy_laplace
-	plot!(xs, yy, st=:scatter, ylim=[0, 3],framestyle=:origin, label="observations", legend=:topleft)
-	plot!(-0.5:0.1:1.0, x->β0[1]+β0[2]*x, c= 1, linewidth=5, label="",  ylim=[0, 3],framestyle=:origin)
-	# xis = [-0.35, -0.2, 0, 0.25, 0.5, 0.75, 0.99, xᵢ0]
-	xis = [range(-0.5, 1.0, 8)...]
-	push!(xis, xᵢ0)
-	for i in 1:length(xis)
-		x = xis[i]
-		μi = dot(β0, [1, x])
-		σ = σ0
-		xs_ = μi- 4*σ :0.01:μi+ 4 *σ
-		ys_ = pdf.(Laplace(μi, σ), xs_)
-		ys_ = 0.1 *ys_ ./ maximum(ys_)
-		if i == length(xis)
-			scatter!([x],[μi], markerstrokewidth =2, markershape = :diamond, c=:red, label=L"h(x)", markersize=6)
-			plot!(ys_ .+x, xs_, c=:red, label="", linewidth=3)
-		else
-			plot!(ys_ .+x, xs_, c=:gray, label="", linewidth=1)
-			# scatter!([x],[μi], markerstrokewidth =2, markershape = :diamond, label="μ @ x="*string(x))
-		end
-		
-	end
-	p_lr	
-end
-
-# ╔═╡ 7dea21ce-04b6-424d-9d14-464aa901918e
+# ╔═╡ 1eebc467-e8ed-4119-b379-f16311a26268
 md"""
-## Log-likelihood and MLE
+### Scalar product `(*)`
 
-Based on the `Laplace`'s likelihood
+```math
+\begin{gather}
+w * x =x*w= z\\
+\end{gather}
+```
 
-$\large p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) = \frac{1}{2\sigma}\text{exp}\left (-\frac{|y^{(i)}-{\mathbf{w}}^\top\mathbf{x}^{(i)}|}{\sigma}\right)$
+_for example_
+
+```math
+\begin{gather}
+2 * 4 = 8 \\
+4 * 3 = 12
+\end{gather}
+```
+
+**Backward pass**
+
+```math
+\overline{w} = x \overline{z}; \;\; \overline{x} = w \overline{z}\quad \# \text{gradient exchanger }
+```
 
 
-The log-transformed likelihood for ``y^{(i)}`` therefore is
+### Inner product `(*⊤)`
 
-$$\large\ln p({y}^{(i)}| \mathbf{w}, \sigma, \mathbf{x}^{(i)}) = -\ln 2\sigma -\frac{1}{\sigma}|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|$$
-
-## Log-likelihood and MLE
-
-Based on the `Laplace`'s likelihood
-
-$\large p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) = \frac{1}{2\sigma}\text{exp}\left (-\frac{|y^{(i)}-{\mathbf{w}}^\top\mathbf{x}^{(i)}|}{\sigma}\right)$
-
-
-The log-transformed likelihood for ``y^{(i)}`` therefore is
-
-$$\large\ln p({y}^{(i)}| \mathbf{w}, \sigma, \mathbf{x}^{(i)}) = -\ln 2\sigma -\frac{1}{\sigma}|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|$$
-
-The log-likelihood of the whole training data is 
-
-$$\large \begin{align}\ell (\mathbf{w}, \sigma) &= \ln p(\mathcal{D}|\mathbf{w}, \sigma) \\
-&= \sum_{i=1}^n \ln p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma)\\
-&= -n \ln 2\sigma -\frac{1}{\sigma} \underbrace{\sum_{i=1}^n|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|}_{\text{sum of absolute deviations!}}
+$$\begin{align}
+\mathbf{w}^\top\mathbf{x} &= \begin{bmatrix}w_1&\ldots & w_n\end{bmatrix} \begin{bmatrix}x_1\\ \vdots\\ x_n\end{bmatrix}\\
+&= \sum_{i=1}^n x_i w_i
 \end{align}$$
 
+* the result is a scalar
+* ###### what is its backprop pass rule?
 
-## MLE for robust regression
 
-MLE aims at **minimising** the negative log-likelihood ``\ell(\mathbf{w})``:
+"""
 
+# ╔═╡ 55606514-842f-4776-a475-3ec8d1a62d33
+md"""
+
+## How about other multiplications ?
+
+"""
+
+# ╔═╡ 7ed58d0d-fa0c-4ab9-9a08-e3e5c6e32061
+md"""
+### Scalar product `(*)`
+
+```math
+\begin{gather}
+w * x =x*w= z\\
+\end{gather}
+```
+
+_for example_
+
+```math
+\begin{gather}
+2 * 4 = 8 \\
+4 * 3 = 12
+\end{gather}
+```
+
+**Backward pass**
+
+```math
+\overline{w} = x \overline{z}; \;\; \overline{x} = w \overline{z}\quad \# \text{gradient exchanger }
+```
+
+### Inner product `(*⊤)`
+
+$$\begin{align}
+\mathbf{w}^\top\mathbf{x} &= \begin{bmatrix}w_1&\ldots & w_n\end{bmatrix} \begin{bmatrix}x_1\\ \vdots\\ x_n\end{bmatrix}\\
+&= \sum_{i=1}^n x_i w_i
+\end{align}$$
+
+* the result is a scalar
+* ###### what is its backprop pass rule?
+
+
+
+### Matrix vec product `(@)`
+\
 
 ```math
 \large
 \begin{align}
-&\;\;\;\;\;\,\hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}} -\ell (\mathbf{w}) \\
-
-&\Rightarrow \hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}}  \underbrace{\sum_{i=1}^n|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|}_{\text{sum of absolute deviations!}} + C
-
+\mathbf{W}_{n\times m}\mathbf{x}_{m\times 1} &=\mathbf{z}_{n\times 1}
 \end{align}
 ```
 
-
-"""
-
-# ╔═╡ 51f2b7fb-0ded-445d-a43e-4fe884fbe584
-md"""
-
-## Learning -- Gradient descent
-
-"""
-
-# ╔═╡ 3886400e-f985-4a69-b9cd-930bb0996eb0
-md"""
-
-Consider the ``i``-th loss only
-
+The result is a vector! and _specifically,_
 
 ```math
-\large
 \begin{align}
-	&l^{(i)}(\mathbf{w}) = |{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|\\
-
-&\nabla l^{(i)}(\mathbf{w})= ?
+\mathbf{W}_{n\times m}\mathbf{x}_{m\times 1} &=\begin{bmatrix}- & {\mathbf{w}}_1^\top&-\\
+- & {\mathbf{w}}_2^\top&-\\
+- & \vdots & -\\
+- & {\mathbf{w}}_n^\top&-\end{bmatrix}\begin{bmatrix}\mid \\ \mathbf{x} \\ \mid\end{bmatrix} =\begin{bmatrix}- & {\mathbf{w}}_1^\top\mathbf{x}&-\\
+- & {\mathbf{w}}_2^\top\mathbf{x}&-\\
+- & \vdots & -\\
+- & {\mathbf{w}}_n^\top\mathbf{x}&-\end{bmatrix} =\begin{bmatrix} z_1 \\ z_2 \\ \vdots \\ z_n\end{bmatrix}
 \end{align}
 ```
 
-* the total loss (and gradient) is just the sum (of the individual gradients)
+* ###### what is its backprop pass rule?
 
 
+##
+
+!!! important ""
+	#### _Spoiler alert_: they all behave like _exchangers_!
 """
 
-# ╔═╡ f963dd3d-2c53-46c6-b92a-6bece799af35
+# ╔═╡ fe4c6a4f-4669-4586-9438-968f56957ec4
 md"""
 
-## Learning -- Gradient descent
+## Inner product gate `(*⊤)`
 
+Recall the definition of inner product
+
+```math
+z= \mathbf{w}^\top\mathbf{x} = \sum_{i=1}^n w_ix_i
+```
+
+* and the local gradients/derivatives are 
+
+```math
+\frac{\partial z}{\partial\mathbf{x}} =\mathbf{w};\quad\frac{\partial z}{\partial\mathbf{w}} =\mathbf{x}
+```
 """
 
-# ╔═╡ 309f7945-29f6-47cc-9ef4-24483f0f3855
+# ╔═╡ 08165419-d182-4dcd-8b00-298d5514b57e
 md"""
 
-Consider the ``i``-th loss only
+## Inner product gate `(*⊤)`
 
+Recall the definition of inner product
+
+```math
+z= \mathbf{w}^\top\mathbf{x} = \sum_{i=1}^n w_ix_i
+```
+
+And the local gradients are 
+
+```math
+\frac{\partial z}{\partial\mathbf{x}} =\mathbf{w};\quad\frac{\partial z}{\partial\mathbf{w}} =\mathbf{x}
+```
+"""
+
+# ╔═╡ e3ee72fb-71f7-439e-9bc9-baa17fed2236
+# html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/inner_gate.svg
+# ' height = '350' />"
+
+show_img("CS5914/backprop/inner_gate.svg", h=350)
+
+# ╔═╡ ce015a2d-e5f6-4a92-b939-cd68d1ad8b4a
+md"""
+
+## We can also prove it 
+##### _via primitive scalar operations_
+"""
+
+# ╔═╡ 6a5fe2cf-9a4b-4fce-b14d-57a5bb53aebe
+# html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/inner1.svg
+# ' height = '350' />"
+
+show_img("CS5914/backprop/inner1.svg", h=350, center=false)
+
+# ╔═╡ f4b6dd2c-e081-4792-a106-b0d54ac21abf
+md"""
+
+## We can also prove it 
+##### via scalar operations
+"""
+
+# ╔═╡ 31f3cf61-b768-456b-9f09-0835ebea0e8a
+ThreeColumn(
+	
+# 	html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/inner1.svg
+# ' height = '350' />"
+	
+	
+	show_img("CS5914/backprop/inner1.svg", h=350, center=false), 
+	
+# 	html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/inner2.svg
+# ' height = '350' />"
+
+show_img("CS5914/backprop/inner2.svg", h=350, center=false),
+
+	md""
+)
+
+# ╔═╡ dec59caa-97f7-4f87-a6d0-223491a85f28
+md"""
+
+## We can also prove it 
+##### via scalar operations
+"""
+
+# ╔═╡ eeea5784-25a5-451d-b9cb-a698f32318bc
+ThreeColumn(# 	html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/inner1.svg
+# ' height = '350' />"
+	
+	
+	show_img("CS5914/backprop/inner1.svg", h=350, center=false), 
+	
+# 	html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/inner2.svg
+# ' height = '350' />"
+
+show_img("CS5914/backprop/inner2.svg", h=350, center=false), 
+# 	html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/inner4.png
+# ' height = '350' />"
+show_img("CS5914/backprop/inner3_.png", h=350, center=false)
+
+)
+
+# ╔═╡ 82acafee-7dc1-46b7-8f90-05e67c6a576f
+md"""
+
+## We can also prove it 
+##### via scalar operations
+"""
+
+# ╔═╡ f9880eb7-28c7-4f25-894f-1796afb454ed
+ThreeColumn(# 	html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/inner1.svg
+# ' height = '350' />"
+	
+	
+	show_img("CS5914/backprop/inner1.svg", h=350, center=false), 
+	
+# 	html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/inner2.svg
+# ' height = '350' />"
+
+show_img("CS5914/backprop/inner2.svg", h=350, center=false), 
+# 	html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/inner4.png
+# ' height = '350' />"
+show_img("CS5914/backprop/inner4_.png", h=350, center=false)
+
+)
+
+# ╔═╡ 35272852-ae8a-4245-b62e-4cbb311a0fe9
+md"""
+
+## Matrix mult gate `(@)`
+
+How about matrix **times** vector
 
 ```math
 \large
-\begin{align}
-	&l^{(i)}(\mathbf{w}) = |{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|\\
-
-&\nabla l^{(i)}(\mathbf{w})= ?
-\end{align}
+\mathbf{z}= \mathbf{W}\mathbf{x} 
 ```
-
-* the total loss (and gradient) is just the sum (of the individual gradients)
-
-Note that
-
-```math
-\large
-l^{(i)}(\mathbf{w}) = \begin{cases} {y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ -{y}^{(i)}+\mathbf{w}^\top\mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases} 
-```
-
-
 
 """
 
-# ╔═╡ 6d1c080e-0523-46a2-b3f3-0f91a595d351
-aside(tip(plot(abs, size=(275,200),lw=2, title=L"f(x)=|x|", label="")))
+# ╔═╡ 95e1dd06-33c4-45b9-b453-4bd0a62887e2
+# html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/matmul_gate_.svg
+# ' height = '300' /><center>"
+show_img("CS5914/backprop/matmul_gate_.svg", h=300)
 
-# ╔═╡ 7084f202-3d8f-42ff-b3be-0717612b345d
+# ╔═╡ dd7621ad-0dfd-4412-9fb5-5fe352c84e91
 md"""
+## How to remember it?
 
-## Learning -- Gradient descent
 
-"""
 
-# ╔═╡ db222925-812f-4dfa-b102-f1a9b44d8824
-md"""
-
-Consider the ``i``-th loss only
-
+Note that 
 
 ```math
-\large
-\begin{align}
-	&l^{(i)}(\mathbf{w}) = |{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|\\
-
-&\nabla l^{(i)}(\mathbf{w})= ?
-\end{align}
+\mathbf{z}= \mathbf{W}\mathbf{x} 
 ```
-
-* the total loss (and gradient) is just the sum (of the individual gradients)
-
-
-Note that
-
+The backward rule:
 ```math
-\large
-l^{(i)}(\mathbf{w}) = \begin{cases} {y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ -{y}^{(i)}+\mathbf{w}^\top\mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases} 
+\bar{\mathbf{W}} = \bar{\mathbf{z}} \mathbf{x}^\top;\;\;\bar{\mathbf{x}} = \mathbf{W}^\top\bar{\mathbf{z}}
 ```
 
-
-Its gradient therefore is
-
-
-```math
-\large
-\nabla l^{(i)}(\mathbf{w}) = \begin{cases} - \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ \mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases}= - {\normalsize\texttt{sign}}(y^{(i)} - \mathbf{w}^\top \mathbf{x}^{(i)})\cdot \mathbf{x}^{(i)}
-```
-* `sign`: `sign(-2) = -1`, `sign(2)=1`
-
+* **left** or **right** multiply the exchanger ``\mathbf{W}``, ``\mathbf{z}`` **does not** change
+* just apply ``^\top``
 """
 
-# ╔═╡ d28073c7-08e6-490e-95ba-8cda4ae9aa4a
-md"""
-## Learning -- Gradient descent (cont.)
-"""
+# ╔═╡ 683e954b-fc2a-4b4a-b7c7-2f31970225e3
+# html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/matmul_gate_.svg
+# ' height = '300' /><center>"
+show_img("CS5914/backprop/matmul_gate_.svg", h=300)
 
-# ╔═╡ c395f3aa-5e00-4f54-9a4e-845adee810a3
+# ╔═╡ 3e7cb0bf-2cea-40a9-b628-9b2b777f03da
 md"""
 
 ##
 
 
-The final gradient is the sum of the individual gradients
+##### if you can't remember it, just do dims-check
+* if matches, you are correct! 
 
 ```math
-\large
 \begin{align}
-\nabla l(\mathbf{w}) &= \sum_{i=1}^n\nabla l^{(i)}(\mathbf{w}) = - \sum_{i=1}^n  \texttt{sign}(y^{(i)} - \mathbf{w}^\top \mathbf{x}^{(i)})\cdot \mathbf{x}^{(i)} \\
-&= -\mathbf{X}^\top \cdot \mathbf{\texttt{sign}}(\mathbf{y} - \mathbf{Xw})
+\bar{\mathbf{W}}_{n\times m} = \bar{\mathbf{z}}_{n\times 1} \mathbf{x}^\top_{1\times m}\quad \# \text{match!} \\
+\\
+\bar{\mathbf{x}}_{m\times 1} = \mathbf{W}^\top_{?\times ?}\bar{\mathbf{z}}_{? \times ?}\quad \# \text{match?}
 \end{align}
 ```
 """
 
-# ╔═╡ fb1ffb36-c064-4e01-bc93-c5989c83edcb
+# ╔═╡ 2ec7b256-b0ab-47f1-bcc0-74cd2ce67d51
 md"""
 
-**Implementation of the gradient in Python**
-```python
-	# implementation in Python and Numpy
-	# @: matrix multiplication
-	# np.sign: Numpy provides the sign function
-	grad = - Xs.T @ np.sign(ys - (Xs @ w))
-
-```
-
+## But why? *
 """
 
-# ╔═╡ 34f3186a-5c46-4a1d-8abc-d96fe20c4d6e
-md"""
-**Implementation of the gradient in Julia**
+# ╔═╡ 2236eed1-727a-4284-8cd3-aac811946592
+# html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/matmul1.svg
+# ' height = '350' /><center>"
 
-```julia
-	# much cleaner implementation in Julia
-	# ".": broadcasting
-	∇l = - Xs' * sign.(ys - Xs * w)
-```
+show_img("CS5914/backprop/matmul1.svg", h=350)
 
-"""
-
-# ╔═╡ 1b9a92f3-8996-4829-9929-52fba1cfe91f
-md"""
-## Robust regression -- result
-
-
-```julia
-	wₜ = [0,0]
-	γ = 0.001
-	# gradient descent
-	for _ in 1:100
-		∇wₜ = - Xs' * sign.(ys - Xs * w)
-		wₜ = wₜ - γ * ∇wₜ
-	end
-```
-"""
-
-# ╔═╡ c3eeb2e9-93b8-4bb6-afd4-b08d23358f6e
-md"##"
-
-# ╔═╡ 747fadfb-ba6b-4520-8166-f538da1d194d
-md"Add robust regrssion fit: $(@bind add_robust CheckBox(default=false))"
-
-# ╔═╡ 7a0b667e-f2d6-496c-b223-62854690fe5f
+# ╔═╡ 398b57a7-eefc-4836-9a44-f7be2c0e1228
 md"""
 
-## Aside: sub-derivative
 
-The gradient for the absolute deviation loss is
 
-```math
-\nabla l^{(i)}(\mathbf{w}) = \begin{cases} - \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ \mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases}
-```
+## But why? *
 
-> What is the gradient when 
-> ```math
->\large
-> y^{(i)} = \mathbf{w}^\top \mathbf{x}^{(i)}
-> ```
+
+##### Inner product ``*^\top``: acts like an _exchanger_!
 """
 
-# ╔═╡ 4e0a8f9c-93f8-4329-bb7f-1c0ece6f38cb
-md"""
-## Aside: sub-derivative
+# ╔═╡ ab6e5577-4007-4686-b3ed-2de31c99f422
+TwoColumnWideRight(md"""
 
 
-The absolute value function 
-
-```math
-\large
-f(x) =|x|
-```
-
-```math
-f'(x) =\begin{cases}
-1 & x>0 \\
--1 & x<0 \\
-\colorbox{pink}{$[-1, 1]$}& \colorbox{pink}{$x=0$}
-\end{cases}
-```
-"""
-
-# ╔═╡ 9e25d784-da56-4894-aa53-b8c8e1c0733b
-md"Add sub-derivative: $(@bind add_sub CheckBox(default=false))
-Sub gradient ``\partial f``: $(@bind subk Slider(-1:0.1:1, default=0))
-"
-
-# ╔═╡ 77b112ef-f21a-40e5-becf-260116e9d04a
-let
-
-	plt = plot(abs, label = L"|x|", framestyle=:origin, lw=2, title=L"f(x) =|x|", ylim=[-2,3], legend=:outerright)
-
-	df(x; k = 0.5) = k * x 
+""", 
 	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/matmul2_.png
+# ' height = '350' /><center>"
 
-	if add_sub
-		# plot!(-4.5:0.5:4.5, (x) -> 0.5*x, lw=1.5, label="")
-		plot!(-4.5:0.5:4.5, (x) -> subk*x, lc=2,lw=1.5, label="")
-	end
 
-	plt
-end
+show_img("CS5914/backprop/matmul2_.png", h=350))
 
-# ╔═╡ d60a639a-51f7-4a46-9a7b-f34933898c79
+# ╔═╡ 180d74b1-f69b-4e8a-8b5d-309337af9a26
 md"""
 
-## Aside: sub-derivative
+## But why? *
 
-The gradient for the absolute deviation loss is
+##### Inner product ``*^\top``: acts like an _exchanger_!
+"""
+
+# ╔═╡ 24f1c135-8c57-42cb-958a-030aa52978dc
+TwoColumnWideRight(md"""
+\
 
 ```math
-\large
-\nabla l^{(i)}(\mathbf{w}) = \begin{cases} - \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ \mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)} \\
-[-\mathbf{x}^{(i)}, \mathbf{x}^{(i)}]  & \text{if}\; y^{(i)} = \mathbf{w}^\top \mathbf{x}^{(i)}
-\end{cases} 
+\small
+\color{salmon}
+\begin{align}
+\overline{\mathbf{W}} &=\begin{bmatrix}- & \overline{\mathbf{w}}_1^\top&-\\
+- & \vdots & -\\
+- & \overline{\mathbf{w}}_n^\top&-\end{bmatrix}
+\\
+&= \begin{bmatrix}- & \bar{z}_1\cdot \mathbf{x}^\top&-\\
+- & \vdots & -\\
+- & \bar{z}_n \cdot\mathbf{x}^\top&-\end{bmatrix}\\
+&= \begin{bmatrix}\bar{z}_1\\
+\vdots\\
+\bar{z}_n\end{bmatrix}[-\;\; \mathbf{x}^\top -]\\
+&= \bar{\mathbf{z}}\mathbf{x}^\top
+\end{align}
+```
+
+""", 
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/matmul2_.png
+# ' height = '350' /><center>"
+
+show_img("CS5914/backprop/matmul2_.png", h=350))
+
+# ╔═╡ 1adcb5d7-47bc-43e8-a9e4-e4fa3315b1b8
+md"""
+
+## But why? *
+
+
+##### _fork rule_
+"""
+
+# ╔═╡ 67c2d342-cc39-4111-9f5d-5572e33e2ce5
+TwoColumnWideRight(md"""
+\
+
+```math
+\color{salmon}
+\begin{align}
+&\bar{\mathbf{x}}=\sum_{i=1}^n \bar{z}_i\mathbf{w}_i\\
+&= \begin{bmatrix}\mid &  & \mid \\
+\mathbf{w}_1& \ldots &\mathbf{w}_n\\
+\mid &  & \mid\end{bmatrix} \begin{bmatrix}\bar{z}_1\\
+\vdots\\
+\bar{z}_n\end{bmatrix}
+\end{align}
+```
+
+""", 
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/matmul3.svg
+# ' height = '350' /><center>"
+
+
+show_img("CS5914/backprop/matmul3.svg", w=700))
+
+# ╔═╡ 0d6ee1f4-a235-4a46-b448-eddc70bccdc6
+md"""
+
+## In summary
+
+
+
+"""
+
+# ╔═╡ ed79aa4a-8ad5-485b-a040-609b6bb0d379
+TwoColumnWideRight(md"""
+\
+\
+\
+
+##### Scalar product:
+```math
+w*x = z
+```
+
+""", 
+	show_img("CS5914/backprop/prod_scalar_gate.png", w=600))
+
+# ╔═╡ da14f685-45f0-4dbe-84aa-325453014f22
+TwoColumnWideRight(md"""
+\
+\
+\
+
+##### Inner product:
+
+```math
+\mathbf{w}^\top\mathbf{x} =z
+```
+""", 
+	show_img("CS5914/backprop/prod_inner_gate.png", w=600))
+
+# ╔═╡ 3d21c3d0-94e0-4121-8e8e-c4d2a80dd48c
+TwoColumnWideRight(md"""
+\
+\
+\
+
+##### Matrix-vec product:
+```math
+\mathbf{Wx} =\mathbf{z}
+```
+
+""", 
+	show_img("CS5914/backprop/prod_mat_gate.png", w=600))
+
+# ╔═╡ fdca08c4-da82-44b8-b3ef-34ca5ec39c90
+md"""
+## Backprop for Neueral Network -- an example
+
+
+"""
+
+# ╔═╡ 491ad32b-198e-4664-a325-80778b5a35bc
+TwoColumn(md"""
+Consider a very simple neural network 
+
+* one hidden layer
+  * two hidden units
+* one output unit 
+
+* biases are skipped here
+""", show_img("CS5914/backprop/mlp_backprop2.svg", w=500)
+)
+
+# ╔═╡ 5ed41a23-537c-47b7-8bfd-b13623842bdf
+md"""
+
+## Computational graph representation 
+
+##### *a.k.a* flow graph
+\
+
+
+Draw all parameters ``\mathbf{w}_1^{(1)}, \mathbf{w}_2^{(1)}, \mathbf{w}^{(2)}`` specifically as nodes
+
+* handy for gradient derivation
+"""
+
+# ╔═╡ f3f7d4c9-744e-49dd-9e4e-6f6f9b09a1a5
+show_img("CS5914/backprop/mlp_backprop1.svg", w=450)
+
+# ╔═╡ b9dede7f-fd40-4b16-a0ea-b83853aaed33
+md"""
+
+#### _flow graph_ representation
+"""
+
+# ╔═╡ cb0cc1b6-574c-4e3c-abf2-2d1403586f04
+show_img("CS5914/backprop/mlp_forward.svg", w=600)
+
+# ╔═╡ 5d06b5b0-d70f-45a8-b7c0-1c1880ce9f5f
+md"""
+
+## Flow-graph with matrices
+"""
+
+# ╔═╡ 9892ce74-2d5f-4dfc-a36a-2de49c6e1650
+show_img("CS5914/backprop/nnet_flow_mat.svg", w=640)
+
+# ╔═╡ 510322b6-e499-4431-a330-8e17ce5a055c
+show_img("CS5914/backprop/nnet_flow_mat1.svg", w=680)
+
+# ╔═╡ 075541ff-9f03-4408-8ac8-1c46a012f0b8
+md"""
+
+## Backpropagation 
+
+
+##### _Initialisation_
+"""
+
+# ╔═╡ b3a6f528-c75a-41c9-a72c-b9ae71e5f404
+show_img("CS5914/backprop/nnet_back0.png", w=630)
+
+# ╔═╡ aedae180-360e-4bc0-8ac1-2d0d66379cf1
+md"""
+
+## Backpropagation (cont.)
+ 
+
+
+"""
+
+# ╔═╡ 8df439e0-d5d1-4707-bd0d-ae2126dc1323
+show_img("CS5914/backprop/nnet_back1.png", w=630)
+
+# ╔═╡ cc9fa8a3-edf6-4757-9e7f-23e247cb469c
+md"""
+
+## Backpropagation (cont.)
+ 
+
+##### _matrix mult gate -- exchanger!_
+"""
+
+# ╔═╡ 7477075c-f682-4dfd-a995-29ee58348046
+show_img("CS5914/backprop/nnet_back2.png", w=630)
+
+# ╔═╡ 0b21609e-e730-44c4-8339-3fd5dcff4ca8
+md"""
+
+## Backpropagation (cont.)
+ 
+
+##### _backprop element-wise activations_
+"""
+
+# ╔═╡ 11a99f30-e86d-4a2f-949b-943e8d906e52
+show_img("CS5914/backprop/nnet_back3.png", w=630)
+
+# ╔═╡ 8212d3ff-3817-4290-89e2-f64c06765351
+md"""
+
+## Backpropagation (cont.)
+ 
+
+##### _backprop element-wise activations_
+
+###### Here is why:
+"""
+
+# ╔═╡ f7b702cf-3883-43bf-89aa-c2a349cb8855
+show_img("CS5914/backprop/ele_act.png", w=630, center=false)
+
+# ╔═╡ 90dc87e2-4f38-4afd-8505-599bd328bf03
+show_img("CS5914/backprop/ele_act1.png", w=650, center=false)
+
+# ╔═╡ b0e78e48-dd31-4f97-b77d-5fcb1b048c4d
+md"""
+
+## Backpropagation (cont.)
+ 
+
+##### _backprop element-wise activations_
+
+###### `ReLu` activation example
+"""
+
+# ╔═╡ 97d4af1c-ab6d-48cf-97a9-50414588a570
+show_img("CS5914/backprop/ele_act_relu.png", w=630)
+
+# ╔═╡ e3549233-2a7e-4383-9e0a-f7f904194a23
+md"""
+
+## Backpropagation (cont.)
+ 
+
+##### _matrix mult gate -- exchanger!_
+"""
+
+# ╔═╡ 0f16b0bc-8a0b-4fdb-a32c-d6596e056718
+show_img("CS5914/backprop/nnet_back5.png", w=630)
+
+# ╔═╡ 0f685c76-c477-4c6d-949e-b5500a826938
+md"""
+
+## Backpropagation (cont.)
+ 
+
+##### _matrix mult gate -- exchanger!_
+
+###### _Just to make the story complete_
+
+"""
+
+# ╔═╡ 3224c7f4-e8d9-4ac1-96c1-fc220274a3d4
+show_img("CS5914/backprop/nnet_back6.png", w=700)
+
+# ╔═╡ f33eb26b-4abe-422d-acb2-0d76e9723a1f
+md"""
+
+## Show me the code -- forward pass
+
+##### in `Julia`*
+"""
+
+# ╔═╡ ec23f623-323c-4012-87bd-31b58953f334
+show_img("CS5914/backprop/nnet_flow_mat1.svg", w=680)
+
+# ╔═╡ b5badd03-e62e-4196-9a87-4edd21e16ad9
+md"""
+
+```julia
+## forward pass
+z₁ = W₁ * x # first hidden layer
+a₁ = relu.(z₁) # ReLu activations (note the "." for element-wise operation)
+z₂ = W₂ * a₁ # output layer
+l = 0.5 * (y - z₂)^2 # loss
 ```
 
 """
 
-# ╔═╡ 46f38254-0176-414a-9c46-9e6057ed94be
-begin
-	function laplace_reg_loss(w, X, y) 
-		diff = sum(abs.(X * w - y))
-		return diff
- 	end
-end;
+# ╔═╡ c25b2a70-9f5b-45d0-a71e-84141f45e753
+md"""
 
-# ╔═╡ f46b008a-1fc7-461a-9f68-efc68506186b
-# begin
-# 	function ∇laplace_reg_loss2(w, X, y) 
-# 		# return zeros(length(w))
-# 		# error1 = - sign.(y - X * w) .* X
-# 		# error2 = (error1.^2 .+ ϵ).^(-0.5)
-# 		# error = error2 .* error1
-# 		# (- X' * error)/length(y)
-# 		# return sum(error1, dims=1)[:]/length(y)
+## Show me the code -- backward pass
 
-# 		return - X' * sign.(y - X * w) / length(y)
-# 	end
+##### in `Julia`*
+"""
+
+# ╔═╡ 5ebf23a1-6c35-439f-a0e9-d5bb3192b9b5
+show_img("CS5914/backprop/nnet_back5.png", w=680)
+
+# ╔═╡ 99210776-8806-4c49-bfb4-71a0ef7802b2
+md"""
+
+```julia
+## forward pass
+z₁ = W₁ * x # first hidden layer
+a₁ = relu.(z₁) # ReLu activations (note the "." for element-wise operation)
+z₂ = W₂ * a₁ # output layer
+l = 0.5 * (y - z₂)^2 # loss
+```
+
+"""
+
+# ╔═╡ 131c73d0-864b-4c94-872d-c11a74337439
+md"""
+```julia
+## backward pass
+dl = 1.0 # initialisation
+dz₂ = (z₂ - y) * dl 
+dW₂ = dz₂ * a₁'  # mat_mul: exchanger and a₁': a₁ᵀ 
+da₁ = W₂' * dz₂  # mat_mul: exchanger
+	
+dz₁ = (z₁ .> 0) .* da₁ # ReLu: as a switch
+dW₁ = dz₁ * x'   # mat_mul: exchanger 
+```
+"""
+
+# ╔═╡ cfdc7bb1-3dbb-41db-8ad6-7a6b8fc24aec
+md"""
+
+## Show me the code -- forward pass
+
+##### in `Python`
 
 
-# 	function ∇laplace_reg_loss1(w, X, y) 
-# 		# return zeros(length(w))
-# 		error1 = - sign.(y - X * w) .* X
-# 		# error2 = (error1.^2 .+ ϵ).^(-0.5)
-# 		# error = error2 .* error1
-# 		# (- X' * error)/length(y)
-# 		return sum(error1, dims=1)[:]/length(y)
 
-# 		# return - X' * sign.(y - X * w) 
-# 	end
+Remember that `Python` is a _row-major_ language, in `PyTorch` and `Numpy`, 
+* a vector by defaut assumed to be a **row** vector
 
-# end;
+In particular, $\texttt{W}_{\text{in} \times \text{out}} \in \mathbb{R}^{\text{in} \times \text{out}}$ is a ``\text{in} \times \text{out}`` matrix
 
-# ╔═╡ bb583c35-64af-41bb-a805-fb505001e29f
-xs_out, ys_out, outlier_plt = let
-	Random.seed!(123)
-	xs_new = collect(range(-0.55, -0.4, length=4))
-	ys_outliers = ones(length(xs_new)) * 5 + randn(length(xs_new))/5
-	xs_out = [xs; xs_new]
-	ys_out = [ys; ys_outliers]
-	outlier_plt = plot(xs, ys, st=:scatter, framestyle=:origin, label="observations", legend=:topleft, alpha=0.5)
-	plot!(xs_new, ys_outliers, st=:scatter, framestyle=:origin, c=1, label="outliers", legend=:topright)
-	w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=2, lc=1, label="the true signal: " * L"h(x)")
-	if add_gaussian_plt
-		plot!(-0.5:0.1:1.0, (x) -> w_out[1] + w_out[2]*x, lw=2, label="Gaussian MLE " * L"\hat{h}(x)", title="LSE or Gaussian likelihood is not robust")
-	end
-	xs_out, ys_out, outlier_plt
-end;
+$$\texttt{W}= \begin{bmatrix} \mid &\mid &  \mid &\mid \\
+\mathbf{w}_1 &\mathbf{w}_2 & \ldots & \mathbf{w}_{\text{out}} \\
+\mid &\mid &  \mid &\mid 
+\end{bmatrix}$$
 
-# ╔═╡ 4a47a0d2-f05f-4a01-a505-5b3de7f53872
-outlier_plt
+and
 
-# ╔═╡ 8fe3a3a2-65df-4e9c-bdaa-64ebf06b2208
-Xs_out = [ones(length(xs_out)) xs_out];
+```math
+\large
+\texttt{z}_{1\times \text{out}} = \texttt{x}_{1\times \text{in}} @ \texttt{W}_{\text{in}\times \text{out}}
+```
 
-# ╔═╡ 4382f47e-3c62-4ddc-9502-ebeb8d009e26
-w_laplace, losses_laplace = let
-	max_iters = 100
-	wₜ = zeros(2)
-	∇l(w) = Zygote.gradient((x) -> laplace_reg_loss(x, Xs_out, ys_out), w)[1]
-	γ = 0.001
-	loss = []
-	for _ in 1:max_iters
-		∇wₜ = ∇l(wₜ)
-		wₜ = wₜ - γ * ∇wₜ
-		push!(loss, laplace_reg_loss(wₜ, Xs_out, ys_out))
-	end
-	wₜ, loss
-end;
+"""
 
-# ╔═╡ f0ad4fdb-2a07-436e-81a7-47a249d6871d
-plot(losses_laplace, xlabel="Iteration", ylabel="Laplace loss", label="", title="Gradient descent's loss trajectory")
+# ╔═╡ 712f3624-bb14-4663-9427-4e95143f5391
+md"""
 
-# ╔═╡ 89d18c2a-ee6c-4eb7-81f5-0bfec682f4db
-let
-	gr()
-	plt = plot(xs_out, ys_out, st=:scatter, framestyle=:origin, label="observations", legend=:topleft, alpha=.5)
-	w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=3, lc=1, label="the true signal: " * L"h(x)", legend=:topright)
+```python
+## forward pass
+z1 = x @ W1 # first hidden layer
+a1 = relu(z1) # ReLu activations; (the default is element-wise)
+z2 = a1 @ W2 # output layer
+l = 0.5 * (y - z2)**2 # loss
+```
 
-	plot!(-0.5:0.1:1.0, (x) -> w_out[1] + w_out[2]*x, lw=2, lc=2, label="Gaussian MLE " * L"\hat{h}(x)", title="Robust regression with Laplace likelihood")
-	if add_robust
-		plot!(-0.5:0.1:1.0, (x) -> w_laplace[1] + w_laplace[2]*x, lw=3, lc=4,  label="Laplace MLE " * L"\hat{h}(x)")
-	end
-	plt
-end
+"""
+
+# ╔═╡ 74b76a20-7944-460f-adcb-d71d1bf9759b
+aside(tip(md"""
+`ReLu` is very easy to implement
+
+```python
+def relu(x):
+	return np.clip(x, 0)
+```
+
+"""))
+
+# ╔═╡ 380c8299-de70-441d-abc8-74c107dfc015
+md"""
+
+## Show me the code -- backward pass
+
+##### in `Python`
+"""
+
+# ╔═╡ 4b379040-a2c3-4dff-a545-467bbf4fb85b
+md"""
+
+```python
+## forward pass
+z1 = x @ W1 # first hidden layer
+a1 = relu(z1) # ReLu activations; (the default is element-wise)
+z2 = a1 @ W2 # output layer
+l = 0.5 * (y - z2)**2 # loss
+```
+
+
+```python
+## backward pass
+dl = 1.0 # initialisation 
+dz2 = (z2 - y) * dl
+da1 = dz2 @ W2.T # mat_mul: exchanger; do dim check if not sure!
+dW2 = a1.T @ dz2 # mat_mul: exchanger; do dim check if not sure!
+
+dz1 = (z1 > 0) * da1 # relu: swicth the gradient to zero if input is negative
+dW1 = x.T @ dz1 # mat_mul: exchanger; 
+```
+
+"""
+
+# ╔═╡ 1fa7ce40-40db-4c0b-b297-97474efed821
+md"""
+
+For matrix operation, we should do dim-check if not sure.
+
+Recall
+$\texttt{W}_{\text{in} \times \text{out}} = \begin{bmatrix} \mid &\mid &  \mid &\mid \\
+\mathbf{w}_1 &\mathbf{w}_2 & \ldots & \mathbf{w}_{\text{out}} \\
+\mid &\mid &  \mid &\mid 
+\end{bmatrix}$ and the other dimensions are 
+```math
+\texttt{z}_{1\times \text{out}} = \texttt{x}_{1\times \text{in}} @ \texttt{W}_{\text{in}\times \text{out}}
+```
+
+Since ``\texttt{z}_{1\times \text{out}}``, then ``\texttt{dz}_{1\times \text{out}}``
+
+```math
+\texttt{dx}_{1\times \text{in}} = \texttt{dz}_{1\times \text{out}}\, @ \, \underbrace{(\texttt{W}_{\text{in}\times \text{out}})^\top}_{\text{out}\times \text{in}} \quad \# \text{match}
+```
+
+```math
+\texttt{dW}_{\text{in}\times \text{out}} = \underbrace{(\texttt{x}_{\text{1}\times \text{in}})^\top}_{\text{in}\times \text{1}} \, @ \, \texttt{dz}_{1\times \text{out}}  \quad \# \text{match}
+```
+
+"""
+
+# ╔═╡ 04626189-3648-4da6-8a72-21a52034d429
+# show_img("CS5914/backprop/nnet_back5.png", w=630)
+
+# ╔═╡ 52cb3409-e841-4f90-9284-a80615758262
+md"""
+
+## Exercise 
+
+
+
+!!! exercise "Exercise"
+	###### Add biases to the forward and backpropagation algorithm
+"""
+
+# ╔═╡ 78ee66ca-dbcb-440e-8f7d-f52252cbcfb7
+md"""
+
+
+## Backprop deep network
+
+
+##### _be classy (forward pass)_
+"""
+
+# ╔═╡ f319de0a-36ea-4737-a4b6-b71efd8afdd9
+show_img("CS5914/backprop/nnet_back_class.png", w=800)
+
+# ╔═╡ f7707f8a-2fe2-4966-9746-23437fb0c2ac
+# md"""
+# ```python
+# class Linear:
+  
+#     def __init__(self, in_size, out_size):
+#         self.weight = torch.randn((in_size, out_size), generator=g) / in_size**0.5
+#         self.bias = torch.zeros(out_size) 
+  
+#     def __call__(self, x):
+#         self.out = x @ self.weight + self.bias
+#         return self.out
+  
+#     def parameters(self):
+#         return [self.weight] + ([] if self.bias is None else [self.bias])
+# ```
+
+
+# ```python
+# class ReLu:
+#     def __call__(self, x):
+#         self.input = x
+#         self.out = torch.relu(x)
+#         return self.out
+# 	# no parameters involved 
+#     def parameters(self):
+#         return []
+
+# ```
+
+# """
+
+# ╔═╡ 28f676b8-0086-46b1-a205-1da7975d684c
+md"""
+
+
+## Backprop deep network (`act` module)
+
+
+##### _be classy (backward pass)_
+"""
+
+# ╔═╡ f6bc6a50-c1b0-40f2-8ded-b6c9ab87477c
+show_img("CS5914/backprop/nnet_back_class2.png", w=650, center=false)
+
+# ╔═╡ 9371dbc3-34df-4d59-b62a-7b9c9565fac4
+md"""
+
+```python
+class ReLu:
+	# forward method
+    def __call__(self, x):
+        self.input = x # save the input for backward pass
+        self.out = np.clip(x, 0)
+        return self.out
+
+	# ReLu's backward behaves like a switch
+	# it set the gradient to 0 when the input x < 0
+    def backward(self, da):
+        return (self.input > 0) * da
+
+	def forward(self, z):
+		return self(z)
+```
+
+"""
+
+# ╔═╡ 6cdae381-2db4-4b6a-89d5-b2f0e6455d8b
+md"""
+
+
+## Backprop deep network (`Linear` module)
+
+
+##### _be classy (backward pass)_
+"""
+
+# ╔═╡ 5a7e5e04-49df-4c5f-a40d-15ba9bc80512
+show_img("CS5914/backprop/nnet_back_class3.png", w=750)
+
+# ╔═╡ 7c4ff311-c911-454f-82dd-1ce7f7f753f5
+md"""
+
+```python
+class Linear:
+    def __init__(self, in_num, out_num):
+        self.W = np.random.randn((in_num, out_num)) / in_num ** 0.5
+		# initialise the adjoint/gradients for backward pass
+		self.dW = np.zeros((in_num, out_num))
+
+  	# forward pass
+    def __call__(self, x):
+		self.x = x # save the input for backward pass
+        self.z = x @ self.W 
+        return self.z
+
+	def forward(self, x):
+		return self(x)
+
+	# backward pass
+	def backward(self, dz):
+		self.dW = ?
+		dx = ?
+		return dx
+```
+
+"""
+
+# ╔═╡ a64cd412-7d7d-458b-a240-453fe3c723b9
+md"""
+
+##
+"""
+
+# ╔═╡ 22cb0c4c-f8b5-4b2b-a88a-7d2aeabe5344
+md"""
+
+```python
+class Linear:
+    def __init__(self, in_num, out_num):
+        self.W = np.random.randn((in_num, out_num)) / in_num ** 0.5
+		# initialise the adjoint/gradients for backward pass
+		self.dW = np.zeros((in_num, out_num))
+
+  	# forward pass
+    def __call__(self, x):
+		self.x = x # save the input for backward pass
+        self.z = x @ self.W 
+        return self.z
+
+	def forward(self, x):
+		return self(x)
+
+	# backward pass 
+	def backward(self, dz):
+		# gradient exchanger!
+		self.dW = self.x.T @ dz 
+		dx = dz @ self.W.T
+		# return dx for further back-prop
+		return dx
+```
+
+"""
+
+# ╔═╡ 4ea5cb26-f5b1-4460-b9bf-0193ba2f84d1
+md"""
+
+
+## `Linear` module with `bias`
+
+
+##### _be classy (backward pass)_
+"""
+
+# ╔═╡ 043c8dcc-19b8-4db0-a250-9255301d89dd
+show_img("CS5914/backprop/nnet_back_class4.png", w=750)
+
+# ╔═╡ de8f8f4b-b782-4e72-ae40-5b72c8315292
+md"""
+
+## How to use ?
+
+```python
+loss = MSE_Loss() # or CE loss for classification 
+
+# a neural network
+mlp = [Linear(2,10), ReLu(), Linear(10,10), ReLu(), Linear(10, 1)]
+
+## forward pass
+out = x
+for layer in mlp:
+	out = layer.forward(out)
+# compute the loss
+l = loss(output, y) 
+## back-propagation
+dl = 1.0 # initialisation
+dout = loss.backward(dl) # back-propogate from the loss to mlp's output
+# use backward() in reverse order
+for layer in mlp[::-1]:
+	dout = layer.backward(dout)
+```
+
+"""
 
 # ╔═╡ 0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 md"""
@@ -731,7 +1230,6 @@ end
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
@@ -741,19 +1239,14 @@ PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
-Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-Distributions = "~0.25.100"
 HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.16.1"
-Plots = "~1.38.17"
+Plots = "~1.39.0"
 PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.52"
-StatsPlots = "~0.15.6"
-Zygote = "~0.6.63"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -762,18 +1255,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "bcca2b3b41294b200020955c854e231d0a86aecd"
-
-[[deps.AbstractFFTs]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "d92ad398961a3ed262d8bf04a1a2b8340f915fef"
-uuid = "621f4979-c628-5d54-868e-fcf4e3e8185c"
-version = "1.5.0"
-weakdeps = ["ChainRulesCore", "Test"]
-
-    [deps.AbstractFFTs.extensions]
-    AbstractFFTsChainRulesCoreExt = "ChainRulesCore"
-    AbstractFFTsTestExt = "Test"
+project_hash = "d7e7f8afb73ac35544f83d2ef9074d9b60341dac"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -781,40 +1263,12 @@ git-tree-sha1 = "91bd53c39b9cbfb5ef4b015e8b582d344532bd0a"
 uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.2.0"
 
-[[deps.Adapt]]
-deps = ["LinearAlgebra", "Requires"]
-git-tree-sha1 = "76289dc51920fdc6e0013c872ba9551d54961c24"
-uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "3.6.2"
-weakdeps = ["StaticArrays"]
-
-    [deps.Adapt.extensions]
-    AdaptStaticArraysExt = "StaticArrays"
-
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 version = "1.1.1"
 
-[[deps.Arpack]]
-deps = ["Arpack_jll", "Libdl", "LinearAlgebra", "Logging"]
-git-tree-sha1 = "9b9b347613394885fd1c8c7729bfc60528faa436"
-uuid = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
-version = "0.5.4"
-
-[[deps.Arpack_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "OpenBLAS_jll", "Pkg"]
-git-tree-sha1 = "5ba6c757e8feccf03a1554dfaf3e26b3cfc7fd5e"
-uuid = "68821587-b530-5797-8361-c406ea357684"
-version = "3.5.1+1"
-
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
-
-[[deps.AxisAlgorithms]]
-deps = ["LinearAlgebra", "Random", "SparseArrays", "WoodburyMatrices"]
-git-tree-sha1 = "66771c8d21c8ff5e3a93379480a2307ac36863f7"
-uuid = "13072b0f-2c55-5437-9ae7-d433b7a33950"
-version = "1.0.1"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -830,40 +1284,11 @@ git-tree-sha1 = "19a35467a82e236ff51bc17a3a44b69ef35185a2"
 uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
 version = "1.0.8+0"
 
-[[deps.CEnum]]
-git-tree-sha1 = "eb4cb44a499229b3b8426dcfb5dd85333951ff90"
-uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
-version = "0.4.2"
-
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
-
-[[deps.Calculus]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
-uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
-version = "0.5.1"
-
-[[deps.ChainRules]]
-deps = ["Adapt", "ChainRulesCore", "Compat", "Distributed", "GPUArraysCore", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "Statistics", "StructArrays"]
-git-tree-sha1 = "f98ae934cd677d51d2941088849f0bf2f59e6f6e"
-uuid = "082447d4-558c-5d27-93f4-14fc19e9eca2"
-version = "1.53.0"
-
-[[deps.ChainRulesCore]]
-deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
-uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.16.0"
-
-[[deps.Clustering]]
-deps = ["Distances", "LinearAlgebra", "NearestNeighbors", "Printf", "Random", "SparseArrays", "Statistics", "StatsBase"]
-git-tree-sha1 = "b86ac2c5543660d238957dbde5ac04520ae977a7"
-uuid = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
-version = "0.15.4"
 
 [[deps.CodeTracking]]
 deps = ["InteractiveUtils", "UUIDs"]
@@ -894,22 +1319,18 @@ deps = ["ColorTypes", "FixedPointNumbers", "LinearAlgebra", "Requires", "Statist
 git-tree-sha1 = "a1f44953f2382ebb937d60dafbe2deea4bd23249"
 uuid = "c3611d14-8923-5661-9e6a-0046d554d3a4"
 version = "0.10.0"
-weakdeps = ["SpecialFunctions"]
 
     [deps.ColorVectorSpace.extensions]
     SpecialFunctionsExt = "SpecialFunctions"
+
+    [deps.ColorVectorSpace.weakdeps]
+    SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [[deps.Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
 git-tree-sha1 = "fc08e5930ee9a4e03f84bfb5211cb54e7769758a"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.10"
-
-[[deps.CommonSubexpressions]]
-deps = ["MacroTools", "Test"]
-git-tree-sha1 = "7b8a93dba8af7e3b42fecabf646260105ac373f7"
-uuid = "bbf7d656-a473-5ed7-a52c-81e309532950"
-version = "0.3.0"
 
 [[deps.Compat]]
 deps = ["UUIDs"]
@@ -948,11 +1369,6 @@ git-tree-sha1 = "3dbd312d370723b6bb43ba9d02fc36abade4518d"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 version = "0.18.15"
 
-[[deps.DataValueInterfaces]]
-git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
-uuid = "e2d170a0-9d28-54be-80f0-106bbe20a464"
-version = "1.0.0"
-
 [[deps.Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -963,45 +1379,9 @@ git-tree-sha1 = "9e2f36d3c96a820c678f2f1f1782582fcf685bae"
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 version = "1.9.1"
 
-[[deps.DiffResults]]
-deps = ["StaticArraysCore"]
-git-tree-sha1 = "782dd5f4561f5d267313f23853baaaa4c52ea621"
-uuid = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
-version = "1.1.0"
-
-[[deps.DiffRules]]
-deps = ["IrrationalConstants", "LogExpFunctions", "NaNMath", "Random", "SpecialFunctions"]
-git-tree-sha1 = "23163d55f885173722d1e4cf0f6110cdbaf7e272"
-uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
-version = "1.15.1"
-
-[[deps.Distances]]
-deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
-git-tree-sha1 = "b6def76ffad15143924a2199f72a5cd883a2e8a9"
-uuid = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-version = "0.10.9"
-weakdeps = ["SparseArrays"]
-
-    [deps.Distances.extensions]
-    DistancesSparseArraysExt = "SparseArrays"
-
 [[deps.Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
-
-[[deps.Distributions]]
-deps = ["FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SpecialFunctions", "Statistics", "StatsAPI", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "938fe2981db009f531b6332e31c58e9584a2f9bd"
-uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.100"
-
-    [deps.Distributions.extensions]
-    DistributionsChainRulesCoreExt = "ChainRulesCore"
-    DistributionsDensityInterfaceExt = "DensityInterface"
-
-    [deps.Distributions.weakdeps]
-    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-    DensityInterface = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
@@ -1013,12 +1393,6 @@ version = "0.9.3"
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
-
-[[deps.DualNumbers]]
-deps = ["Calculus", "NaNMath", "SpecialFunctions"]
-git-tree-sha1 = "5837a837389fccf076445fce071c8ddaea35a566"
-uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
-version = "0.6.8"
 
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
@@ -1044,31 +1418,8 @@ git-tree-sha1 = "74faea50c1d007c85837327f6775bea60b5492dd"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.2+2"
 
-[[deps.FFTW]]
-deps = ["AbstractFFTs", "FFTW_jll", "LinearAlgebra", "MKL_jll", "Preferences", "Reexport"]
-git-tree-sha1 = "b4fbdd20c889804969571cc589900803edda16b7"
-uuid = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
-version = "1.7.1"
-
-[[deps.FFTW_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "c6033cc3892d0ef5bb9cd29b7f2f0331ea5184ea"
-uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
-version = "3.3.10+0"
-
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
-
-[[deps.FillArrays]]
-deps = ["LinearAlgebra", "Random"]
-git-tree-sha1 = "a20eaa3ad64254c61eeb5f230d9306e937405434"
-uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "1.6.1"
-weakdeps = ["SparseArrays", "Statistics"]
-
-    [deps.FillArrays.extensions]
-    FillArraysSparseArraysExt = "SparseArrays"
-    FillArraysStatisticsExt = "Statistics"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -1088,16 +1439,6 @@ git-tree-sha1 = "8339d61043228fdd3eb658d86c926cb282ae72a8"
 uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
 version = "0.4.2"
 
-[[deps.ForwardDiff]]
-deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions"]
-git-tree-sha1 = "cf0fe81336da9fb90944683b8c41984b08793dad"
-uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.36"
-weakdeps = ["StaticArrays"]
-
-    [deps.ForwardDiff.extensions]
-    ForwardDiffStaticArraysExt = "StaticArrays"
-
 [[deps.FreeType2_jll]]
 deps = ["Artifacts", "Bzip2_jll", "JLLWrappers", "Libdl", "Zlib_jll"]
 git-tree-sha1 = "d8db6a5a2fe1381c1ea4ef2cab7c69c2de7f9ea0"
@@ -1115,18 +1456,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcu
 git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.3.8+0"
-
-[[deps.GPUArrays]]
-deps = ["Adapt", "GPUArraysCore", "LLVM", "LinearAlgebra", "Printf", "Random", "Reexport", "Serialization", "Statistics"]
-git-tree-sha1 = "2e57b4a4f9cc15e85a24d603256fe08e527f48d1"
-uuid = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
-version = "8.8.1"
-
-[[deps.GPUArraysCore]]
-deps = ["Adapt"]
-git-tree-sha1 = "2d6ca471a6c7b536127afccfa7564b5b39227fe0"
-uuid = "46192b85-c4d5-4398-a991-12ede77f4527"
-version = "0.1.5"
 
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
@@ -1175,12 +1504,6 @@ git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
 uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
 version = "2.8.1+1"
 
-[[deps.HypergeometricFunctions]]
-deps = ["DualNumbers", "LinearAlgebra", "OpenLibm_jll", "SpecialFunctions"]
-git-tree-sha1 = "f218fe3736ddf977e0e772bc9a586b2383da2685"
-uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
-version = "0.3.23"
-
 [[deps.Hyperscript]]
 deps = ["Test"]
 git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
@@ -1199,37 +1522,14 @@ git-tree-sha1 = "d75853a0bdbfb1ac815478bacd89cd27b550ace6"
 uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
 version = "0.2.3"
 
-[[deps.IRTools]]
-deps = ["InteractiveUtils", "MacroTools", "Test"]
-git-tree-sha1 = "eac00994ce3229a464c2847e956d77a2c64ad3a5"
-uuid = "7869d1d1-7146-5819-86e3-90919afe41df"
-version = "0.4.10"
-
-[[deps.IntelOpenMP_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "ad37c091f7d7daf900963171600d7c1c5c3ede32"
-uuid = "1d5cc7b8-4909-519e-a0f8-d0f5ad9712d0"
-version = "2023.2.0+0"
-
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
-
-[[deps.Interpolations]]
-deps = ["Adapt", "AxisAlgorithms", "ChainRulesCore", "LinearAlgebra", "OffsetArrays", "Random", "Ratios", "Requires", "SharedArrays", "SparseArrays", "StaticArrays", "WoodburyMatrices"]
-git-tree-sha1 = "721ec2cf720536ad005cb38f50dbba7b02419a15"
-uuid = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
-version = "0.14.7"
 
 [[deps.IrrationalConstants]]
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
 uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
 version = "0.2.2"
-
-[[deps.IteratorInterfaceExtensions]]
-git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
-uuid = "82899510-4779-5014-852e-03e436cf321d"
-version = "1.0.0"
 
 [[deps.JLFzf]]
 deps = ["Pipe", "REPL", "Random", "fzf_jll"]
@@ -1261,12 +1561,6 @@ git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
 uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
 version = "0.9.25"
 
-[[deps.KernelDensity]]
-deps = ["Distributions", "DocStringExtensions", "FFTW", "Interpolations", "StatsBase"]
-git-tree-sha1 = "90442c50e202a5cdf21a7899c66b240fdef14035"
-uuid = "5ab0869b-81aa-558d-bb23-cbf5423bbe9b"
-version = "0.6.7"
-
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
@@ -1278,18 +1572,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "bf36f528eec6634efc60d7ec062008f171071434"
 uuid = "88015f11-f218-50d7-93a8-a6af411a945d"
 version = "3.0.0+1"
-
-[[deps.LLVM]]
-deps = ["CEnum", "LLVMExtra_jll", "Libdl", "Printf", "Unicode"]
-git-tree-sha1 = "8695a49bfe05a2dc0feeefd06b4ca6361a018729"
-uuid = "929cbde3-209d-540e-8aea-75f648917ca0"
-version = "6.1.0"
-
-[[deps.LLVMExtra_jll]]
-deps = ["Artifacts", "JLLWrappers", "LazyArtifacts", "Libdl", "TOML"]
-git-tree-sha1 = "c35203c1e1002747da220ffc3c0762ce7754b08c"
-uuid = "dad2f222-ce93-54a1-a47d-0025e8a3acab"
-version = "0.0.23+0"
 
 [[deps.LLVMOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1321,10 +1603,6 @@ version = "0.16.1"
     [deps.Latexify.weakdeps]
     DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
     SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
-
-[[deps.LazyArtifacts]]
-deps = ["Artifacts", "Pkg"]
-uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -1373,10 +1651,10 @@ uuid = "7add5ba3-2f88-524e-9cd5-f83b8a55f7b8"
 version = "1.42.0+0"
 
 [[deps.Libiconv_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "c7cb1f5d892775ba13767a87c7ada0b980ea0a71"
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "f9557a255370125b405568f9767d6d195822a175"
 uuid = "94ce4f54-9a6c-5748-9c1c-f9c7231a4531"
-version = "1.16.1+2"
+version = "1.17.0+0"
 
 [[deps.Libmount_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1421,9 +1699,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.LoggingExtras]]
 deps = ["Dates", "Logging"]
-git-tree-sha1 = "a03c77519ab45eb9a34d3cfe2ca223d79c064323"
+git-tree-sha1 = "0d097476b6c381ab7906460ef1ef1638fbce1d91"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
-version = "1.0.1"
+version = "1.0.2"
 
 [[deps.LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
@@ -1435,12 +1713,6 @@ version = "2.3.0"
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
 uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
 version = "0.1.4"
-
-[[deps.MKL_jll]]
-deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
-git-tree-sha1 = "eb006abbd7041c28e0d16260e50a24f8f9104913"
-uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
-version = "2023.2.0+0"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
@@ -1481,38 +1753,15 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 version = "2022.10.11"
 
-[[deps.MultivariateStats]]
-deps = ["Arpack", "LinearAlgebra", "SparseArrays", "Statistics", "StatsAPI", "StatsBase"]
-git-tree-sha1 = "68bf5103e002c44adfd71fea6bd770b3f0586843"
-uuid = "6f286f6a-111f-5878-ab1e-185364afe411"
-version = "0.10.2"
-
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
 git-tree-sha1 = "0877504529a3e5c3343c6f8b4c0381e57e4387e4"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.0.2"
 
-[[deps.NearestNeighbors]]
-deps = ["Distances", "StaticArrays"]
-git-tree-sha1 = "2c3726ceb3388917602169bed973dbc97f1b51a8"
-uuid = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
-version = "0.4.13"
-
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
-
-[[deps.Observables]]
-git-tree-sha1 = "6862738f9796b3edc1c09d0890afce4eca9e7e93"
-uuid = "510215fc-4207-5dde-b226-833fc4488ee2"
-version = "0.5.4"
-
-[[deps.OffsetArrays]]
-deps = ["Adapt"]
-git-tree-sha1 = "2ac17d29c523ce1cd38e27785a7d23024853a4bb"
-uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-version = "1.12.10"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1542,12 +1791,6 @@ git-tree-sha1 = "bbb5c2115d63c2f1451cb70e5ef75e8fe4707019"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
 version = "1.1.22+0"
 
-[[deps.OpenSpecFun_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "13652491f6856acfd2db29360e1bbcd4565d04f1"
-uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
-version = "0.5.5+0"
-
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "51a08fb14ec28da2ec7a927c4337e4332c2a4720"
@@ -1563,12 +1806,6 @@ version = "1.6.2"
 deps = ["Artifacts", "Libdl"]
 uuid = "efcefdf7-47ab-520b-bdef-62a2eaa19f15"
 version = "10.42.0+0"
-
-[[deps.PDMats]]
-deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "67eae2738d63117a196f497d7db789821bce61d1"
-uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
-version = "0.11.17"
 
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools", "UUIDs"]
@@ -1606,9 +1843,9 @@ version = "1.3.5"
 
 [[deps.Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "UnitfulLatexify", "Unzip"]
-git-tree-sha1 = "9f8675a55b37a70aa23177ec110f6e3f4dd68466"
+git-tree-sha1 = "ccee59c6e48e6f2edf8a5b64dc817b6729f99eb5"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.38.17"
+version = "1.39.0"
 
     [deps.Plots.extensions]
     FileIOExt = "FileIO"
@@ -1670,12 +1907,6 @@ git-tree-sha1 = "364898e8f13f7eaaceec55fd3d08680498c0aa6e"
 uuid = "c0090381-4147-56d7-9ebc-da0b1113ec56"
 version = "6.4.2+3"
 
-[[deps.QuadGK]]
-deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "6ec7ac8412e83d57e313393220879ede1740f9ee"
-uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.8.2"
-
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
@@ -1683,22 +1914,6 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 [[deps.Random]]
 deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-
-[[deps.Ratios]]
-deps = ["Requires"]
-git-tree-sha1 = "1342a47bf3260ee108163042310d26f2be5ec90b"
-uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
-version = "0.4.5"
-weakdeps = ["FixedPointNumbers"]
-
-    [deps.Ratios.extensions]
-    RatiosFixedPointNumbersExt = "FixedPointNumbers"
-
-[[deps.RealDot]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "9f0a1b71baaf7650f4fa8a1d168c7fb6ee41f0c9"
-uuid = "c1ae055f-0cd5-4b69-90a6-9a35b1a98df9"
-version = "0.1.0"
 
 [[deps.RecipesBase]]
 deps = ["PrecompileTools"]
@@ -1735,18 +1950,6 @@ git-tree-sha1 = "1e597b93700fa4045d7189afa7c004e0584ea548"
 uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
 version = "3.5.3"
 
-[[deps.Rmath]]
-deps = ["Random", "Rmath_jll"]
-git-tree-sha1 = "f65dcb5fa46aee0cf9ed6274ccbd597adc49aa7b"
-uuid = "79098fc4-a85e-5d69-aa6a-4863f24498fa"
-version = "0.7.1"
-
-[[deps.Rmath_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "6ed52fdd3382cf21947b15e8870ac0ddbff736da"
-uuid = "f50d1b31-88e8-58de-be2c-1cc44531875f"
-version = "0.4.0+0"
-
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 version = "0.7.0"
@@ -1757,18 +1960,8 @@ git-tree-sha1 = "30449ee12237627992a99d5e30ae63e4d78cd24a"
 uuid = "6c6a2e73-6563-6170-7368-637461726353"
 version = "1.2.0"
 
-[[deps.SentinelArrays]]
-deps = ["Dates", "Random"]
-git-tree-sha1 = "04bdff0b09c65ff3e06a05e3eb7b120223da3d39"
-uuid = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
-version = "1.4.0"
-
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
-
-[[deps.SharedArrays]]
-deps = ["Distributed", "Mmap", "Random", "Serialization"]
-uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 
 [[deps.Showoff]]
 deps = ["Dates", "Grisu"]
@@ -1794,31 +1987,6 @@ version = "1.1.1"
 deps = ["Libdl", "LinearAlgebra", "Random", "Serialization", "SuiteSparse_jll"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
-[[deps.SpecialFunctions]]
-deps = ["IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "e2cfc4012a19088254b3950b85c3c1d8882d864d"
-uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.3.1"
-weakdeps = ["ChainRulesCore"]
-
-    [deps.SpecialFunctions.extensions]
-    SpecialFunctionsChainRulesCoreExt = "ChainRulesCore"
-
-[[deps.StaticArrays]]
-deps = ["LinearAlgebra", "Random", "StaticArraysCore"]
-git-tree-sha1 = "9cabadf6e7cd2349b6cf49f1915ad2028d65e881"
-uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.6.2"
-weakdeps = ["Statistics"]
-
-    [deps.StaticArrays.extensions]
-    StaticArraysStatisticsExt = "Statistics"
-
-[[deps.StaticArraysCore]]
-git-tree-sha1 = "36b3d696ce6366023a0ea192b4cd442268995a0d"
-uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
-version = "1.4.2"
-
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
@@ -1836,36 +2004,6 @@ git-tree-sha1 = "75ebe04c5bed70b91614d684259b661c9e6274a4"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.34.0"
 
-[[deps.StatsFuns]]
-deps = ["HypergeometricFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
-git-tree-sha1 = "f625d686d5a88bcd2b15cd81f18f98186fdc0c9a"
-uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
-version = "1.3.0"
-
-    [deps.StatsFuns.extensions]
-    StatsFunsChainRulesCoreExt = "ChainRulesCore"
-    StatsFunsInverseFunctionsExt = "InverseFunctions"
-
-    [deps.StatsFuns.weakdeps]
-    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
-
-[[deps.StatsPlots]]
-deps = ["AbstractFFTs", "Clustering", "DataStructures", "Distributions", "Interpolations", "KernelDensity", "LinearAlgebra", "MultivariateStats", "NaNMath", "Observables", "Plots", "RecipesBase", "RecipesPipeline", "Reexport", "StatsBase", "TableOperations", "Tables", "Widgets"]
-git-tree-sha1 = "9115a29e6c2cf66cf213ccc17ffd61e27e743b24"
-uuid = "f3b207a7-027a-5e70-b257-86293d7955fd"
-version = "0.15.6"
-
-[[deps.StructArrays]]
-deps = ["Adapt", "DataAPI", "GPUArraysCore", "StaticArraysCore", "Tables"]
-git-tree-sha1 = "521a0e828e98bb69042fec1809c1b5a680eb7389"
-uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
-version = "0.6.15"
-
-[[deps.SuiteSparse]]
-deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
-uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
-
 [[deps.SuiteSparse_jll]]
 deps = ["Artifacts", "Libdl", "Pkg", "libblastrampoline_jll"]
 uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
@@ -1875,24 +2013,6 @@ version = "5.10.1+6"
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 version = "1.0.3"
-
-[[deps.TableOperations]]
-deps = ["SentinelArrays", "Tables", "Test"]
-git-tree-sha1 = "e383c87cf2a1dc41fa30c093b2a19877c83e1bc1"
-uuid = "ab02a1b2-a7df-11e8-156e-fb1833f50b87"
-version = "1.2.0"
-
-[[deps.TableTraits]]
-deps = ["IteratorInterfaceExtensions"]
-git-tree-sha1 = "c06b2f539df1c6efa794486abfb6ed2022561a39"
-uuid = "3783bdb8-4a98-5b6b-af9a-565f29a5fe9c"
-version = "1.0.1"
-
-[[deps.Tables]]
-deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "OrderedCollections", "TableTraits", "Test"]
-git-tree-sha1 = "1544b926975372da01227b382066ab70e574a3ec"
-uuid = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
-version = "1.10.1"
 
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
@@ -1975,23 +2095,11 @@ git-tree-sha1 = "4528479aa01ee1b3b4cd0e6faef0e04cf16466da"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
 version = "1.25.0+0"
 
-[[deps.Widgets]]
-deps = ["Colors", "Dates", "Observables", "OrderedCollections"]
-git-tree-sha1 = "fcdae142c1cfc7d89de2d11e08721d0f2f86c98a"
-uuid = "cc8bc4a8-27d6-5769-a93b-9d913e69aa62"
-version = "0.6.6"
-
-[[deps.WoodburyMatrices]]
-deps = ["LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "de67fa59e33ad156a590055375a30b23c40299d3"
-uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
-version = "0.5.5"
-
 [[deps.XML2_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "93c41695bc1c08c46c5899f4fe06d6ead504bb73"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Zlib_jll"]
+git-tree-sha1 = "04a51d15436a572301b5abbb9d099713327e9fc4"
 uuid = "02c8fc9c-b97f-50b9-bbe4-9be30ff0a78a"
-version = "2.10.3+0"
+version = "2.10.4+0"
 
 [[deps.XSLT_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libgcrypt_jll", "Libgpg_error_jll", "Libiconv_jll", "Pkg", "XML2_jll", "Zlib_jll"]
@@ -2142,28 +2250,6 @@ git-tree-sha1 = "49ce682769cd5de6c72dcf1b94ed7790cd08974c"
 uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
 version = "1.5.5+0"
 
-[[deps.Zygote]]
-deps = ["AbstractFFTs", "ChainRules", "ChainRulesCore", "DiffRules", "Distributed", "FillArrays", "ForwardDiff", "GPUArrays", "GPUArraysCore", "IRTools", "InteractiveUtils", "LinearAlgebra", "LogExpFunctions", "MacroTools", "NaNMath", "PrecompileTools", "Random", "Requires", "SparseArrays", "SpecialFunctions", "Statistics", "ZygoteRules"]
-git-tree-sha1 = "e2fe78907130b521619bc88408c859a472c4172b"
-uuid = "e88e6eb3-aa80-5325-afca-941959d7151f"
-version = "0.6.63"
-
-    [deps.Zygote.extensions]
-    ZygoteColorsExt = "Colors"
-    ZygoteDistancesExt = "Distances"
-    ZygoteTrackerExt = "Tracker"
-
-    [deps.Zygote.weakdeps]
-    Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
-    Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-    Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
-
-[[deps.ZygoteRules]]
-deps = ["ChainRulesCore", "MacroTools"]
-git-tree-sha1 = "977aed5d006b840e2e40c0b48984f7463109046d"
-uuid = "700de1a5-db45-46bc-99cf-38207098b444"
-version = "0.2.3"
-
 [[deps.fzf_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "868e669ccb12ba16eaf50cb2957ee2ff61261c56"
@@ -2237,54 +2323,105 @@ version = "1.4.1+0"
 # ╔═╡ Cell order:
 # ╟─9f90a18b-114f-4039-9aaf-f52c77205a49
 # ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
+# ╟─275e626f-026b-4167-acaa-d9faa590bed7
+# ╟─f6bbddfe-d23d-44d9-ba13-237c55b9567d
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
-# ╟─fc4bb806-0c85-48d9-b4af-ed957af361d3
-# ╟─a19e9007-e5b3-44d9-a071-92443ab21e28
-# ╟─d04bc149-4815-40bc-9d65-c68cc107c5bb
-# ╟─0d0559e1-41b7-414d-83ee-6c1271baf1e7
-# ╟─173b7d36-4b5a-4297-b462-3d16fc564f41
-# ╟─771b7002-24c3-44a9-994f-6522afb57dcd
-# ╟─7cdd0017-f485-4ded-a0f8-7f8635761b68
-# ╟─dd55a282-9e21-4111-9c2d-372d3eee26ce
-# ╟─5e6b83d7-3551-4b5c-96c2-366bf8eb33e4
-# ╟─4a47a0d2-f05f-4a01-a505-5b3de7f53872
-# ╟─bbb449e1-f6ba-40fa-a892-09786419cda1
-# ╟─97fca6ae-f19c-4440-a5ca-633af08910e5
-# ╟─a63881f1-9248-4052-ad56-04767d680f38
-# ╟─7cdf569c-a944-45ad-b672-c6e73cc7eacc
-# ╟─996276c4-e8af-4c06-a5f5-bb7b63e1b744
-# ╟─085f5bb8-0f1b-47b2-94a0-2f93629e446e
-# ╟─f5e88531-0cc4-49bc-93b3-f763b7c64e2b
-# ╟─a373376c-368b-45b9-9a97-e0392d78c077
-# ╟─7dea21ce-04b6-424d-9d14-464aa901918e
-# ╟─51f2b7fb-0ded-445d-a43e-4fe884fbe584
-# ╟─3886400e-f985-4a69-b9cd-930bb0996eb0
-# ╟─f963dd3d-2c53-46c6-b92a-6bece799af35
-# ╟─309f7945-29f6-47cc-9ef4-24483f0f3855
-# ╟─6d1c080e-0523-46a2-b3f3-0f91a595d351
-# ╟─7084f202-3d8f-42ff-b3be-0717612b345d
-# ╟─db222925-812f-4dfa-b102-f1a9b44d8824
-# ╟─d28073c7-08e6-490e-95ba-8cda4ae9aa4a
-# ╟─c395f3aa-5e00-4f54-9a4e-845adee810a3
-# ╟─fb1ffb36-c064-4e01-bc93-c5989c83edcb
-# ╟─34f3186a-5c46-4a1d-8abc-d96fe20c4d6e
-# ╟─1b9a92f3-8996-4829-9929-52fba1cfe91f
-# ╟─f0ad4fdb-2a07-436e-81a7-47a249d6871d
-# ╟─c3eeb2e9-93b8-4bb6-afd4-b08d23358f6e
-# ╟─747fadfb-ba6b-4520-8166-f538da1d194d
-# ╟─89d18c2a-ee6c-4eb7-81f5-0bfec682f4db
-# ╟─7a0b667e-f2d6-496c-b223-62854690fe5f
-# ╟─4e0a8f9c-93f8-4329-bb7f-1c0ece6f38cb
-# ╟─9e25d784-da56-4894-aa53-b8c8e1c0733b
-# ╟─77b112ef-f21a-40e5-becf-260116e9d04a
-# ╟─d60a639a-51f7-4a46-9a7b-f34933898c79
-# ╟─46f38254-0176-414a-9c46-9e6057ed94be
-# ╟─58204d30-9975-4546-8591-64dc44b3524b
-# ╟─8fe3a3a2-65df-4e9c-bdaa-64ebf06b2208
-# ╟─f46b008a-1fc7-461a-9f68-efc68506186b
-# ╟─4382f47e-3c62-4ddc-9502-ebeb8d009e26
-# ╟─bb583c35-64af-41bb-a805-fb505001e29f
+# ╟─66906daa-899e-4083-98f3-09ae0fec90da
+# ╟─b1dcd923-5170-4aca-ac43-936d36c98a47
+# ╟─a87e105a-8ee3-45cb-9c8e-2fb0dd545c1f
+# ╟─787e8400-547d-4539-822a-31e97117148f
+# ╟─e027c8ff-dc8c-4d01-b53e-ac180f0bd7f6
+# ╟─e3926356-1f43-4fc0-8325-e9d84c4a5752
+# ╟─b342c23d-a7d4-4b62-adfc-ba29f02f8841
+# ╟─523828cf-2873-4842-8814-9ba4e6f65c56
+# ╟─966d4638-ddfa-44c0-ba48-d1cd929fb59a
+# ╟─1eebc467-e8ed-4119-b379-f16311a26268
+# ╟─55606514-842f-4776-a475-3ec8d1a62d33
+# ╟─7ed58d0d-fa0c-4ab9-9a08-e3e5c6e32061
+# ╟─fe4c6a4f-4669-4586-9438-968f56957ec4
+# ╟─08165419-d182-4dcd-8b00-298d5514b57e
+# ╟─e3ee72fb-71f7-439e-9bc9-baa17fed2236
+# ╟─ce015a2d-e5f6-4a92-b939-cd68d1ad8b4a
+# ╟─6a5fe2cf-9a4b-4fce-b14d-57a5bb53aebe
+# ╟─f4b6dd2c-e081-4792-a106-b0d54ac21abf
+# ╟─31f3cf61-b768-456b-9f09-0835ebea0e8a
+# ╟─dec59caa-97f7-4f87-a6d0-223491a85f28
+# ╟─eeea5784-25a5-451d-b9cb-a698f32318bc
+# ╟─82acafee-7dc1-46b7-8f90-05e67c6a576f
+# ╟─f9880eb7-28c7-4f25-894f-1796afb454ed
+# ╟─35272852-ae8a-4245-b62e-4cbb311a0fe9
+# ╟─95e1dd06-33c4-45b9-b453-4bd0a62887e2
+# ╟─dd7621ad-0dfd-4412-9fb5-5fe352c84e91
+# ╟─683e954b-fc2a-4b4a-b7c7-2f31970225e3
+# ╟─3e7cb0bf-2cea-40a9-b628-9b2b777f03da
+# ╟─2ec7b256-b0ab-47f1-bcc0-74cd2ce67d51
+# ╟─2236eed1-727a-4284-8cd3-aac811946592
+# ╟─398b57a7-eefc-4836-9a44-f7be2c0e1228
+# ╟─ab6e5577-4007-4686-b3ed-2de31c99f422
+# ╟─180d74b1-f69b-4e8a-8b5d-309337af9a26
+# ╟─24f1c135-8c57-42cb-958a-030aa52978dc
+# ╟─1adcb5d7-47bc-43e8-a9e4-e4fa3315b1b8
+# ╟─67c2d342-cc39-4111-9f5d-5572e33e2ce5
+# ╟─0d6ee1f4-a235-4a46-b448-eddc70bccdc6
+# ╟─ed79aa4a-8ad5-485b-a040-609b6bb0d379
+# ╟─da14f685-45f0-4dbe-84aa-325453014f22
+# ╟─3d21c3d0-94e0-4121-8e8e-c4d2a80dd48c
+# ╟─fdca08c4-da82-44b8-b3ef-34ca5ec39c90
+# ╟─491ad32b-198e-4664-a325-80778b5a35bc
+# ╟─5ed41a23-537c-47b7-8bfd-b13623842bdf
+# ╟─f3f7d4c9-744e-49dd-9e4e-6f6f9b09a1a5
+# ╟─b9dede7f-fd40-4b16-a0ea-b83853aaed33
+# ╟─cb0cc1b6-574c-4e3c-abf2-2d1403586f04
+# ╟─5d06b5b0-d70f-45a8-b7c0-1c1880ce9f5f
+# ╟─9892ce74-2d5f-4dfc-a36a-2de49c6e1650
+# ╟─510322b6-e499-4431-a330-8e17ce5a055c
+# ╟─075541ff-9f03-4408-8ac8-1c46a012f0b8
+# ╟─b3a6f528-c75a-41c9-a72c-b9ae71e5f404
+# ╟─aedae180-360e-4bc0-8ac1-2d0d66379cf1
+# ╟─8df439e0-d5d1-4707-bd0d-ae2126dc1323
+# ╟─cc9fa8a3-edf6-4757-9e7f-23e247cb469c
+# ╟─7477075c-f682-4dfd-a995-29ee58348046
+# ╟─0b21609e-e730-44c4-8339-3fd5dcff4ca8
+# ╟─11a99f30-e86d-4a2f-949b-943e8d906e52
+# ╟─8212d3ff-3817-4290-89e2-f64c06765351
+# ╟─f7b702cf-3883-43bf-89aa-c2a349cb8855
+# ╟─90dc87e2-4f38-4afd-8505-599bd328bf03
+# ╟─b0e78e48-dd31-4f97-b77d-5fcb1b048c4d
+# ╟─97d4af1c-ab6d-48cf-97a9-50414588a570
+# ╟─e3549233-2a7e-4383-9e0a-f7f904194a23
+# ╟─0f16b0bc-8a0b-4fdb-a32c-d6596e056718
+# ╟─0f685c76-c477-4c6d-949e-b5500a826938
+# ╟─3224c7f4-e8d9-4ac1-96c1-fc220274a3d4
+# ╟─f33eb26b-4abe-422d-acb2-0d76e9723a1f
+# ╟─ec23f623-323c-4012-87bd-31b58953f334
+# ╟─b5badd03-e62e-4196-9a87-4edd21e16ad9
+# ╟─c25b2a70-9f5b-45d0-a71e-84141f45e753
+# ╟─5ebf23a1-6c35-439f-a0e9-d5bb3192b9b5
+# ╟─99210776-8806-4c49-bfb4-71a0ef7802b2
+# ╟─131c73d0-864b-4c94-872d-c11a74337439
+# ╟─cfdc7bb1-3dbb-41db-8ad6-7a6b8fc24aec
+# ╟─712f3624-bb14-4663-9427-4e95143f5391
+# ╟─74b76a20-7944-460f-adcb-d71d1bf9759b
+# ╟─380c8299-de70-441d-abc8-74c107dfc015
+# ╟─4b379040-a2c3-4dff-a545-467bbf4fb85b
+# ╟─1fa7ce40-40db-4c0b-b297-97474efed821
+# ╟─04626189-3648-4da6-8a72-21a52034d429
+# ╟─52cb3409-e841-4f90-9284-a80615758262
+# ╟─78ee66ca-dbcb-440e-8f7d-f52252cbcfb7
+# ╟─f319de0a-36ea-4737-a4b6-b71efd8afdd9
+# ╟─f7707f8a-2fe2-4966-9746-23437fb0c2ac
+# ╟─28f676b8-0086-46b1-a205-1da7975d684c
+# ╟─f6bc6a50-c1b0-40f2-8ded-b6c9ab87477c
+# ╟─9371dbc3-34df-4d59-b62a-7b9c9565fac4
+# ╟─6cdae381-2db4-4b6a-89d5-b2f0e6455d8b
+# ╟─5a7e5e04-49df-4c5f-a40d-15ba9bc80512
+# ╟─7c4ff311-c911-454f-82dd-1ce7f7f753f5
+# ╟─a64cd412-7d7d-458b-a240-453fe3c723b9
+# ╟─22cb0c4c-f8b5-4b2b-a88a-7d2aeabe5344
+# ╟─4ea5cb26-f5b1-4460-b9bf-0193ba2f84d1
+# ╟─043c8dcc-19b8-4db0-a250-9255301d89dd
+# ╟─de8f8f4b-b782-4e72-ae40-5b72c8315292
 # ╟─0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 # ╟─8687dbd1-4857-40e4-b9cb-af469b8563e2
 # ╟─fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b

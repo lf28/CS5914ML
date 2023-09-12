@@ -28,11 +28,29 @@ begin
 	
 end
 
-# ╔═╡ 959d3f6e-ad5b-444f-9000-825063598837
-using Zygote
-
 # ╔═╡ 3e2e1ea8-3a7d-462f-ac38-43a087907a14
 TableOfContents()
+
+# ╔═╡ 275e626f-026b-4167-acaa-d9faa590bed7
+figure_url = "https://leo.host.cs.st-andrews.ac.uk/figs/";
+
+# ╔═╡ f6bbddfe-d23d-44d9-ba13-237c55b9567d
+function show_img(path_to_file; center=true, h = 400, w = nothing)
+	if center
+		if isnothing(w)
+			@htl """<center><img src= $(figure_url * path_to_file) height = '$(h)' /></center>"""
+		else
+			@htl """<center><img src= $(figure_url * path_to_file) width = '$(w)' /></center>"""
+		end
+
+	else
+		if isnothing(w)
+			@htl """<img src= $(figure_url * path_to_file) height = '$(h)' />"""
+		else
+			@htl """<img src= $(figure_url * path_to_file) width = '$(w)' />"""
+		end
+	end
+end;
 
 # ╔═╡ 7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 ChooseDisplayMode()
@@ -43,7 +61,7 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Vector calculus 1
+#### Backpropagation
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -77,7 +95,7 @@ end;
 # ╔═╡ a696c014-2070-4041-ada3-da79f50c9140
 begin
 	next1
-	topics = ["Single variate calculus: linear & quadratic function, derivative, optimisation", "Multivariate vector calculus: level set, contour, gradient, Hessian", "Local approximation: the essence of differential calculus"]
+	topics = ["Chain rule review", "Linear regression and logistic regression as examples", "Backpropagation - as mechanical message passing", "Matrix calculus and backpropagation", "Backpropagation algorithm for neural network"]
 	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
 end
 
@@ -87,829 +105,1628 @@ let
 	next_idx[1] += 1
 end;
 
-# ╔═╡ 992a13dd-e6bf-4b18-8654-ac70398e15ab
+# ╔═╡ be4778f9-6f7a-4dda-a7bb-9076228e397a
 md"""
 
-# Single variable calculus
-"""
+## Linear regression's gradient
 
-# ╔═╡ 49815f5b-f5e4-4cd4-b891-599033fe9d8b
-md"""
-
-## Linear function
-
-Univariate linear function ``f: \mathbb{R} \rightarrow \mathbb{R}``
+Recall the loss for simple linear regression:
 
 ```math
 \large
-f(x) = b\cdot x+ c
+l = \frac{1}{2}\left((x*w +b) -y\right )^2 
 ```
 
-* ``c``: intercept
-* ``b``: slope
-  * *constant* change rate between ``f`` and ``x``
+Based on chain rule, the gradient w.r.t ``w, b`` are
+
+
+```math
+\boxed{
+\begin{align}
+\frac{\mathrm{d}\, l(w, b)}{\mathrm{d} w} &= \underbrace{(wx +b -y)}_{\hat{y} -y}x\\
+\frac{\mathrm{d}\, l(w,b)}{\mathrm{d} b} &= \underbrace{(wx +b -y)}_{\hat{y} -y}\\
+\end{align}
+}
+```
+## Ajoint notation
+
+The gradient w.r.t ``w, b`` are
+
+
+```math
+\boxed{
+\begin{align}
+\frac{\mathrm{d}\, l(w, b)}{\mathrm{d} w} &= \underbrace{(wx +b -y)}_{\hat{y} -y}x\\
+\frac{\mathrm{d}\, l(w,b)}{\mathrm{d} b} &= \underbrace{(wx +b -y)}_{\hat{y} -y}\\
+\end{align}
+}
+```
+
+To make the notation less clutter, we introduce a shorthand notation called: **adjoint**
+
+
+```math
+\large
+\bar{w} =\frac{\mathrm{d} l}{\mathrm{d} w} ; \quad \bar{b} =\frac{\mathrm{d} l}{\mathrm{d} b}
+```
+
+* the adjoints ``\overline{{var}}`` represents the desired gradient/derivative of ``var``
 """
 
-# ╔═╡ ac596eff-342c-4675-bed8-f1c1c9a3a775
-# md"## Demonstration
-# "
-
-# ╔═╡ 9a2d12cc-59d7-42ef-b1bd-bc90f7c0db3c
-# md"Add function: $(@bind add_f_linear CheckBox(default=false))"
-
-# ╔═╡ 15428895-7f94-41e4-9fe8-ae2231900afc
-# md"""
-# Slope: ``b=`` $(@bind b_ Slider(-10:0.1:10; default = 5, show_value=true)), Intercept: ``c=`` $(@bind c_ Slider(-10:0.1:10; default = 0, show_value=true))
-# """
-
-# ╔═╡ 3de289ab-a863-43b3-9799-3ca66791e02c
-# let
-# 	gr()
-# 	b, c = b_, c_
-# 	plt = plot()
-# 	abs = [(2, 0), (-2, 0)]
-# 	for (a, b) in abs
-# 		plot!(-3:0.1:3, (x) -> a*x+b, framestyle=:origin, label=L"f(x) = %$(a)x + %$(b)", lw =2, lc=:gray,legend=:outerright)
-# 	end
-
-# 	if add_f_linear
-# 		plot!(-3:0.1:3, (x) -> b*x+c, framestyle=:origin, label="", legend=:outerright, lw=2, r=1)
-# 		x_ = 0 
-# 		if c < 0
-# 			ann_text = text(L"{f(x) = %$(b)x  %$(c)}", :green,  :bottom, rotation = atan(b) * 90/π)
-# 		else
-# 			ann_text = text(L"{f(x) = %$(b)x + %$(c)}",:green,   18, :bottom, rotation = atan(b) * 90/π)
-# 		end
-# 		annotate!([x_], [b*x_ + c], ann_text)
-# 	end
-# 	plt
-# end
-
-# ╔═╡ 20536535-dd93-4987-886c-5d1d3cccf469
+# ╔═╡ f24661ce-1ed6-4ebe-9956-7f8a895a517c
 md"""
 
-## Effects of intercept and slope 
+## Linear regression's gradient computation
+"""
 
-
-### Effect of the intercept: ``c``
+# ╔═╡ e14e26f6-7e32-4460-9361-59d46a8c63ca
+TwoColumn(md"""
 \
-"""
 
-# ╔═╡ c1a2cdac-605c-4891-abe3-a7e013f390cc
-let
-	gr()
-	b₁, b₀ = 1.5, 0
-	plt = plot( legend=:outerright, title="Effect of intercept: "*L"c")
-
-	bbs = [[b₁, b₀]  for b₀ in -3:3]
-	for (b₁, b₀) in bbs
-		if b₀ < 0 
-			anno_text = L"f(x) = %$(b₁)x %$(b₀)"
-		else
-			anno_text = L"f(x) = %$(b₁)x + %$(b₀)"
-		end
-		plot!(-1:0.1:3, (x) -> b₁*x+b₀, framestyle=:origin, label=anno_text, legend=:outerright, lw=2)
-	end
-	plt
-end
-
-# ╔═╡ d41c8ca2-a6fa-495e-b8c0-5fe6007f2485
-md"""
-##
-### Effect of slope: ``b``
-"""
-
-# ╔═╡ 3ed1700f-4335-4e2d-b0c6-8a121784e38a
-let
-	gr()
-	a, b = 0, 2
-	plt = plot( legend=:outerright, title="Effect of slope: "*L"b")
-
-	abs = [(-2, b),  (-1.5, b), (-1, b), (-0.5, b),  (0,b), (.5, b), (1, b), (1.5, b), (2, b)]
-	for (a, b) in abs
-		if a == 1.0
-			anno_text =	L"f(x) = x + %$(b)"
-		else
-			anno_text = L"f(x) = %$(a)x + %$(b)"
-		end
-		plot!(-1:0.1:3, (x) -> a*x+b, framestyle=:origin, label=anno_text, legend=:outerright, lw=2)
-	end
-	plt
-end
-
-# ╔═╡ b4390e22-bf19-4445-8988-954615ac5991
-md"""
-## Quadratic function
-
-Univariate qudratic function ``\mathbb R\rightarrow \mathbb R``
+Recall the loss for simple linear regression:
 
 ```math
-\large 
-f(x) = ax^2 + b x+ c, \;\; a\neq 0
+l = \frac{1}{2}\left((x*w +b) -y\right )^2 
+```
+\
 
+When implemented, ``l`` is actually computed internally as 
+\
+
+```python
+t₁ = x * w # intermediate value
+
+t₂ = t₁ + b # ŷ
+
+t₃ = t₂ - y # ŷ - y
+
+t₄ = t₃ ** 2 # (ŷ - y)²
+
+l = 1/2 * t₄ # 1/2 * (ŷ - y)²
 ```
 
-> ``a``: quadratic coefficient
-* ``a> 0``: bowl facing up
-* ``a<0``: bowl facing down
-* ``a=0``: reduce to linear function
+""", html"" )
 
-> ``b``: linear coefficient
-
-> ``c``: the intercept
-"""
-
-# ╔═╡ 1dd3214e-de41-4f9d-b43a-35b107c64cf2
+# ╔═╡ 2dfcc44b-40e9-4aef-8b09-44ec39cf6f35
 md"""
 
-## Quadratic function
-
+## Linear regression's gradient computation
 """
 
-# ╔═╡ cf1b8de7-1c04-46a8-8ca6-8c266bc7a6fc
-pltapos, pltaneg=let
-	gr()
-	b, c = 0, 0
-	plt = plot( legend=:outerbottom, title="Effect of "*L"a>0", size=(300,400))
-	plt2 = plot( legend=:outerbottom, title="Effect of "*L"a<0", size=(300,400))
-	
-	ass = [0.1, 1,2,3,4,6]
-	for a in ass
-		plot!(plt, -5:0.2:5, (x) -> a* x^2 + b* x+ c, framestyle=:origin, label=L"f(x) = %$(a)x^2 + %$(b)x + %$(c)", lw=2)
-		plot!(plt2, -5:0.2:5, (x) -> -a * x^2 + b* x+ c, framestyle=:origin, label=L"f(x) = -%$(a)x^2 + %$(b)x + %$(c)", lw=2)
-	end
+# ╔═╡ 700fdce1-16d4-4179-8ed7-dce1a19cf8a9
+TwoColumn(md"""
+\
+
+Recall the loss for simple linear regression:
+
+```math
+l = \frac{1}{2}\left((x*w +b) -y\right )^2 
+```
+\
+
+When implemented, ``l`` is actually internally computed as 
+\
 
 
-	plt, plt2
-end;
+```python
+t₁ = x * w # intermediate value
 
-# ╔═╡ d2e4fb88-3728-4886-ba4f-634050bbf738
-TwoColumn(md"
+t₂ = t₁ + b # ŷ
 
-#### when `` a > 0``
+t₃ = t₂ - y # ŷ - y
 
+t₄ = t₃ ** 2 # (ŷ - y)²
 
-The function has a **minimum**
+l = 1/2 * t₄ # 1/2 * (ŷ - y)²
+```
 
-$(pltapos)
-", 
-	
-	
-md" #### when `` a<0``
+""", 
+show_img("CS5914/backprop/linreg_grad.svg", h=400))
 
-
-The function has a **maximum**
-
-
-$(pltaneg)
-")
-
-# ╔═╡ da2f5399-32de-4998-83f2-b84b2d720f82
+# ╔═╡ bbe7cca6-1861-42bc-9835-6b0daea9f65e
 md"""
 
-## Derivative
-
-
-
-$$\large f'(x)= \frac{\mathrm{d}f}{\mathrm{d}x}(x) =\lim_{\Delta x \rightarrow 0} \frac{\overbrace{f(x+\Delta x) - f(x)}^{\Delta f}}{\Delta x}$$
-
-- *limit* of the change ratio
-- ``f'(x)``: the _instant change rate_ of ``f`` at location ``x``
-
-
-
+## Chain rule by graph 
 """
 
-# ╔═╡ 16ecc090-613e-4746-b12d-0a3d0e4e1727
-md"``\Delta x``: $(@bind Δx Slider(1.5:-0.1:0, default=1.5))"
+# ╔═╡ f846c1a9-4967-4d3c-be4b-d55aa6ddafb5
+TwoColumn(md"""
+\
 
-# ╔═╡ 4ef8df63-5b77-48a8-99c0-f014cf6360c1
-let
-	gr()
-	x₀ = 0.0
-	xs = -1.2π : 0.1: 1.2π
-	f, ∇f = sin, cos
-	# anim = @animate for Δx in π:-0.1:0.0
-	# Δx = 1.3
-	plot(xs, sin, label=L"\sin(x)", ylim = [-1.5, 1.5], xlabel=L"x", lw=2, legend=:outerbottom, framestyle=:semi, title="Derivative at "*L"x=0", legendfontsize=10)
-		df = f(x₀ + Δx)-f(x₀)
-		k = Δx == 0 ? ∇f(x₀) : df/Δx
-		b = f(x₀) - k * x₀ 
-		# the approximating linear function with Δx 
-		plot!(xs, (x) -> k*x+b, label="", lw=2)
-		# the location where the derivative is defined
-		scatter!([x₀], [f(x₀)], ms=3, label=L"x_0,\; \sin(x_0)")
-		scatter!([x₀+Δx], [f(x₀+Δx)], ms=3, label=L"x_0+Δx,\; \sin(x_0+Δx)")
-		plot!([x₀, x₀+Δx], [f(x₀), f(x₀)], lc=:gray, label="")
-		plot!([x₀+Δx, x₀+Δx], [f(x₀), f(x₀+Δx)], lc=:gray, label="")
-		font_size = Δx < 0.8 ? 12 : 14
-		annotate!(x₀+Δx, 0.5 *(f(x₀) + f(x₀+Δx)), text(L"Δf", font_size, :top, rotation = 90))
-		annotate!(0.5*(x₀+x₀+Δx), 0, text(L"Δx", font_size,:top))
-		annotate!(-.6, 1, text(L"\frac{Δf}{Δx}=%$(round(k, digits=2))", 15,:top))
-end
+Chain rule based on the computational graph
 
-# ╔═╡ e4bd5842-e6af-4e12-af4b-1556b91db0ee
-md"""
-##
+To compute adjoint ``\bar{w} =\frac{\mathrm{d} l}{\mathrm{d} w}``,
 
-"""
 
-# ╔═╡ 55b1388f-c368-4d95-9893-ea95e8c2359e
-let
-	gr()
-	x₀ = 0.0
-	xs = -1.5π : 0.1: 1.5π
-	f, ∇f = sin, cos
-	anim = @animate for Δx in 1.5:-0.1:0.0
-		plot(xs, sin, label=L"\sin(x)", ylim = [-1.5, 1.5], xlabel=L"x", lw=2, legend=:topleft, legendfontsize = 10)
-		df = f(x₀ + Δx)-f(x₀)
-		k = Δx == 0 ? ∇f(x₀) : df/Δx
-		b = f(x₀) - k * x₀ 
-		# the approximating linear function with Δx 
-		plot!(xs, (x) -> k*x+b, label="", lw=2)
-		# the location where the derivative is defined
-		scatter!([x₀], [f(x₀)], ms=3, label=L"x_0, \sin(x_0)")
-		scatter!([x₀+Δx], [f(x₀+Δx)], ms=3, label=L"x_0+Δx, \sin(x_0+Δx)")
-		plot!([x₀, x₀+Δx], [f(x₀), f(x₀)], lc=:gray, label="")
-		plot!([x₀+Δx, x₀+Δx], [f(x₀), f(x₀+Δx)], lc=:gray, label="")
-		font_size = Δx < 0.8 ? 7 : 10
-		annotate!(x₀+Δx, 0.5 *(f(x₀) + f(x₀+Δx)), text(L"Δf=%$(round(df, digits=1))", font_size, :top, rotation = 90))
-		annotate!(0.5*(x₀+x₀+Δx), 0, text(L"Δx=%$(round(Δx, digits=1))", font_size,:top))
-		annotate!(0, 1, text(L"\frac{Δf}{Δx}=%$(round(k, digits=2))", 10,:top))
-	end
+**First**, we find the forward chain
+* *i.e.* _how_ variable ``w`` influence the output ``l`` 
 
-	gif(anim, fps=5)
-end
+```math
 
-# ╔═╡ 6fc139a6-a8b6-4215-a4c6-06a54c2985ec
+\textcolor{salmon}w \rightarrow t_1 \rightarrow t_2 \rightarrow t_3 \rightarrow t_4 \rightarrow \textcolor{blue}l
+```
+
+""", 
+	# html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/fchain_w.svg
+# ' height = '400' /></center>"
+
+show_img("CS5914/backprop/fchain_w.svg", h=400)
+)
+
+# ╔═╡ 24655fb8-8c0f-4377-bdd7-b8c7e5674c3c
 md"""
 
-## Derivative
-
-
-
-$$\large f'(x)= \frac{\mathrm{d}f}{\mathrm{d}x}(x) =\lim_{\Delta x \rightarrow 0} \frac{f(x+\Delta x) - f(x)}{\Delta x}$$
-
-- *also note*, the derivative itself ``f'`` is a ``\mathbb R \rightarrow \mathbb R``  **function**
-  - input: ``x\in \mathbb R``
-  - outputs: the change rate at $x$ (or the *slope* of the tangent line)
-
-
-
+## Chain rule by graph 
 """
 
-# ╔═╡ a79f418f-d054-46e7-bb9b-f13a7631e21b
-html"""<center><img src="https://upload.wikimedia.org/wikipedia/commons/2/2d/Tangent_function_animation.gif" width = "350"/></center>""" 
+# ╔═╡ 3e37d3d2-cc25-434a-8bc3-3ecb6bdd29be
+TwoColumn(md"""
+\
 
-# ╔═╡ 8ae96192-2b4f-48e7-b55d-bea27d565671
+Chain rule based on the computational graph
+
+To compute adjoint ``\bar{w} =\frac{\mathrm{d} l}{\mathrm{d} w}``,
+
+
+**First**, we find the forward chain
+* *i.e.* _how_ variable ``w`` influence the output ``l`` 
+
+```math
+
+\textcolor{salmon}w \rightarrow t_1 \rightarrow t_2 \rightarrow t_3 \rightarrow t_4 \rightarrow \textcolor{blue}l
+```
+
+**Second**, chain rule just **chain** _backwardly_
+
+
+$\textcolor{blue}l \rightarrow t_4 \rightarrow t_3 \rightarrow t_2 \rightarrow t_1 \rightarrow \textcolor{salmon}w$
+
+* *i.e.* chain rule ``\Longleftrightarrow`` product of _local gradients_
+```math
+\frac{\mathrm{d} l}{\mathrm{d} w} = \frac{\mathrm{d} l}{\mathrm{d} t_4}\frac{\mathrm{d} t_4}{\mathrm{d} t_3}\frac{\mathrm{d} t_3}{\mathrm{d} t_2}\frac{\mathrm{d} t_2}{\mathrm{d} t_1} \frac{\mathrm{d} t_1}{\mathrm{d} w}
+```
+""", 
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/bchain_w.svg
+# ' height = '400' /></center>" 
+
+	show_img("CS5914/backprop/bchain_w.svg", h=400)
+)
+
+# ╔═╡ 818348da-5cd7-4efe-b9b3-b47e40d1f517
 aside(tip(md"""
-Differentiation rules
-* constant rule: ``f(x)=c``, then ``f'= 0``
-* scalar rule: ``(af(x))' = a f'(x)``
-* sum/subtraction rule: ``(f(x)\pm g(x))'= f(x)' \pm g(x)'``
-* product rule: ``(f(x)g(x))' = f' g + f g'``
-* quotient rule: ``\left (\frac{f(x)}{g(x)}\right )' = \frac{f' g-g'f}{g^2}``
-* chain rule: ``h(x) = f(g(x))``, then ``h'(x)=f'(g(x)) g'(x)``"""))
 
-# ╔═╡ bbed688d-0caf-4f93-a19c-ea3a0039a1a2
+Chain rule notation is easy to remember and also makes sense:
+
+```math
+\small
+\begin{align}
+\frac{\mathrm{d} l}{\mathrm{d} w} &= \frac{\mathrm{d} l}{\cancel{\mathrm{d} t_4}}\frac{\cancel{\mathrm{d} t_4}}{\cancel{\mathrm{d} t_3}}\frac{\cancel{\mathrm{d} t_3}}{\cancel{\mathrm{d} t_2}}\frac{\cancel{\mathrm{d} t_2}}{\cancel{\mathrm{d} t_1}} \frac{\cancel{\mathrm{d} t_1}}{\mathrm{d} w}\\
+&=\frac{\mathrm{d}l}{\mathrm{d}w}
+\end{align}
+```
+
+"""))
+
+# ╔═╡ f0f580ae-bfb2-4fa4-af88-e474cc83b763
 md"""
 
-## Calculate derivative
+## Chain rule by graph
 
+Similarly, for adjoint 
 
-
-
-Some common derivatives are
-
-```math
-f(x)=c, \;\; f'(x) = 0
-```
-
-```math
-f(x)=bx, \;\; f'(x) = b
-```
-
-
-```math
-f(x)=ax^2+bx+c, \;\; f'(x) = 2ax + b
-```
-
-```math
-f(x)=\exp(x), \;\; f'(x) = \exp(x) 
-```
-
-
-```math
-f(x)=\ln(x), \;\; f'(x) = \frac{1}{x}
-```
-
-```math
-f(x)=\sin(x), \;\; f'(x) = \cos(x) 
-```
+$\bar{b}=\frac{\mathrm{d}l}{\mathrm{d}b}$
 """
 
-# ╔═╡ 5568a672-a68d-42ce-ad7d-e2f93f597a19
+# ╔═╡ 048886ce-7a10-489e-9710-118fcda4ba2b
+TwoColumn(
+	
+# 	html"Forword chain  <center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/fchain_b.svg
+# ' height = '400' /></center>" 
+	
+	show_img("CS5914/backprop/fchain_b.svg", h=400)
+	
+	, 
+	
+# 	html"Backward chain:
+# <center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/bchain_b.svg
+# ' height = '400' /></center>" 
+
+show_img("CS5914/backprop/bchain_b.svg", h=400)
+
+)
+
+# ╔═╡ 1cd38ef5-c2e1-45c5-b636-dde0378420ff
 md"""
 
-## Calculate derivative -- chain rule
-
-Composite two functions ``f_2, f_1`` together, the composite function denoted as ``f_2 \circ f_1``
-
-```math
-(f_2 \circ f_1) (x) \triangleq f_2(f_1(x))
-```
-
-
-The derivative is
-
-```math
-\large
-\frac{d (f_2 \circ f_1)}{dx} = \frac{d f_2}{d f_1} \frac{d f_1}{d x}
-```
-
-
-##
-
-**Example:**
-
-
-```math
-\large
-f(x) = (b- ax)^2
-```
-
-* as a dependence gragh
-
-
-```math
-\Large
-x \textcolor{blue}{\xrightarrow{f_1(x)=b-ax}} (b-ax) \textcolor{red}{\xrightarrow{f_2(x)=x^2}} (b-ax)^2 
-```
-
-
+## Local gradients
 
 
 """
 
-# ╔═╡ 20735597-3cb2-4514-b015-cf12464fb286
+# ╔═╡ c4b92e7f-4d97-434e-8e41-21cc744f27c1
+TwoColumn(md"""
+\
+
+
+###### Local gradients are usually very easy and _mechanical_ to compute
+\
+
+As an example, what is the local gradient
+
+```math
+\frac{dl}{dt_4}=?
+```
+
+Note that  
+
+```math
+l = \frac{1}{2} t_4
+```
+""", 
+	
+# 	html"
+# <center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/linreg_grad2.svg
+# ' height = '400' /></center>"
+
+
+show_img("CS5914/backprop/linreg_grad2.svg"))
+
+# ╔═╡ c6bfd5b3-2365-47ea-a573-1d85f8897fd2
 md"""
 
-
-##
-
-**Example:**
+## Local gradients
 
 
-```math
-\large
-f(x) = (b- ax)^2
-```
-
-* as a dependence gragh
-
-
-```math
-\Large
-x \textcolor{blue}{\xrightarrow{f_1}} (b-ax) \textcolor{red}{\xrightarrow{f_2}} (b-ax)^2 
-```
-
-
-
-* chain rule tells us to _multiply all local derivatives_ 
-
-```math
-\Large
-x \textcolor{blue}{\xleftarrow{\frac{{d} f_1}{{d} x}}} f_1(x) \textcolor{red}{\xleftarrow{\frac{{d} f_2}{{d} f_1}}}f_2(f_1(x))
-```
-
-```math
-\Large
-x \textcolor{blue}{\xleftarrow{-a}} f_2(x) \textcolor{red}{\xleftarrow{2(b-ax)}}f_2(f_1(x))
-```
-
-* the derivative is the multiplication of the local derivatives
-
-```math
-\large
-\frac{d f}{d x} = \textcolor{red}{\underbrace{2(b-ax)}_{df_1/df_2}} \cdot \textcolor{blue}{\underbrace{(-a)}_{df_2/dx}}
-```
 """
 
-# ╔═╡ 9367ff5b-cc1d-41b9-8a06-fe248b0b8a19
+# ╔═╡ def9a07e-152d-448d-949b-cd7b48f6de71
+TwoColumn(md"""
+\
+
+
+###### Local gradients are usually very easy and _mechanical_ to compute
+\
+
+As an example, what is the local gradient
+
+```math
+\frac{dl}{dt_4}=\frac{1}{2}
+```
+
+Note that
+
+```math
+l = \frac{1}{2} t_4
+```
+""", 
+	
+# 	html"
+# <center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/linreg_grad3.svg
+# ' height = '400' /></center>"
+
+show_img("CS5914/backprop/linreg_grad3.svg"))
+
+# ╔═╡ fe37d7d4-b9f0-4061-b5b4-3db2d3bb15c3
 md"""
 
-## Differentiation and linear approximation
+## Local gradients
 
 
-> If ``f: \mathbb R \rightarrow \mathbb R`` is differentiable at ``x_0``, then
-> 
-> ``f(x)`` can be locally approximated by a linear function
-> ```math
-> \Large
-> \begin{align}
-> f(x) &\approx f(x_0) + f'(x_0)(x-x_0) 
-> \end{align}
-> ```
 """
 
-# ╔═╡ 6161543b-34d1-44df-9b04-e2644adb3882
-Foldable("More formally", md"""
+# ╔═╡ f9b74e76-3b72-4ad2-bd0c-9d136f643d78
+TwoColumn(md"""
+\
+\
+\
+\
+\
 
+###### _Find the rest of the local gradients ?_
+""", 
+	# html"
+# <center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/linreg_grad4.svg
+# ' height = '400' /></center>"
 
-> ```math
-> f(x) = f(x_0) + f'(x_0)(x-x_0)  + o(|x-x_0|)
-> ```
+show_img("CS5914/backprop/linreg_grad4.svg"))
 
-where the small ``o`` denotes that the function is an order of magnitude smaller around 𝑥0 than the function ``|x -x_0|``.
-
-""")
-
-# ╔═╡ 1f102762-3f4a-4895-a26d-d44e2804f6de
-@bind x̂ Slider(-2:0.2:3, default=-1.5, show_value=true)
-
-# ╔═╡ ec39f15f-14af-48c6-beae-9a128c3eccb7
-f(x) = x * sin(x^2) + 1; # you can change this function!
-
-# ╔═╡ f59d2e5d-4f1b-4c45-b312-bcfc72f97c75
-plt_linear_approx = begin
-    # Plot function
-    xs = range(-2, 3, 200)
-    ymin, ymax = extrema(f.(xs))
-    p = plot(
-        xs,
-        f;
-        label=L"$f(x)$",
-        xlabel=L"x",
-        legend=:topleft,
-        ylims = (ymin - .5, ymax + .5),
-        legendfontsize=10,
-		lw = 2,
-		ratio = .7,
-		framestyle=:zerolines
-    )
-
-    # Obtain the function 𝒟fₓ̃ᵀ
-    ŷ, 𝒟fₓ̂ᵀ = Zygote.pullback(f, x̂)
-
-    # Plot Dfₓ̃(x)
-    # plot!(p, xs, w -> 𝒟fₓ̂ᵀ(w)[1]; label=L"Derivative $\mathcal{D}f_\tilde{x}(x)$")
-    # Show point of linearization
-    vline!(p, [x̂]; style=:dash, c=:gray, label=L"x_0")
-    # Plot 1st order Taylor series approximation
-    taylor_approx(x) = f(x̂) + 𝒟fₓ̂ᵀ(x - x̂)[1] # f(x) ≈ f(x̃) + 𝒟f(x̃)(x-x̃)
-    plot!(p, xs, taylor_approx; label=L"Linear approx. at $x_0$", lc=2,  lw=2)
-end;
-
-# ╔═╡ db6110ab-94d1-4b0d-b85d-1a4505dd3578
-plt_linear_approx
-
-# ╔═╡ d85e3b50-8fe7-4178-a7b5-3c757dce9677
+# ╔═╡ 85e6afaf-5bcc-4634-8858-b0dfdde2569a
 md"""
 
-## Optimisation
+## Local gradients
+
+
 """
 
-# ╔═╡ 350de8a8-fda9-471a-be21-d5606de38f97
+# ╔═╡ a3869ebb-6281-49cd-8935-3973820d5df6
+TwoColumn(md"""
+\
+\
+\
+\
+\
+
+###### _The rest of the local gradients_
+""", 
+	
+# 	html"
+# <center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/linreg_grad5.svg
+# ' height = '400' /></center>"
+
+show_img("CS5914/backprop/linreg_grad5.svg"))
+
+# ╔═╡ f1a86108-0a87-45a2-b766-9a461c5f4eed
+md"""
+
+## Chain rule by graph -- ``\bar{w}``
+"""
+
+# ╔═╡ a9f1f41b-4981-4ef2-a8e4-f7015bb67b5f
+TwoColumn(md"""
+\
+\
+\
+
+As expected, as chain rule ``\Longleftrightarrow`` product of _local gradients_:
+\
+\
+
+```math
+\begin{align}
+\frac{\mathrm{d} l}{\mathrm{d} w} = \frac{\mathrm{d} l}{\mathrm{d} t_4}\frac{\mathrm{d} t_4}{\mathrm{d} t_3}\frac{\mathrm{d} t_3}{\mathrm{d} t_2}\frac{\mathrm{d} t_2}{\mathrm{d} t_1} \frac{\mathrm{d} t_1}{\mathrm{d} w}
+&= (\hat{y} -y)x
+\end{align}
+```
+
+""", 
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/linreg_grad6.svg
+# ' height = '420' /></center>"
+
+
+show_img("CS5914/backprop/linreg_grad6.svg", h=420))
+
+# ╔═╡ 0c52d008-81eb-4aa9-8750-e32aa544bfca
+md"""
+
+## Chain rule by graph -- ``\bar{b}``
+"""
+
+# ╔═╡ 519cae70-e46b-4ca3-8a52-55f9da47e3b6
+TwoColumnWideRight(md"""
+\
+\
+\
+\
+
+As expected, as chain rule 
+``\Longleftrightarrow`` 
+product of _local gradients_:
+\
+\
+
+```math
+\begin{align}
+\frac{\mathrm{d} l}{\mathrm{d} b} &= \frac{\mathrm{d} l}{\mathrm{d} t_4}\frac{\mathrm{d} t_4}{\mathrm{d} t_3}\frac{\mathrm{d} t_3}{\mathrm{d} t_2}\frac{\mathrm{d} t_2}{\mathrm{d} b}\\
+&= \hat{y} -y
+\end{align}
+```
+
+""", 
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/linreg_grad7.svg
+# ' height = '420' /></center>" 
+
+show_img("CS5914/backprop/linreg_grad7.svg";h=420))
+
+# ╔═╡ a175eb7b-a1b9-476b-930a-0bc92d1f28ef
+md"""
+
+## Caching adjoints results
+
+##### Dynamic programming principle
+"""
+
+# ╔═╡ 94719819-9f0e-4669-a234-5f0aee64a52c
 TwoColumn(md"""
 
-Whenenver 
+
+
+
+**Observation**:
+both adjoints have an overlapping sub-path:
+
 
 ```math
-\large 
-\frac{\mathrm{d}f}{\mathrm{d}x}(x) =0,
-``` 
-
-* it implies ``f(x)`` is flat near ``x``
-* the derivative vanishes: ``f`` does not increase nor decrease
-  * it can be a *maximum*, 
-  * a *minimum* 
-  * or a *saddle point* (not shown here)
-""", md"
-![](https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/05-example-monotonicity-derivatives.png)
-")
-
-# ╔═╡ dc1f2d6a-5195-4f01-9b1f-350566bea0b9
-md"[Figure source](https://tivadardanka.com/book)"
-
-# ╔═╡ 27f70663-d4c9-4a06-aa15-db9e9e4d822c
-md"""
-
-
-## Optimisation
-
-To optimise (maximise or minimise) ``f``, *i.e.*
-
-```math
-\Large 
-x_{\text{max}} \leftarrow \arg\max_x f(x)\;\; \text{or}\;\; x_{\text{min}} \leftarrow \arg\min_x f(x)
-```
-
-We need to solve
-
-```math
-\Large
-\frac{\mathrm{d}f}{\mathrm{d}x}(x) = 0
-
-```
-* either _analytically_
-* or iteratively (gradient descent, more on this later in the course)
-"""
-
-# ╔═╡ a646aefe-d2a0-4f8b-bb63-4ffe2ec43ff0
-md"""
-
-## Example
-
-To optimise 
-
-```math
-f(x) = ax^2 + bx +c
-```
-
-Find derivative and set to zero:
-
-```math
-f'(x) = 2a\cdot x + b =0 \Rightarrow x = \frac{-b}{2a}
+\begin{align}
+\overline{t_2} = \frac{\mathrm{d} l}{\mathrm{d }t_2}=\frac{\mathrm{d} l}{\mathrm{d} t_4}\frac{\mathrm{d} t_4}{\mathrm{d} t_3}\frac{\mathrm{d} t_3}{\mathrm{d} t_2}
+\end{align}
 ```
 
 
-"""
-
-# ╔═╡ 5b02277a-1c2e-418e-b4a3-9bed86230cd7
-md" ``x=``$(@bind x₀_ Slider(-6.5:0.1:4.5, default= -2/2*1))"
-
-# ╔═╡ f56d2626-ff15-4b4c-8184-7147b58ed7db
-let
-	gr()
-	a, b, c = 1, 2, 20
-	f(x) = a* x^2 + b*x+c
-	df(x) = 2a * x + b
-	xs = range(-6, 4.5, 50)
-	plt = plot(xs, f, label=L"f(x)= x^2 + 2x +20", legend=:topleft, lw=1.5, framestyle=:origin, size=(500,400))
-	linear_approx_f(x; f, ∇f, x₀) = f(x₀) + ∇f(x₀) * (x- x₀)
-	if df(x₀_) < 0
-		plot!((x) -> linear_approx_f(x; f=f, ∇f= df, x₀ = x₀_), legend=:topleft, label="Local linear approx",  lc=:red, lw=2, ylim=[0, 50])
-	elseif df(x₀_) > 0
-		plot!((x) -> linear_approx_f(x; f=f, ∇f= df, x₀ = x₀_), legend=:topleft, label="Local linear approx", lc=:green,  lw=2, ylim=[0, 50])
-	else
-		plot!((x) -> linear_approx_f(x; f=f, ∇f= df, x₀ = x₀_), legend=:topleft, label="Local linear approx", lc=:gray,  lw=2, ylim=[0, 50])
-	end
-	fprime = 2*a*x₀_ + b
-	annotate!(x₀_, f(x₀_)-3, L"x_0 = %$(round(x₀_, digits=2));\;\;\; f'(x_0)=%$(round(fprime, digits=2))")
+""", 
 	
-	# x₀ = -b/2a
-	# # scatter!([x₀], [f(x₀)])
-	# scatter!([x₀], [0], label="")
-	# plot!([x₀], [f(x₀)], st=:sticks, line=:dash, c=:gray, lw=2, label="")
-	# old_xticks = xticks(plt)[1]
-	# new_xticks = ([x₀], ["\$-\\frac{b}{2a}=-1\$"])
-	# keep_indices = findall(x -> all(x .≠ new_xticks[1]), old_xticks[1])
-	# merged_xticks = (old_xticks[1][keep_indices] ∪ new_xticks[1], old_xticks[2][keep_indices] ∪ new_xticks[2])
-	# xticks!(merged_xticks)
-end
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/linreg_grad8.svg
+# ' height = '450' /></center>" 
 
-# ╔═╡ 9b94af8d-b5d2-4c57-84ca-9406fa9e2d7b
-md"""
-## Recap: sample mean as _Projection_
+show_img("CS5914/backprop/linreg_grad8.svg", h=450))
 
-The sample mean of ``\mathbf{d} = \{d_1, d_2\ldots, d_n\}`` is
-
-
-```math
-\large
-\bar{d} = \frac{1}{n} \sum_i d_i
-```
-* it *compresses* a bunch of number into one scalar
-
-"""
-
-# ╔═╡ 404d8f96-c76d-48e8-ae2f-28160fc5c549
-begin
-	Random.seed!(2345)
-	sample_data = sort(randn(8) * 2)
-	μ̄ = mean(sample_data)
-end;
-
-# ╔═╡ 47b5c1dd-52c9-4670-8203-32cf0c3a0bfb
-let
-	gr()
-	ylocations = 0.05 * ones(length(sample_data))
-	plt = plot(ylim = [0., 0.07], xminorticks =5, yticks=false, showaxis=:x, size=(650,120), framestyle=:origin)
-	δ = 0.1
-	for i in 1:length(sample_data)
-		plot!([sample_data[i]], [ylocations[i]], label="", markershape =:circle, markersize=5, markerstrokewidth=1, st=:sticks, c=1, annotations = (sample_data[i], ylocations[i] + 0.01, Plots.text(L"d_{%$i}", :bottom, 13)))
-		# annotate!([sample_data[i]].+7*(-1)^i * δ, [ylocations[i]].+ δ, "", 8)
-	end
-	# vline!([μ̄], lw=2, ls=:dash, label="sample mean", legend=:topleft)
-	plot!([μ̄], [ylocations[1]], label="", markershape =:star5, markersize=5, markerstrokewidth=1, st=:sticks, c=2, annotations = (μ̄, ylocations[1] + 0.01, Plots.text(L"\bar{d}", :bottom, 15)))
-	# density!(scientist_data, label="")
-	plt
-end
-
-# ╔═╡ 62efcc68-e897-480b-9f54-1cec0255d35b
-md"""
-## Sample mean as _Projection_
-
-> **_Sample mean_** is actually a **_projection_**
-> * data vector ``\mathbf{d}`` projected to the one vector ``\mathbf{1}``
-
-Because
-
-
-```math
-\large
-\frac{\mathbf{1}^\top \mathbf{d}}{\mathbf{1}^\top\mathbf{1}} = \frac{\sum_i d_i}{n} = \bar{{d}}
-```
-
-
-Multiply ``\mathbf{1}`` on both side, we have
-
-```math
-\large 
-\frac{\mathbf{1}^\top \mathbf{d}}{\mathbf{1}^\top\mathbf{1}}\mathbf{1} =\bar{{d}}\mathbf{1} =\begin{bmatrix} \bar{d} \\\bar{d} \\ \vdots\\\bar{d}\end{bmatrix}
-```
-
-* ``\mathbf{d}``'s **projection** on ``\mathbf{1}``! 
-
-
-"""
-
-# ╔═╡ ce588c61-bb54-486b-bdf9-b6c4bf26b23c
-
-
-aside(tip(md"Recall the definition of projection:
-
-> ```math
-> \large
-> \mathbf{b}_{\text{proj}}  = \frac{\mathbf{a}^\top\mathbf{b}}
-> {\mathbf{a}^\top\mathbf{a}} \mathbf{a}
->```
-> * it projects ``\mathbf{b}`` to ``\mathbf{a}``
-
-
-"))
-
-# ╔═╡ 14503fd1-8a66-45d1-b72c-155995aa885e
+# ╔═╡ b2a56b61-aba3-4d41-b654-d91a5554915b
 md"""
 
-## Sample mean as optimisation
+## Caching adjoints results
 
-
-We can solve the problem by using **calculus** as well, *i.e.* optimisation
-
-
-Consider the sum of squared error loss function:
-
-```math
-\large
-\ell(\mu) = \sum_{i=1}^n (d_i - \mu)^2
-
-```
+##### Dynamic programming principle
 """
 
-# ╔═╡ d760db9b-5c5e-4e0b-8e37-a680240f351d
-md"``\mu``= $(@bind μ Slider(range(extrema(sample_data)..., 50), default=μ̄))"
+# ╔═╡ d2c5cfa1-1fbc-4abe-aaf1-053b68098535
+TwoColumn(md"""
 
-# ╔═╡ b324f27a-ccce-4ba4-8c04-6bd03ab11267
-let
-	gr()
-	ylocations = 0.1 * ones(length(sample_data))
-	μ̄ = μ
-	plt = plot(ylim = [0., 0.15], xminorticks =5, yticks=false, showaxis=:x, size=(650,200), framestyle=:origin)
-	δ = 0.1
-	for i in 1:length(sample_data)
-		plot!([sample_data[i]], [ylocations[i]], label="", markershape =:circle, markersize=5, markerstrokewidth=1, st=:sticks, c=1, annotations = (sample_data[i], ylocations[i] + 0.01, Plots.text(L"d_{%$i}", :bottom, 13)))
-		# annotate!([sample_data[i]].+7*(-1)^i * δ, [ylocations[i]].+ δ, "", 8)
-	end
-	# vline!([μ̄], lw=2, ls=:dash, label="sample mean", legend=:topleft)
-	plot!([μ̄], [ylocations[1]], label="", markershape =:star5, markersize=5, markerstrokewidth=1, st=:sticks, c=2, annotations = (μ̄, ylocations[1] + 0.01, Plots.text(L"\mu", :bottom, 15)))
-	# density!(scientist_data, label="")
 
-	for idx = 1:8
-		plot!([μ̄, sample_data[idx]], 0.1 * idx * [ylocations[1], ylocations[1]], lc=:gray, arrow=Plots.Arrow(:close, :both, 1, 1),  st=:path, label="")
-		if isodd(idx)
-			annotate!(.5 * [μ̄ + sample_data[idx]], 0.1 * idx *[ylocations[1]], text(L"d_%$(idx) -\mu", 10, :bottom))
-		end
 
-		if iseven(idx)
-			annotate!(.5 * [μ̄ + sample_data[idx]], 0.1 * idx *[ylocations[1]], text(L"d_%$(idx) -\mu", 10, :bottom))
-		end
-		# idx = 7
-		# plot!([μ̄, sample_data[idx]], .5*[ylocations[1], ylocations[1]], lc=:gray, arrow=Plots.Arrow(:close, :both, 1, 1), st=:path, label="")
+**Observation**:
+both adjoints share the same intermediate adjoint:
+
+
+```math
+\begin{align}
+\overline{t_2} = \frac{\mathrm{d} l}{\mathrm{d }t_2}=\frac{\mathrm{d} l}{\mathrm{d} t_4}\frac{\mathrm{d} t_4}{\mathrm{d} t_3}\frac{\mathrm{d} t_3}{\mathrm{d} t_2}
+\end{align}
+```
+
+
+!!! warning ""
+	It seems **wasteful** in computation if we compute everything from scratch!
+
+!!! note ""
+	_Why don't we cache the intermediate ajoints along the way?_
+
+""", 
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/linreg_grad8.svg
+# ' height = '450' /></center>"
+
+show_img("CS5914/backprop/linreg_grad8.svg", h=450))
+
+# ╔═╡ 6527c10e-5052-4756-8385-ec909720b897
+md"""
+
+## Caching adjoints results
+
+##### Dynamic programming principle
+"""
+
+# ╔═╡ 43aeebba-e03e-4d44-ac45-a3cc64b011c7
+TwoColumn(md"""
+
+**Observation**:
+both adjoints share the same intermediate adjoint:
+
+
+```math
+\begin{align}
+\overline{t_2} = \frac{\mathrm{d} l}{\mathrm{d }t_2}=\frac{\mathrm{d} l}{\mathrm{d} t_4}\frac{\mathrm{d} t_4}{\mathrm{d} t_3}\frac{\mathrm{d} t_3}{\mathrm{d} t_2}
+\end{align}
+```
+
+
+!!! warning ""
+	It seems **wasteful** in computation if we compute everything from scratch!
+
+!!! note ""
+	_Why don't we cache the intermediate ajoints along the way?_
+
+**for example**, to compute ``\overline{b}``, if we have cached the adjoint ``\overline{t_2}`` (the child node of ``b``), then 
+
+```math
+
+\overline{b} =  \frac{\mathrm{d} t_2}{\mathrm{d} b}\cdot\overline{t_2}
+```
+
+
+""", html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/linreg_grad8.svg
+' height = '450' /></center>" )
+
+# ╔═╡ db5257d3-6535-4a76-b1f4-d0a06d34b817
+md"""
+
+## Caching adjoints results
+
+##### Dynamic programming principle
+"""
+
+# ╔═╡ 5040e67c-6c80-4e64-94e8-c5ddf6340a2d
+TwoColumn(md"""
+
+**Observation**:
+both adjoints share the same intermediate adjoint:
+
+
+```math
+\begin{align}
+\overline{t_2} = \frac{\mathrm{d} l}{\mathrm{d }t_2}=\frac{\mathrm{d} l}{\mathrm{d} t_4}\frac{\mathrm{d} t_4}{\mathrm{d} t_3}\frac{\mathrm{d} t_3}{\mathrm{d} t_2}
+\end{align}
+```
+
+
+!!! warning ""
+	It seems **wasteful** in computation if we compute everything from scratch!
+
+!!! note ""
+	_Why don't we cache the intermediate ajoints along the way?_
+
+**for example**, to compute ``\overline{b}``, if we have cached the adjoint ``\overline{t_2}`` (the child node of ``b``), then 
+
+```math
+
+\overline{b} =  \frac{\mathrm{d} t_2}{\mathrm{d} b}\cdot\overline{t_2}
+```
+
+Similarly, to compute ``\overline{t_2}``, if we had cached ``\overline{t_3}`` (the child node of ``t_2``), then
+```math
+
+\overline{t_2} =\frac{\mathrm{d} t_3}{\mathrm{d} t_2} \cdot \overline{t_3} 
+```
+
+
+""", 
 	
-		# annotate!(.5 * [μ̄ + sample_data[idx]], .5*[ylocations[1]], text(L"d_%$(idx) -\mu", :bottom))
-	end
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/linreg_grad8.svg
+# ' height = '450' /></center>" 
 
 
-	loss = sum((μ .- sample_data).^2)
+show_img("CS5914/backprop/linreg_grad8.svg", h=450))
 
-	plot!(title=L"\ell = %$(round(loss; digits=2))")
-	plt
-end
-
-# ╔═╡ 4ccfc448-7fd9-4e79-aa99-51c1163fd09d
+# ╔═╡ dc012b20-9fb9-4757-98ae-50e81525715b
 md"""
-
-## Sample mean as optimisation
-
-
-```math
-\large
-\begin{align}
-\hat{\mu} &= \arg\min_{\mu} \ell(\mu) \\
-&=\arg\min_{\mu}\sum_{i=1}^n (\mu -d_i)^2
-\end{align}
-```
+## Backpropagation -- _the essence_
 
 
-Take the derivative and set to zero!
+#### The essence of backpropagation is simly: 
+* ###### *message passing* backwardly 
+* ###### and caching the adjoints along the way
 
-
-```math
-\Large
-\ell'(\mu) = 2\sum_{i=1}^n(\mu -d_i)  =0
-```
-"""
-
-# ╔═╡ 12f636b9-aa89-4a1a-83ba-7c3219289e1f
-md"""
-
-## Sample mean as optimisation
-
-
-```math
-\large
-\begin{align}
-\hat{\mu} &= \arg\min_{\mu} \ell(\mu) \\
-&=\arg\min_{\mu}\sum_{i=1}^n (\mu -d_i)^2
-\end{align}
-```
-
-
-Take the derivative and set to zero!
-
-
-```math
-\Large
-\begin{align}
-\ell'(\mu) &= 2\sum_{i=1}^n(\mu -d_i)  =0 \\
-
-\Rightarrow & \sum_{i=1}^n \mu = \sum_{i=1}^nd_i \\
-\Rightarrow & \mu = \frac{1}{n} \sum_{i=1}^n d_i
-\end{align}
-```
-"""
-
-# ╔═╡ 10212f8f-158e-40c8-9b84-5319de464e90
-md"""
-
-## Alternative: projection view
 
 """
 
-# ╔═╡ 6f6fa322-2724-4cf6-8301-229308623cfd
-data = [-1, 2.0];
+# ╔═╡ b6445302-6a19-4677-8ba6-4e5850a17f91
+show_img("CS5914/backprop/backprop_onefig.png", h=380)
 
-# ╔═╡ e04e96d3-85d6-47b0-be5c-37d3b34c1fec
-md"``\mu``= $(@bind μ_ Slider(-2:0.1:3, default=mean(data)))"
+# ╔═╡ 011051a6-3e87-437c-b3aa-4d2726d96ce0
+md"""
+## Backpropagation  -- the procedure
+#### _on a chain graph_
+----
 
-# ╔═╡ e1bf8a58-4046-41e8-a0a0-dd45cbd81d75
-proj(x::Vector{T}, a::Vector{T}) where T <: Real = dot(a,x)/dot(a,a) * a ; # project vector x to vector a in Julia
+_Step 0_. *initialisation*
 
-# ╔═╡ 02386433-a1d1-4001-8d6c-e16c00ce114a
+* the initial adjoint is always **1**
+
+_Repeat the following:_ backwardly propagate gradients (from child to parents):
+* for each child node ``v``, identity its parent ``w``
+* _backpropagate_ the gradient (adjoint) from child ``v`` to parent ``w``:
+
+```math
+\overline{w} =  \underbrace{\frac{\mathrm{d} v}{\mathrm{d} w} }_{\small\text{local grad}}\cdot \underbrace{\overline{v}}_{\small\text{child's adjoint}}
+```
+
+* cache the adjoint ``\overline{w}`` for further propagation
+----
+"""
+
+# ╔═╡ c64a7251-87b5-424f-a02e-0521537ad248
 md"""
 
-**Projection** implies ``\Rightarrow`` **shortest length** of the error vector
+## Example -- walk through
+"""
+
+# ╔═╡ 144a3a2c-adaa-4464-92a1-d5a09650703d
+TwoColumn(md"""
+
+**Backpropagation**
+
+_Step 0_. *initialisation*
+
+* the gradient of the _output_ w.r.t to _itself_
+* the initial adjoint is always **1**
+
+""", html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/linreg_grad9.svg
+' height = '450' /></center>" )
+
+# ╔═╡ 7e333685-4c0e-4cb5-b8cb-479c15adce2e
+md"""
+
+## Example -- walk through
+"""
+
+# ╔═╡ de7056f8-8ca4-449f-b2cf-d1713198037d
+TwoColumn(md"""
+
+**Backpropagation** (for _chain_ graphs)
+
+_Step 0_. *initialisation*
+
+* the initial adjoint is always **1**
+
+Backwardly propagate gradients to the **roots**
+* for each child node ``v``, identity its parent ``w``
+* backpropagate the gradient (adjoint) from child ``v`` to parent ``w`` *as*:
 
 ```math
-\Large
-\vec{\text{error} }= \mathbf{d} - \mu \mathbf{1} = \begin{bmatrix}d_1  \\ d_2  \\\vdots \\d_n \end{bmatrix} - \mu \begin{bmatrix}1  \\ 1  \\\vdots \\1 \end{bmatrix} = \begin{bmatrix}d_1-\mu  \\ d_2 -\mu \\\vdots \\d_n -\mu\end{bmatrix}
+\overline{w} =  \underbrace{\frac{\mathrm{d} v}{\mathrm{d} w} }_{\small\text{local grad}}\cdot \underbrace{\overline{v}}_{\small\text{child's adjoint}}
 ```
 
-and its length is
+* cache the adjoint ``\overline{w}`` for future computation
 
+""", 
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/back_linreg1.svg
+# ' height = '400' /></center>" 
+show_img("CS5914/backprop/back_linreg1.svg", h=400)
+)
+
+# ╔═╡ d78802b4-2d3a-4432-9746-05a828afa5c9
+aside(tip(md"""
+**Chain** graph: each node only has one single child
+
+* in other words, no forking/branching from a node
+
+"""))
+
+# ╔═╡ 78558504-a34a-45b1-8d73-a74e4cb6bff6
+md"""
+
+## Example -- walk through
+"""
+
+# ╔═╡ a5b63126-07be-46a2-8448-48144af4036e
+TwoColumn(md"""
+
+**Backpropagation** (for _chain_ graphs)
+
+_Step 0_. *initialisation*
+
+* the initial adjoint is always **1**
+
+Backwardly propagate gradients to the **roots**
+* for each child node ``v``, identity its parent ``w``
+* backpropagate the gradient (adjoint) from child ``v`` to parent ``w`` *as*:
 
 ```math
-\Large
-||\mathbf{d} - \mu\mathbf{1}||^2= (\mathbf{d} - \mu\mathbf{1})^\top (\mathbf{d} - \mu\mathbf{1})
+\overline{w} =  \underbrace{\frac{\mathrm{d} v}{\mathrm{d} w} }_{\small\text{local grad}}\cdot \underbrace{\overline{v}}_{\small\text{child's adjoint}}
 ```
+
+* cache the adjoint ``\overline{w}`` for future computation
+
+""", 
+	
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/back_linreg2.png
+# ' height = '400' /></center>"
+
+show_img("CS5914/backprop/back_linreg2.png", h=400)
+)
+
+# ╔═╡ ad3af3fc-e416-4812-a6df-1ab0eceb321b
+md"""
+
+## Example -- walk through
+"""
+
+# ╔═╡ 2551ec26-77e7-4529-9355-1c447187f6a8
+TwoColumn(md"""
+
+**Backpropagation** (for _chain_ graphs)
+
+_Step 0_. *initialisation*
+
+* the initial adjoint is always **1**
+
+Backwardly propagate gradients to the **roots**
+* for each child node ``v``, identity its parent ``w``
+* backpropagate the gradient (adjoint) from child ``v`` to parent ``w`` *as*:
+
+```math
+\overline{w} =  \underbrace{\frac{\mathrm{d} v}{\mathrm{d} w} }_{\small\text{local grad}}\cdot \underbrace{\overline{v}}_{\small\text{child's adjoint}}
+```
+
+* cache the adjoint ``\overline{w}`` for future computation
+
+""", 
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/back_linreg3.png
+# ' height = '400' /></center>"
+
+show_img("CS5914/backprop/back_linreg3.png", h=400)
+)
+
+# ╔═╡ 8d8ef8e4-d0bc-4804-bb8e-a8bc005b1508
+md"""
+
+
+## Example -- walk through
+
+
+Recall that:
+```python
+t₃ = t₂ - y # ŷ - y
+```
+"""
+
+# ╔═╡ 67f429f5-e343-4882-ab80-b9267ebe3590
+TwoColumn(
+	
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/back_linreg4.png
+# ' height = '350' /></center>" 
+	
+	show_img("CS5914/backprop/back_linreg4.png" ,h=350)
+	, 
+	
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/back_linreg5.png
+# ' height = '350' /></center>"
+
+
+	show_img("CS5914/backprop/back_linreg5.png" ,h=350)
+
+)
+
+# ╔═╡ 02651ba5-6d5a-47bf-b1c3-51749a9324c8
+md"""
+
+## Simplify *via* merging operation
+
+We can merge those primitive operations together 
+
+* it is very common in implementation, *e.g.* a linear function
+
+```math
+\texttt{Linear}(x; w, b) = w*x +b
+```
+"""
+
+# ╔═╡ 3ef2f78c-d75d-4449-b0b7-45b722b50c88
+# html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/merge_linreg.svg
+# ' height = '400' /></center>" 
+show_img("CS5914/backprop/merge_linreg.svg")
+
+# ╔═╡ 67fa0f5f-3749-478f-8428-26dd0ae2328f
+md"""
+
+## Backpropagation (of merging operations)
 
 """
 
-# ╔═╡ de98855b-b75c-4c72-ae8e-c2716ad08998
+# ╔═╡ cb556483-bd7f-4a7d-af33-76022daa1226
+TwoColumn(md"""
+\
+\
+\
+
+Backward propogation is also **greatly simplified**
+
+* the same working mechanism
+
+* **initialise** with initial adjoint **1** for the final output
+
+"""  , 
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/backmerge1.svg
+# ' height = '350' /></center>" 
+
+show_img("CS5914/backprop/backmerge1.svg", h=350))
+
+# ╔═╡ 1f6b94e8-7127-4a0f-8463-b98011655ee0
+md"""
+
+## Backpropagation (of merging operations)
+
+"""
+
+# ╔═╡ 33768161-168b-4bcd-b7e2-cf91c1ac3189
+TwoColumn(md"""
+
+
+\
+\
+\
+
+Backward propogation is also **greatly simplified**
+
+* the same working mechanism
+
+* initialise with adjoint 1 for the final output
+
+* then pushback adjoints: ``\texttt{local grad} * \texttt{child's adjoint}``
+"""  , 
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/backmerge2.svg
+# ' height = '350' /></center>"
+
+
+show_img("CS5914/backprop/backmerge2.svg", h=350))
+
+# ╔═╡ 94b3b105-6bd9-4995-9cf1-15a666b57029
+md"""
+
+## Backpropagation (of merging operations)
+
+"""
+
+# ╔═╡ d9b8457c-6e9d-413f-9c51-0e9647f48fd0
+TwoColumn(
+	
+# 	html"Adjoint for b:
+# <center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/backmerge3_.svg
+# ' height = '350' , /></center>" 
+
+	show_img("CS5914/backprop/backmerge3_.svg", h=350)
+ , 
+	
+# 	html"Adjoint for w:
+#  <center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/backmerge4.svg
+# ' height = '350', /></center>" 
+
+
+show_img("CS5914/backprop/backmerge4.svg", h=350))
+
+# ╔═╡ 05c921ee-ef17-4e3f-9380-1929a1a98761
+md"""
+
+## Backprop operator gate
+
+
+Computers clearly **do not** understand **calculus**
+
+* it makes computers' life (and also our life) easier if we forget calculus for a moment
+* but simply treat operators mechanically
+
+## `add (+)` gate
+
+For example, consider operator: ``\large +``
+
+* forward pass is fairly straightforward
+
+* ###### how about the backward pass? _Hint: what are the local gradients?_
+"""
+
+# ╔═╡ 378504d1-e322-4e44-8bb0-f28fe1e7dc72
+# html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/plusgate0.svg
+# ' height = '280' />"
+show_img("CS5914/backprop/plusgate0.svg", h=280,center=false)
+
+# ╔═╡ ff97d0f0-b396-4d29-85ff-0cde84592fa2
+md"""
+##
+
+For example, consider operator: ``\large +``
+
+* forward pass is fairly straightforward
+
+* ###### how about the backward pass? _Hint: what are the local gradients?_
+"""
+
+# ╔═╡ d2d57c21-4c16-47d5-b9dc-9e9100d361bc
+# html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/plusgate1_.svg
+# ' height = '280' />"
+
+show_img("CS5914/backprop/plusgate1_.svg", h=280)
+
+# ╔═╡ 5443b0f4-1b2c-4d23-a2c2-72f6f6dbb8a1
 md"""
 ## 
 
-Minimising the length leads to the same loss
+For example, consider operator: ``\large +``
+
+* forward pass is fairly straightforward
+
+* ###### how about the backward pass? _Hint: what are the local gradients?_
+"""
+
+# ╔═╡ 26bcb663-2eb1-4542-a50f-7f8e26d17c13
+# html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/plusgate.svg
+# ' height = '300' /></center>"
+
+show_img("CS5914/backprop/plusgate.svg", h=300)
+
+# ╔═╡ f65deaf9-42c6-4a6a-bde1-45e9f3191294
+md"""
+## `mult (*)` gate
+
+Consider operator: ``\large *``
+
+* forward pass is fairly straightforward
+
+* ###### how about the backward pass? 
+"""
+
+# ╔═╡ 8f7d61a6-b580-4277-a70d-00ba79d9547a
+# html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/mult_gate1.svg
+# ' height = '350' />"
+
+show_img("CS5914/backprop/mult_gate1.svg", h=350)
+
+# ╔═╡ 9dc6e798-5814-4790-9813-b5a5dc5d94ad
+md"""
+## `mult (*)` gate
+
+Consider operator: ``\large *``
+
+* forward pass is fairly straightforward
+
+* ###### how about the backward pass? 
+"""
+
+# ╔═╡ b798636d-6c13-4aa7-bb9b-fc1e4e01a11b
+# html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/mult_gate.svg
+# ' height = '350' />"
+
+show_img("CS5914/backprop/mult_gate.svg", h=350)
+
+# ╔═╡ 2aedeac6-d43c-4a0e-8e0b-f46e904600a2
+md"""
+## ``\texttt{max}``  gate
+
+Consider operator: ``\large \texttt{max}(\cdot, \cdot)``, *e.g.* ``\texttt{max}(3, -1) =3``
+
+* forward pass is fairly straightforward
+
+* ###### how about the backward pass? 
+"""
+
+# ╔═╡ d689bd7b-ce37-4373-8228-d29ac00adfa0
+# html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/router_gate.svg
+# ' width = '500' /></center>"
+
+show_img("CS5914/backprop/router_gate.svg", w=500)
+
+# ╔═╡ af15d1ec-b1ba-4c69-8e46-9b6d6e31523c
+md"""
+
+## ``\texttt{max}_c(x)`` gate (or `ReLu`)
+
+"""
+
+# ╔═╡ a855cfae-a5cb-4c94-9d7a-44387ad27060
+TwoColumn(md"""
+\
+\
+\
+
+How about max with a constant? *i.e.* a threshold function
+
+**ReLu** function is a specific case, where ``c=0``
+
+
+
+""", plot((x) -> max(x, 0), size=(280,280), ratio=1, framestyle=:origin, lw=2, label=L"\texttt{max}_c(x)"))
+
+# ╔═╡ 166b5b82-3f8c-43e4-a469-1b9cce08bc4e
+# html"<img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/relu_gate.svg
+# ' height = '350' />"
+
+show_img("CS5914/backprop/relu_gate.svg", h =350)
+
+# ╔═╡ bd273e5d-9208-4207-9380-937a6a0ceda5
+md"""
+
+## Fork rule (multi-variate chain rule)
+
+So far, we have only discussed backpropogation on **chain graph**s
+
+* *i.e.* each node has only **one** child
+* but it is common that a variable _forks_ and used at multiple places
+
+
+"""
+
+# ╔═╡ 7f0c2f04-98e1-44c2-9b70-e184fb89ed05
+# html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/fork_rule0.svg
+# ' height = '350' /></center>"
+
+show_img("CS5914/backprop/fork_rule0.svg", h=350)
+
+# ╔═╡ 72070112-0b0a-49fb-ad05-ac3b171f5211
+md"""
+
+## Fork rule (multi-variate chain rule)
+
+So far, we have only discussed chain graph
+
+* *i.e.* a node has only **one** child
+* it is common that a variable has been used more than once
+  * *i.e.* fork or branches
+* according to *multivariate calculus's chain rule*: **sum all branches**!
+"""
+
+# ╔═╡ 59effbcd-4334-4b19-9d00-38805577d4e3
+# html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/fork_rule.svg
+# ' height = '350' /></center>"
+
+show_img("CS5914/backprop/fork_rule.svg", h=350)
+
+# ╔═╡ 7853f66b-0beb-4d21-ac40-d93d9b3078d8
+aside(tip(md"""
+
+Multivariate chain rule: assume ``l`` is defined via ``f_1, \ldots f_J`` as
+```math
+l(f_1(x), f_2(x), \ldots, f_J(x)) ,
+```
+
+Then multivariate chain rule tell us:
 
 ```math
-\Large
+\frac{d l}{d x} = \sum_{j=1}^J \left(\frac{df_j(x)}{d x}  \right) \frac{\partial l}{\partial f_j}
+```
+
+"""))
+
+# ╔═╡ 82b57d6c-befa-4246-9b03-212e08c1d706
+md"""
+
+## Example: logistic regression's gradient
+
+
+
+
+For binary classification, the loss is binary cross entropy loss
+
+```math
+l = - \left (y \ln (\sigma(z)) + (1-y) \ln(1-\sigma(z))\right ),
+```
+where
+
+* ``z= w*x +b`` as before
+
+
+The **gradients** are of the same form as linear regression's
+
+```math
+\boxed{
 \begin{align}
-\arg\min_{\mu} \boxed{||\mathbf{d} - \mu\mathbf{1}||^2  } =\arg\min_\mu \boxed{\sum_i (d_i -\mu)^2}
+\frac{\mathrm{d}\, l(w, b)}{\mathrm{d} w} &= \underbrace{(\sigma(wx +b) -y)}_{\hat{y} -y}x\\
+\frac{\mathrm{d}\, l(w,b)}{\mathrm{d} b} &= \underbrace{(\sigma(wx +b) -y)}_{\hat{y} -y}\\
 \end{align}
+}
 ```
 
 """
+
+# ╔═╡ 72f36dfe-89b5-4477-a83d-b6fd0046e96d
+md"""
+
+## Example: logistic regression's gradient
+
+"""
+
+# ╔═╡ f19c8378-7148-4baf-b664-a00d8805fbe8
+TwoColumn(md"""
+\
+
+Recall the loss for logistic regression
+
+```math
+l = - \left (y \ln (\sigma(z)) + (1-y) \ln(1-\sigma(z))\right ),
+```
+where ``z= w*x +b``;
+\
+
+
+
+When implemented, ``l`` is computed as 
+
+
+
+```python
+t₁ = x * w # intermediate value
+t₂ = t₁ + b # z = x*w +b
+
+t₃ = σ(t₂) # ŷ; the output
+
+t₄ = ln(t₃) # ln(σ)
+t₅ = ln(1-t₃) # ln(1-σ)
+
+t₆ = t₄ * y # y⋅ln(σ)
+t₇ = 1 - y 
+t₈ = t₇ * t₅ # (1-y)⋅ln(1-σ)
+
+t₉ = t₆ + t₈ # y⋅ln(σ) + (1-y)⋅ln(1-σ)
+
+l = -1 * t₉ # -1(y⋅ln(σ)+(1-y)⋅ln(1-σ))
+```
+
+""", 
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/logis_forward.svg
+# ' height = '600' /></center>"
+
+show_img("CS5914/backprop/logis_forward.svg", w=330))
+
+# ╔═╡ 24a1153f-e298-4225-985f-a7d226f80113
+aside(tip(md"""
+
+Also recall the gradients are
+
+
+```math
+\begin{align}
+\frac{\partial l}{\partial w} = (σ(z)-y) x\\
+\frac{\partial l}{\partial b} = (σ(z)-y)
+\end{align}
+
+```
+
+"""))
+
+# ╔═╡ cf54b8dd-2020-44f3-a93b-1a449769c528
+md"""
+
+## Example: logistic regression's gradient
+
+
+###### Let's derive the backprop with gates function in mind!
+"""
+
+# ╔═╡ b3df5d95-f975-47a1-a338-8766c15f027c
+#  html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/logis_backward1.svg
+# ' height = '600' /></center>" 
+
+ show_img("CS5914/backprop/logis_backward1.svg", h=600)
+
+# ╔═╡ 140e3645-4c1b-4737-a458-45b014299349
+md"""
+
+## Example: logistic regression's gradient
+
+
+###### Let's derive the backprop with gates function in mind!
+"""
+
+# ╔═╡ 7b0773f7-acad-4773-9207-1d09f632b0a0
+TwoColumnWideRight(md""" 
+
+\
+\
+
+mult gate as exchanger
+* exchange ``-1`` here""", 
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/logis_backward2_.svg
+# ' height = '600' /></center>"
+
+show_img("CS5914/backprop/logis_backward2_.svg", h=600))
+
+# ╔═╡ e584e6b5-3f2a-4e12-8706-db27a507eeaa
+md"""
+
+## Example: logistic regression's gradient
+
+
+###### Let's derive the backprop with gates function in mind!
+"""
+
+# ╔═╡ f9a54b6b-632a-410c-8501-e40109ee7605
+TwoColumnWideRight(md""" 
+
+\
+\
+\
+
+`+` gate: works as a distributor
+* distributes gradient to both branches""", 
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/logis_backward3.svg
+# ' height = '600' /></center>" 
+
+show_img("CS5914/backprop/logis_backward3_.svg", h=600))
+
+# ╔═╡ 999f8bef-39c5-4ac3-97b9-60bd09189f26
+md"""
+
+## Example: logistic regression's gradient
+
+
+###### Let's derive the backprop with gates function in mind!
+"""
+
+# ╔═╡ 2ba2c7ea-e7a1-474b-a696-1a15c850637b
+TwoColumnWideRight(md""" 
+
+\
+\
+\
+\
+\
+\
+
+`*` gate: works as an exchanger
+* exchange ``y`` with ``{t_4}``'s branch""", 
+	
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/logis_backward4.svg
+# ' height = '600' /></center>" 
+
+show_img("CS5914/backprop/logis_backward4_.svg", h=600))
+
+# ╔═╡ f2729651-6193-4234-8d04-20edc76bf013
+md"""
+
+## Example: logistic regression's gradient
+
+
+###### Let's derive the backprop with gates function in mind!
+"""
+
+# ╔═╡ 82a2d879-170b-469f-a6e9-f2c6269937cc
+TwoColumnWideLeft(
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/logis_backward5.svg
+# ' height = '600' /></center>"
+	
+	show_img("CS5914/backprop/logis_backward5_.svg",h=600)
+	, md""" 
+
+\
+\
+\
+\
+\
+\
+\
+
+`*` gate: works as an exchanger
+* exchange ``t_7`` with ``{t_5}``""" )
+
+# ╔═╡ 7d50e6d3-013e-4f13-aeb9-5190f8c37e70
+md"""
+
+## Example: logistic regression's gradient
+
+
+###### Let's derive the backprop with gates function in mind!
+"""
+
+# ╔═╡ 9298c327-bea7-48ac-bded-315dc9d76208
+TwoColumnWideLeft(
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/logis_backward6.svg
+# ' height = '600' /></center>"
+	show_img("CS5914/backprop/logis_backward6_.svg", h=600)
+	
+	, md""" 
+
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+
+
+
+###### How to backprop ``\overline{t_3}`` ? 
+hint: _it is a fork!_ 
+
+""" )
+
+# ╔═╡ 9d3cb890-47ec-42a8-b67e-a6a675a81300
+md"""
+
+## Example: logistic regression's gradient
+
+
+###### Let's derive the backprop with gates function in mind!
+"""
+
+# ╔═╡ 7135e076-fbc1-4bb7-ba00-99a86fda3a65
+TwoColumnWideLeft(
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/logis_backward7.png
+# ' height = '600' /></center>"
+	
+	show_img("CS5914/backprop/logis_backward7_.svg", h=600)
+	
+	, md""" 
+
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+
+
+
+###### How to backprop ``\overline{t_3}`` ? 
+hint: _it is a fork!_
+
+""" )
+
+# ╔═╡ 3a4af7b2-d319-4daf-a581-6945f54b3c77
+md"""
+
+##
+"""
+
+# ╔═╡ 5e3687c2-8e18-4fac-81ec-602edb79a091
+TwoColumnWideLeft(
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/logis_backward7.png
+# ' height = '600' /></center>"
+	
+	show_img("CS5914/backprop/logis_backward7_1.png", h=600)
+	
+	, md""" 
+
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+
+
+
+###### How to backprop ``\overline{t_3}`` ? 
+hint: _it is a fork!_
+
+""" )
+
+# ╔═╡ d474e7df-9dd4-4a52-9644-5e86309a5063
+aside(tip(md"""
+
+Recall ``\ln(x)``'s derivative
+
+```math
+\small
+\frac{d \ln(x)}{dx} = \frac{1}{x},\quad \frac{d \ln(1-x)}{dx} = -\frac{1}{1-x}
+```
+"""))
+
+# ╔═╡ 8f11acf4-861d-4c43-b24e-6a0f6e095ed4
+md"""
+
+## Example: logistic regression's gradient
+
+
+###### Let's derive the backprop with gates function in mind!
+"""
+
+# ╔═╡ f5786bb9-1665-415e-92a1-1d7fc337f9f3
+TwoColumnWideLeft(
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/logis_backward9.png
+# ' height = '600' /></center>"
+	show_img("CS5914/backprop/logis_backward9_1.png", h=600)
+	
+	, md""" 
+
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+
+
+
+
+
+
+_hint_: logistic function's gradient: ``\small\sigma'(x) = \sigma(x) (1-\sigma(x))``
+
+and recall  ``\small t_3 =\sigma(t_2)``, therefore
+	
+$\small\frac{d t_3}{d t_2} = t_3 (1-t_3)$
+
+
+""" )
+
+# ╔═╡ 42ddbd1b-0711-4b5e-b327-81864aac0c62
+md"""
+
+## Example: logistic regression's gradient
+
+
+###### Let's derive the backprop with gates function in mind!
+"""
+
+# ╔═╡ 190fac3d-25cc-4d7d-91f4-199d6f2932c0
+TwoColumnWideLeft(
+	
+# 	html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/logis_backward10.png
+# ' height = '600' /></center>"
+	
+	show_img("CS5914/backprop/logis_backward10_.png", h=600), md""" 
+
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+
+
+
+
+
+The rest are the same as linear regression's case!
+""" )
+
+# ╔═╡ 87620132-1261-4b7c-8ad9-933cc64de277
+md"""
+
+## Again: simplify by merging
+
+Let's merge and define the loss `logit_BCE_loss`:
+
+
+```math
+\texttt{logit\_BCE\_loss}(z, y) = -y \ln(\sigma(z)) - (1-y)\ln(1-\sigma(z))
+```
+
+* where ``z`` are the `logits` (unnormalised) 
+* it is
+  * more numerically stable 
+  * much simpler to implement! *especially*, the backward pass
+"""
+
+# ╔═╡ 7c29d7f8-2479-4e5b-94e7-7040453ac4db
+# html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/backprop/merge_logis.png
+# ' width = '800' /></center>"
+
+show_img("CS5914/backprop/merge_logis.png"; w=800)
+
+# ╔═╡ 03eede9e-d7f4-4a5d-ab0c-9daa9e72594b
+md"""
+
+
+## Show me the code
+
+
+"""
+
+# ╔═╡ d4ce1390-f96e-45d8-a034-f869b5bd1ee4
+TwoColumn(
+md"""
+
+```python
+
+## forward pass
+t2 = w * x + b # linear (affine) trans.
+
+y_pred = sigmoid(t2) # cache the result for convenience
+loss = -y * np.log(y_pred) - (1-y) *np.log(y_pred) #logit_BCE_loss
+
+
+## backward pass
+dloss = 1 # initialise
+# skip dy_pred altogther!
+dt2 = (y_pred - y) * dloss
+db = dt2
+dw = dt2 * x 
+
+
+```
+
+""",
+
+	show_img("CS5914/backprop/merge_logis_.png"; w=300)
+
+	
+)
+
+# ╔═╡ ccef6f05-4f1b-4377-86e3-cc477176de01
+md"""
+
+## Cross entropy loss with `logits`
+
+
+This is actually **the preferred approach** for `PyTorch` and all other Deep Learning packages
+  * more numerically stable 
+  * much simpler to implement! *especially*, the backward pass
+"""
+
+# ╔═╡ dd3f1337-c5f9-41b8-8d1b-3b657404d4d3
+show_img("CS5914/backprop/pytorch_logits.png"; w=700)
+
+# ╔═╡ fb958c4b-5c8a-4bf2-bccc-3a7cafa6406d
+show_img("CS5914/backprop/flux_logits.png"; w=700)
+
+# ╔═╡ 35943fab-8e85-40f5-9397-f3577c935802
+md"""
+
+## The same idea applies to multi-class 
+"""
+
+# ╔═╡ 173b9082-1536-44b0-865e-dfe7e5ee8576
+
+md"""
+
+For multi-class classification, the multi class classification loss is
+
+$$
+\begin{align}
+L(\mathbf{y}; \hat{\mathbf{y}}) 
+&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j
+\end{align}$$
+
+- ``\mathbf{y}`` is the one-hot encoded label
+- ``\hat{\mathbf{y}} = \text{softmax}(\mathbf{z})`` is the softmax output of the logits ``\mathbf{z}``
+
+
+The preferred approach is to compute the loss with logits directly
+
+
+$$
+\begin{align}
+L(\mathbf{y}; {\mathbf{z}}) 
+&=- \sum_{j=1}^C  {y}_j \ln \text{softmax}(\mathbf{z})_j \\
+&=- \sum_{j=1}^C  {y}_j \ln \bigg\{\underbrace{\frac{e^{z_j}}{\sum_{j'} e^{z_{j'}}} }_{\text{softmax}}\bigg\}
+\end{align}$$
+
+
+* the backward pass, or the local gradient is of the same form 
+* (_we have derived it in detail when introducing softmax regression_)
+
+```math
+\frac{\partial L}{\partial \mathbf{z}} = \hat{\mathbf{y}} -\mathbf{y}
+```
+"""
+
+# ╔═╡ f79bcb4b-8595-4a58-bb89-f575904f9a3e
+md"""
+
+## The same idea applies to multi-class 
+"""
+
+# ╔═╡ 537fdffa-0343-4b01-8ea2-092049597cdc
+show_img("CS5914/backprop/ce_flux.png"; w=700)
+
+# ╔═╡ 66906daa-899e-4083-98f3-09ae0fec90da
+md"""
+
+## Summary
+"""
+
+# ╔═╡ b1dcd923-5170-4aca-ac43-936d36c98a47
+show_img("CS5914/backprop/backprop_withfork.png", w=800)
 
 # ╔═╡ 0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 md"""
@@ -925,32 +1742,6 @@ function perp_square(origin, vx, vy; δ=0.1)
 	xunit = origin + x
 	yunit = origin +y
 	Shape([origin[1], xunit[1], xyunit[1], yunit[1]], [origin[2], xunit[2], xyunit[2], yunit[2]])
-end
-
-# ╔═╡ 048a1d00-2268-40e3-b01f-ee23b78eed90
-let
-	gr()
- 	plot( ratio=1, framestyle=:origin)
-	# quiver([0,0,0],[0,0,0],quiver=([1,1,1],[1,2,3]))
-	oo = [0,0]
-	a = [1,1]
-	b = data
-	# bp = dot(a,b)/dot(a,a)*a
-	bp = μ_ * a 
-	quiver!([0], [0], quiver=([a[1]], [a[2]]), lc=2, lw=2)
-	quiver!([0], [0],  quiver=([b[1]], [b[2]]), lc=1, lw=2)
-	plot!([b[1], bp[1]], [b[2],bp[2]], ls=:solid, lc=:gray, lw=2, arrow=true, label="")
-
-	quiver!([0], [0],  quiver=([bp[1]], [bp[2]]), ls=:dash, lw=2)
-	annotate!(a[1],a[2], text(L"\mathbf{1}", 15, :top, :red))
-	annotate!(b[1],b[2], text(L"\mathbf{d}", 15, :bottom, :blue))
-	# annotate!(bp[1]+0.2,bp[2], text(L"b_{\texttt{proj}} =latexify(:(x = $t))", :left))
-	if μ_ ≈ mean(data)
-		plot!(perp_square(bp, a, b-bp; δ=0.1), lw=1, label="", fillcolor=false)
-	end
-	annotate!(bp[1]+0.2,bp[2], text(L"\hat{\mathbf{d}} = \mu\mathbf{1}", 15,:left, :purple))
-	annotate!(.5 *(data[1] + bp[1]), .5 *(data[2] + bp[2]), text(L"\mathbf{d} - \mu\mathbf{1}", 15, :right, :gray))
-
 end
 
 # ╔═╡ fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
@@ -983,7 +1774,6 @@ PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
 HypertextLiteral = "~0.9.4"
@@ -992,7 +1782,6 @@ Latexify = "~0.16.1"
 Plots = "~1.39.0"
 PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.52"
-Zygote = "~0.6.63"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -1001,36 +1790,13 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "8af096733ae28f656d4a70f11827e6f0f08ab764"
-
-[[deps.AbstractFFTs]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "d92ad398961a3ed262d8bf04a1a2b8340f915fef"
-uuid = "621f4979-c628-5d54-868e-fcf4e3e8185c"
-version = "1.5.0"
-weakdeps = ["ChainRulesCore", "Test"]
-
-    [deps.AbstractFFTs.extensions]
-    AbstractFFTsChainRulesCoreExt = "ChainRulesCore"
-    AbstractFFTsTestExt = "Test"
+project_hash = "d7e7f8afb73ac35544f83d2ef9074d9b60341dac"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
 git-tree-sha1 = "91bd53c39b9cbfb5ef4b015e8b582d344532bd0a"
 uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.2.0"
-
-[[deps.Adapt]]
-deps = ["LinearAlgebra", "Requires"]
-git-tree-sha1 = "76289dc51920fdc6e0013c872ba9551d54961c24"
-uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "3.6.2"
-
-    [deps.Adapt.extensions]
-    AdaptStaticArraysExt = "StaticArrays"
-
-    [deps.Adapt.weakdeps]
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -1053,28 +1819,11 @@ git-tree-sha1 = "19a35467a82e236ff51bc17a3a44b69ef35185a2"
 uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
 version = "1.0.8+0"
 
-[[deps.CEnum]]
-git-tree-sha1 = "eb4cb44a499229b3b8426dcfb5dd85333951ff90"
-uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
-version = "0.4.2"
-
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
-
-[[deps.ChainRules]]
-deps = ["Adapt", "ChainRulesCore", "Compat", "Distributed", "GPUArraysCore", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "Statistics", "StructArrays"]
-git-tree-sha1 = "f98ae934cd677d51d2941088849f0bf2f59e6f6e"
-uuid = "082447d4-558c-5d27-93f4-14fc19e9eca2"
-version = "1.53.0"
-
-[[deps.ChainRulesCore]]
-deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
-uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.16.0"
 
 [[deps.CodeTracking]]
 deps = ["InteractiveUtils", "UUIDs"]
@@ -1105,22 +1854,18 @@ deps = ["ColorTypes", "FixedPointNumbers", "LinearAlgebra", "Requires", "Statist
 git-tree-sha1 = "a1f44953f2382ebb937d60dafbe2deea4bd23249"
 uuid = "c3611d14-8923-5661-9e6a-0046d554d3a4"
 version = "0.10.0"
-weakdeps = ["SpecialFunctions"]
 
     [deps.ColorVectorSpace.extensions]
     SpecialFunctionsExt = "SpecialFunctions"
+
+    [deps.ColorVectorSpace.weakdeps]
+    SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [[deps.Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
 git-tree-sha1 = "fc08e5930ee9a4e03f84bfb5211cb54e7769758a"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.10"
-
-[[deps.CommonSubexpressions]]
-deps = ["MacroTools", "Test"]
-git-tree-sha1 = "7b8a93dba8af7e3b42fecabf646260105ac373f7"
-uuid = "bbf7d656-a473-5ed7-a52c-81e309532950"
-version = "0.3.0"
 
 [[deps.Compat]]
 deps = ["UUIDs"]
@@ -1159,11 +1904,6 @@ git-tree-sha1 = "3dbd312d370723b6bb43ba9d02fc36abade4518d"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 version = "0.18.15"
 
-[[deps.DataValueInterfaces]]
-git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
-uuid = "e2d170a0-9d28-54be-80f0-106bbe20a464"
-version = "1.0.0"
-
 [[deps.Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -1173,18 +1913,6 @@ deps = ["Mmap"]
 git-tree-sha1 = "9e2f36d3c96a820c678f2f1f1782582fcf685bae"
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 version = "1.9.1"
-
-[[deps.DiffResults]]
-deps = ["StaticArraysCore"]
-git-tree-sha1 = "782dd5f4561f5d267313f23853baaaa4c52ea621"
-uuid = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
-version = "1.1.0"
-
-[[deps.DiffRules]]
-deps = ["IrrationalConstants", "LogExpFunctions", "NaNMath", "Random", "SpecialFunctions"]
-git-tree-sha1 = "23163d55f885173722d1e4cf0f6110cdbaf7e272"
-uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
-version = "1.15.1"
 
 [[deps.Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -1228,17 +1956,6 @@ version = "4.4.2+2"
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
-[[deps.FillArrays]]
-deps = ["LinearAlgebra", "Random"]
-git-tree-sha1 = "a20eaa3ad64254c61eeb5f230d9306e937405434"
-uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "1.6.1"
-weakdeps = ["SparseArrays", "Statistics"]
-
-    [deps.FillArrays.extensions]
-    FillArraysSparseArraysExt = "SparseArrays"
-    FillArraysStatisticsExt = "Statistics"
-
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
 git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
@@ -1257,18 +1974,6 @@ git-tree-sha1 = "8339d61043228fdd3eb658d86c926cb282ae72a8"
 uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
 version = "0.4.2"
 
-[[deps.ForwardDiff]]
-deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions"]
-git-tree-sha1 = "cf0fe81336da9fb90944683b8c41984b08793dad"
-uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.36"
-
-    [deps.ForwardDiff.extensions]
-    ForwardDiffStaticArraysExt = "StaticArrays"
-
-    [deps.ForwardDiff.weakdeps]
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-
 [[deps.FreeType2_jll]]
 deps = ["Artifacts", "Bzip2_jll", "JLLWrappers", "Libdl", "Zlib_jll"]
 git-tree-sha1 = "d8db6a5a2fe1381c1ea4ef2cab7c69c2de7f9ea0"
@@ -1286,18 +1991,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcu
 git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.3.8+0"
-
-[[deps.GPUArrays]]
-deps = ["Adapt", "GPUArraysCore", "LLVM", "LinearAlgebra", "Printf", "Random", "Reexport", "Serialization", "Statistics"]
-git-tree-sha1 = "2e57b4a4f9cc15e85a24d603256fe08e527f48d1"
-uuid = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
-version = "8.8.1"
-
-[[deps.GPUArraysCore]]
-deps = ["Adapt"]
-git-tree-sha1 = "2d6ca471a6c7b536127afccfa7564b5b39227fe0"
-uuid = "46192b85-c4d5-4398-a991-12ede77f4527"
-version = "0.1.5"
 
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
@@ -1364,12 +2057,6 @@ git-tree-sha1 = "d75853a0bdbfb1ac815478bacd89cd27b550ace6"
 uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
 version = "0.2.3"
 
-[[deps.IRTools]]
-deps = ["InteractiveUtils", "MacroTools", "Test"]
-git-tree-sha1 = "eac00994ce3229a464c2847e956d77a2c64ad3a5"
-uuid = "7869d1d1-7146-5819-86e3-90919afe41df"
-version = "0.4.10"
-
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
@@ -1378,11 +2065,6 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
 uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
 version = "0.2.2"
-
-[[deps.IteratorInterfaceExtensions]]
-git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
-uuid = "82899510-4779-5014-852e-03e436cf321d"
-version = "1.0.0"
 
 [[deps.JLFzf]]
 deps = ["Pipe", "REPL", "Random", "fzf_jll"]
@@ -1426,18 +2108,6 @@ git-tree-sha1 = "bf36f528eec6634efc60d7ec062008f171071434"
 uuid = "88015f11-f218-50d7-93a8-a6af411a945d"
 version = "3.0.0+1"
 
-[[deps.LLVM]]
-deps = ["CEnum", "LLVMExtra_jll", "Libdl", "Printf", "Unicode"]
-git-tree-sha1 = "8695a49bfe05a2dc0feeefd06b4ca6361a018729"
-uuid = "929cbde3-209d-540e-8aea-75f648917ca0"
-version = "6.1.0"
-
-[[deps.LLVMExtra_jll]]
-deps = ["Artifacts", "JLLWrappers", "LazyArtifacts", "Libdl", "TOML"]
-git-tree-sha1 = "c35203c1e1002747da220ffc3c0762ce7754b08c"
-uuid = "dad2f222-ce93-54a1-a47d-0025e8a3acab"
-version = "0.0.23+0"
-
 [[deps.LLVMOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "f689897ccbe049adb19a065c495e75f372ecd42b"
@@ -1468,10 +2138,6 @@ version = "0.16.1"
     [deps.Latexify.weakdeps]
     DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
     SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
-
-[[deps.LazyArtifacts]]
-deps = ["Artifacts", "Pkg"]
-uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -1660,12 +2326,6 @@ git-tree-sha1 = "bbb5c2115d63c2f1451cb70e5ef75e8fe4707019"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
 version = "1.1.22+0"
 
-[[deps.OpenSpecFun_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "13652491f6856acfd2db29360e1bbcd4565d04f1"
-uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
-version = "0.5.5+0"
-
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "51a08fb14ec28da2ec7a927c4337e4332c2a4720"
@@ -1790,12 +2450,6 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
-[[deps.RealDot]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "9f0a1b71baaf7650f4fa8a1d168c7fb6ee41f0c9"
-uuid = "c1ae055f-0cd5-4b69-90a6-9a35b1a98df9"
-version = "0.1.0"
-
 [[deps.RecipesBase]]
 deps = ["PrecompileTools"]
 git-tree-sha1 = "5c3d09cc4f31f5fc6af001c250bf1278733100ff"
@@ -1868,21 +2522,6 @@ version = "1.1.1"
 deps = ["Libdl", "LinearAlgebra", "Random", "Serialization", "SuiteSparse_jll"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
-[[deps.SpecialFunctions]]
-deps = ["IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "e2cfc4012a19088254b3950b85c3c1d8882d864d"
-uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.3.1"
-weakdeps = ["ChainRulesCore"]
-
-    [deps.SpecialFunctions.extensions]
-    SpecialFunctionsChainRulesCoreExt = "ChainRulesCore"
-
-[[deps.StaticArraysCore]]
-git-tree-sha1 = "36b3d696ce6366023a0ea192b4cd442268995a0d"
-uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
-version = "1.4.2"
-
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
@@ -1900,12 +2539,6 @@ git-tree-sha1 = "75ebe04c5bed70b91614d684259b661c9e6274a4"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.34.0"
 
-[[deps.StructArrays]]
-deps = ["Adapt", "DataAPI", "GPUArraysCore", "StaticArraysCore", "Tables"]
-git-tree-sha1 = "521a0e828e98bb69042fec1809c1b5a680eb7389"
-uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
-version = "0.6.15"
-
 [[deps.SuiteSparse_jll]]
 deps = ["Artifacts", "Libdl", "Pkg", "libblastrampoline_jll"]
 uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
@@ -1915,18 +2548,6 @@ version = "5.10.1+6"
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 version = "1.0.3"
-
-[[deps.TableTraits]]
-deps = ["IteratorInterfaceExtensions"]
-git-tree-sha1 = "c06b2f539df1c6efa794486abfb6ed2022561a39"
-uuid = "3783bdb8-4a98-5b6b-af9a-565f29a5fe9c"
-version = "1.0.1"
-
-[[deps.Tables]]
-deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "OrderedCollections", "TableTraits", "Test"]
-git-tree-sha1 = "1544b926975372da01227b382066ab70e574a3ec"
-uuid = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
-version = "1.10.1"
 
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
@@ -2164,28 +2785,6 @@ git-tree-sha1 = "49ce682769cd5de6c72dcf1b94ed7790cd08974c"
 uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
 version = "1.5.5+0"
 
-[[deps.Zygote]]
-deps = ["AbstractFFTs", "ChainRules", "ChainRulesCore", "DiffRules", "Distributed", "FillArrays", "ForwardDiff", "GPUArrays", "GPUArraysCore", "IRTools", "InteractiveUtils", "LinearAlgebra", "LogExpFunctions", "MacroTools", "NaNMath", "PrecompileTools", "Random", "Requires", "SparseArrays", "SpecialFunctions", "Statistics", "ZygoteRules"]
-git-tree-sha1 = "e2fe78907130b521619bc88408c859a472c4172b"
-uuid = "e88e6eb3-aa80-5325-afca-941959d7151f"
-version = "0.6.63"
-
-    [deps.Zygote.extensions]
-    ZygoteColorsExt = "Colors"
-    ZygoteDistancesExt = "Distances"
-    ZygoteTrackerExt = "Tracker"
-
-    [deps.Zygote.weakdeps]
-    Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
-    Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-    Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
-
-[[deps.ZygoteRules]]
-deps = ["ChainRulesCore", "MacroTools"]
-git-tree-sha1 = "977aed5d006b840e2e40c0b48984f7463109046d"
-uuid = "700de1a5-db45-46bc-99cf-38207098b444"
-version = "0.2.3"
-
 [[deps.fzf_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "868e669ccb12ba16eaf50cb2957ee2ff61261c56"
@@ -2258,8 +2857,9 @@ version = "1.4.1+0"
 
 # ╔═╡ Cell order:
 # ╟─9f90a18b-114f-4039-9aaf-f52c77205a49
-# ╟─959d3f6e-ad5b-444f-9000-825063598837
 # ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
+# ╟─275e626f-026b-4167-acaa-d9faa590bed7
+# ╟─f6bbddfe-d23d-44d9-ba13-237c55b9567d
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
 # ╟─7091d2cf-9237-45b2-b609-f442cd1cdba5
@@ -2267,61 +2867,118 @@ version = "1.4.1+0"
 # ╟─a696c014-2070-4041-ada3-da79f50c9140
 # ╟─595a5ef3-4f54-4502-a943-ace4146efa31
 # ╟─bc1ee08d-9376-44d7-968c-5e114b09a5e0
-# ╟─992a13dd-e6bf-4b18-8654-ac70398e15ab
-# ╟─49815f5b-f5e4-4cd4-b891-599033fe9d8b
-# ╟─ac596eff-342c-4675-bed8-f1c1c9a3a775
-# ╟─9a2d12cc-59d7-42ef-b1bd-bc90f7c0db3c
-# ╟─15428895-7f94-41e4-9fe8-ae2231900afc
-# ╟─3de289ab-a863-43b3-9799-3ca66791e02c
-# ╟─20536535-dd93-4987-886c-5d1d3cccf469
-# ╟─c1a2cdac-605c-4891-abe3-a7e013f390cc
-# ╟─d41c8ca2-a6fa-495e-b8c0-5fe6007f2485
-# ╟─3ed1700f-4335-4e2d-b0c6-8a121784e38a
-# ╟─b4390e22-bf19-4445-8988-954615ac5991
-# ╟─1dd3214e-de41-4f9d-b43a-35b107c64cf2
-# ╟─d2e4fb88-3728-4886-ba4f-634050bbf738
-# ╟─cf1b8de7-1c04-46a8-8ca6-8c266bc7a6fc
-# ╟─da2f5399-32de-4998-83f2-b84b2d720f82
-# ╟─16ecc090-613e-4746-b12d-0a3d0e4e1727
-# ╟─4ef8df63-5b77-48a8-99c0-f014cf6360c1
-# ╟─e4bd5842-e6af-4e12-af4b-1556b91db0ee
-# ╟─55b1388f-c368-4d95-9893-ea95e8c2359e
-# ╟─6fc139a6-a8b6-4215-a4c6-06a54c2985ec
-# ╟─a79f418f-d054-46e7-bb9b-f13a7631e21b
-# ╟─8ae96192-2b4f-48e7-b55d-bea27d565671
-# ╟─bbed688d-0caf-4f93-a19c-ea3a0039a1a2
-# ╟─5568a672-a68d-42ce-ad7d-e2f93f597a19
-# ╟─20735597-3cb2-4514-b015-cf12464fb286
-# ╟─9367ff5b-cc1d-41b9-8a06-fe248b0b8a19
-# ╟─6161543b-34d1-44df-9b04-e2644adb3882
-# ╟─1f102762-3f4a-4895-a26d-d44e2804f6de
-# ╟─db6110ab-94d1-4b0d-b85d-1a4505dd3578
-# ╟─f59d2e5d-4f1b-4c45-b312-bcfc72f97c75
-# ╠═ec39f15f-14af-48c6-beae-9a128c3eccb7
-# ╟─d85e3b50-8fe7-4178-a7b5-3c757dce9677
-# ╟─350de8a8-fda9-471a-be21-d5606de38f97
-# ╟─dc1f2d6a-5195-4f01-9b1f-350566bea0b9
-# ╟─27f70663-d4c9-4a06-aa15-db9e9e4d822c
-# ╟─a646aefe-d2a0-4f8b-bb63-4ffe2ec43ff0
-# ╟─5b02277a-1c2e-418e-b4a3-9bed86230cd7
-# ╟─f56d2626-ff15-4b4c-8184-7147b58ed7db
-# ╟─9b94af8d-b5d2-4c57-84ca-9406fa9e2d7b
-# ╟─404d8f96-c76d-48e8-ae2f-28160fc5c549
-# ╟─47b5c1dd-52c9-4670-8203-32cf0c3a0bfb
-# ╟─62efcc68-e897-480b-9f54-1cec0255d35b
-# ╟─ce588c61-bb54-486b-bdf9-b6c4bf26b23c
-# ╟─14503fd1-8a66-45d1-b72c-155995aa885e
-# ╟─d760db9b-5c5e-4e0b-8e37-a680240f351d
-# ╟─b324f27a-ccce-4ba4-8c04-6bd03ab11267
-# ╟─4ccfc448-7fd9-4e79-aa99-51c1163fd09d
-# ╟─12f636b9-aa89-4a1a-83ba-7c3219289e1f
-# ╟─10212f8f-158e-40c8-9b84-5319de464e90
-# ╟─6f6fa322-2724-4cf6-8301-229308623cfd
-# ╟─e04e96d3-85d6-47b0-be5c-37d3b34c1fec
-# ╟─048a1d00-2268-40e3-b01f-ee23b78eed90
-# ╟─e1bf8a58-4046-41e8-a0a0-dd45cbd81d75
-# ╟─02386433-a1d1-4001-8d6c-e16c00ce114a
-# ╟─de98855b-b75c-4c72-ae8e-c2716ad08998
+# ╟─be4778f9-6f7a-4dda-a7bb-9076228e397a
+# ╟─f24661ce-1ed6-4ebe-9956-7f8a895a517c
+# ╟─e14e26f6-7e32-4460-9361-59d46a8c63ca
+# ╟─2dfcc44b-40e9-4aef-8b09-44ec39cf6f35
+# ╟─700fdce1-16d4-4179-8ed7-dce1a19cf8a9
+# ╟─bbe7cca6-1861-42bc-9835-6b0daea9f65e
+# ╟─f846c1a9-4967-4d3c-be4b-d55aa6ddafb5
+# ╟─24655fb8-8c0f-4377-bdd7-b8c7e5674c3c
+# ╟─3e37d3d2-cc25-434a-8bc3-3ecb6bdd29be
+# ╟─818348da-5cd7-4efe-b9b3-b47e40d1f517
+# ╟─f0f580ae-bfb2-4fa4-af88-e474cc83b763
+# ╟─048886ce-7a10-489e-9710-118fcda4ba2b
+# ╟─1cd38ef5-c2e1-45c5-b636-dde0378420ff
+# ╟─c4b92e7f-4d97-434e-8e41-21cc744f27c1
+# ╟─c6bfd5b3-2365-47ea-a573-1d85f8897fd2
+# ╟─def9a07e-152d-448d-949b-cd7b48f6de71
+# ╟─fe37d7d4-b9f0-4061-b5b4-3db2d3bb15c3
+# ╟─f9b74e76-3b72-4ad2-bd0c-9d136f643d78
+# ╟─85e6afaf-5bcc-4634-8858-b0dfdde2569a
+# ╟─a3869ebb-6281-49cd-8935-3973820d5df6
+# ╟─f1a86108-0a87-45a2-b766-9a461c5f4eed
+# ╟─a9f1f41b-4981-4ef2-a8e4-f7015bb67b5f
+# ╟─0c52d008-81eb-4aa9-8750-e32aa544bfca
+# ╟─519cae70-e46b-4ca3-8a52-55f9da47e3b6
+# ╟─a175eb7b-a1b9-476b-930a-0bc92d1f28ef
+# ╟─94719819-9f0e-4669-a234-5f0aee64a52c
+# ╟─b2a56b61-aba3-4d41-b654-d91a5554915b
+# ╟─d2c5cfa1-1fbc-4abe-aaf1-053b68098535
+# ╟─6527c10e-5052-4756-8385-ec909720b897
+# ╟─43aeebba-e03e-4d44-ac45-a3cc64b011c7
+# ╟─db5257d3-6535-4a76-b1f4-d0a06d34b817
+# ╟─5040e67c-6c80-4e64-94e8-c5ddf6340a2d
+# ╟─dc012b20-9fb9-4757-98ae-50e81525715b
+# ╟─b6445302-6a19-4677-8ba6-4e5850a17f91
+# ╟─011051a6-3e87-437c-b3aa-4d2726d96ce0
+# ╟─c64a7251-87b5-424f-a02e-0521537ad248
+# ╟─144a3a2c-adaa-4464-92a1-d5a09650703d
+# ╟─7e333685-4c0e-4cb5-b8cb-479c15adce2e
+# ╟─de7056f8-8ca4-449f-b2cf-d1713198037d
+# ╟─d78802b4-2d3a-4432-9746-05a828afa5c9
+# ╟─78558504-a34a-45b1-8d73-a74e4cb6bff6
+# ╟─a5b63126-07be-46a2-8448-48144af4036e
+# ╟─ad3af3fc-e416-4812-a6df-1ab0eceb321b
+# ╟─2551ec26-77e7-4529-9355-1c447187f6a8
+# ╟─8d8ef8e4-d0bc-4804-bb8e-a8bc005b1508
+# ╟─67f429f5-e343-4882-ab80-b9267ebe3590
+# ╟─02651ba5-6d5a-47bf-b1c3-51749a9324c8
+# ╟─3ef2f78c-d75d-4449-b0b7-45b722b50c88
+# ╟─67fa0f5f-3749-478f-8428-26dd0ae2328f
+# ╟─cb556483-bd7f-4a7d-af33-76022daa1226
+# ╟─1f6b94e8-7127-4a0f-8463-b98011655ee0
+# ╟─33768161-168b-4bcd-b7e2-cf91c1ac3189
+# ╟─94b3b105-6bd9-4995-9cf1-15a666b57029
+# ╟─d9b8457c-6e9d-413f-9c51-0e9647f48fd0
+# ╟─05c921ee-ef17-4e3f-9380-1929a1a98761
+# ╟─378504d1-e322-4e44-8bb0-f28fe1e7dc72
+# ╟─ff97d0f0-b396-4d29-85ff-0cde84592fa2
+# ╟─d2d57c21-4c16-47d5-b9dc-9e9100d361bc
+# ╟─5443b0f4-1b2c-4d23-a2c2-72f6f6dbb8a1
+# ╟─26bcb663-2eb1-4542-a50f-7f8e26d17c13
+# ╟─f65deaf9-42c6-4a6a-bde1-45e9f3191294
+# ╟─8f7d61a6-b580-4277-a70d-00ba79d9547a
+# ╟─9dc6e798-5814-4790-9813-b5a5dc5d94ad
+# ╟─b798636d-6c13-4aa7-bb9b-fc1e4e01a11b
+# ╟─2aedeac6-d43c-4a0e-8e0b-f46e904600a2
+# ╟─d689bd7b-ce37-4373-8228-d29ac00adfa0
+# ╟─af15d1ec-b1ba-4c69-8e46-9b6d6e31523c
+# ╟─a855cfae-a5cb-4c94-9d7a-44387ad27060
+# ╟─166b5b82-3f8c-43e4-a469-1b9cce08bc4e
+# ╟─bd273e5d-9208-4207-9380-937a6a0ceda5
+# ╟─7f0c2f04-98e1-44c2-9b70-e184fb89ed05
+# ╟─72070112-0b0a-49fb-ad05-ac3b171f5211
+# ╟─59effbcd-4334-4b19-9d00-38805577d4e3
+# ╟─7853f66b-0beb-4d21-ac40-d93d9b3078d8
+# ╟─82b57d6c-befa-4246-9b03-212e08c1d706
+# ╟─72f36dfe-89b5-4477-a83d-b6fd0046e96d
+# ╟─f19c8378-7148-4baf-b664-a00d8805fbe8
+# ╟─24a1153f-e298-4225-985f-a7d226f80113
+# ╟─cf54b8dd-2020-44f3-a93b-1a449769c528
+# ╟─b3df5d95-f975-47a1-a338-8766c15f027c
+# ╟─140e3645-4c1b-4737-a458-45b014299349
+# ╟─7b0773f7-acad-4773-9207-1d09f632b0a0
+# ╟─e584e6b5-3f2a-4e12-8706-db27a507eeaa
+# ╟─f9a54b6b-632a-410c-8501-e40109ee7605
+# ╟─999f8bef-39c5-4ac3-97b9-60bd09189f26
+# ╟─2ba2c7ea-e7a1-474b-a696-1a15c850637b
+# ╟─f2729651-6193-4234-8d04-20edc76bf013
+# ╟─82a2d879-170b-469f-a6e9-f2c6269937cc
+# ╟─7d50e6d3-013e-4f13-aeb9-5190f8c37e70
+# ╟─9298c327-bea7-48ac-bded-315dc9d76208
+# ╟─9d3cb890-47ec-42a8-b67e-a6a675a81300
+# ╟─7135e076-fbc1-4bb7-ba00-99a86fda3a65
+# ╟─3a4af7b2-d319-4daf-a581-6945f54b3c77
+# ╟─5e3687c2-8e18-4fac-81ec-602edb79a091
+# ╟─d474e7df-9dd4-4a52-9644-5e86309a5063
+# ╟─8f11acf4-861d-4c43-b24e-6a0f6e095ed4
+# ╟─f5786bb9-1665-415e-92a1-1d7fc337f9f3
+# ╟─42ddbd1b-0711-4b5e-b327-81864aac0c62
+# ╟─190fac3d-25cc-4d7d-91f4-199d6f2932c0
+# ╟─87620132-1261-4b7c-8ad9-933cc64de277
+# ╟─7c29d7f8-2479-4e5b-94e7-7040453ac4db
+# ╟─03eede9e-d7f4-4a5d-ab0c-9daa9e72594b
+# ╟─d4ce1390-f96e-45d8-a034-f869b5bd1ee4
+# ╟─ccef6f05-4f1b-4377-86e3-cc477176de01
+# ╟─dd3f1337-c5f9-41b8-8d1b-3b657404d4d3
+# ╟─fb958c4b-5c8a-4bf2-bccc-3a7cafa6406d
+# ╟─35943fab-8e85-40f5-9397-f3577c935802
+# ╟─173b9082-1536-44b0-865e-dfe7e5ee8576
+# ╟─f79bcb4b-8595-4a58-bb89-f575904f9a3e
+# ╟─537fdffa-0343-4b01-8ea2-092049597cdc
+# ╟─66906daa-899e-4083-98f3-09ae0fec90da
+# ╟─b1dcd923-5170-4aca-ac43-936d36c98a47
 # ╟─0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 # ╟─8687dbd1-4857-40e4-b9cb-af469b8563e2
 # ╟─fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b

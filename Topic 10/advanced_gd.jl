@@ -25,15 +25,44 @@ begin
 	using Statistics
 	using HypertextLiteral
 	using Plots; default(fontfamily="Computer Modern", framestyle=:box) # LaTex-style
-	using Distributions
-	using StatsPlots
+	
 end
 
-# ╔═╡ 58204d30-9975-4546-8591-64dc44b3524b
+# ╔═╡ a533cf6c-22d8-4659-813a-f1e12984326b
+using Optimisers
+
+# ╔═╡ d400c959-0a96-49bf-9239-de12d5e39de1
 using Zygote
+
+# ╔═╡ 30e2c8a3-0bc1-42d3-bd27-d7e493f4c164
+using Logging
+
+# ╔═╡ e1e8c5ca-874c-4a30-9211-8c29ee226c3b
+Logging.disable_logging(Logging.Info) ; # or e.g. Logging.Info
 
 # ╔═╡ 3e2e1ea8-3a7d-462f-ac38-43a087907a14
 TableOfContents()
+
+# ╔═╡ 52dcd4b9-9ef7-4128-a81d-d7e454cae9d6
+figure_url = "https://leo.host.cs.st-andrews.ac.uk/figs/";
+
+# ╔═╡ 19ebad08-8461-46fc-90bf-fcb1fa30d833
+function show_img(path_to_file; center=true, h = 400, w = nothing)
+	if center
+		if isnothing(w)
+			@htl """<center><img src= $(figure_url * path_to_file) height = '$(h)' /></center>"""
+		else
+			@htl """<center><img src= $(figure_url * path_to_file) width = '$(w)' /></center>"""
+		end
+
+	else
+		if isnothing(w)
+			@htl """<img src= $(figure_url * path_to_file) height = '$(h)' />"""
+		else
+			@htl """<img src= $(figure_url * path_to_file) width = '$(w)' />"""
+		end
+	end
+end;
 
 # ╔═╡ 7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 ChooseDisplayMode()
@@ -44,7 +73,7 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Probabilistic regression extensions
+#### Advanced gradient descent algorithms
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -57,642 +86,1091 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 
 """
 
-# ╔═╡ fc4bb806-0c85-48d9-b4af-ed957af361d3
+# ╔═╡ 7091d2cf-9237-45b2-b609-f442cd1cdba5
 md"""
 
-# Robust regression
-
+## Topics to cover
+	
 """
 
-# ╔═╡ a19e9007-e5b3-44d9-a071-92443ab21e28
+# ╔═╡ 0a7f37e1-51bc-427d-a947-31a6be5b765e
+aside((md"""$(@bind next1 Button("next")) 
+$(@bind init1 Button("init"))
+	"""))
+
+# ╔═╡ 595a5ef3-4f54-4502-a943-ace4146efa31
+begin
+	init1
+	next_idx = [0];
+end;
+
+# ╔═╡ a696c014-2070-4041-ada3-da79f50c9140
+begin
+	next1
+	topics = ["Limitations of gradient descent", "Momentum", "Resilient propagation (RProp)", "RMSProp & Adam"]
+	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
+end
+
+# ╔═╡ bc1ee08d-9376-44d7-968c-5e114b09a5e0
+let
+	next1
+	next_idx[1] += 1
+end;
+
+# ╔═╡ 84c68c61-7168-44c5-a606-b1b252377229
 md"""
 
-## Why bother MLE?
+## Recap: Gradient descent 
 
 
-The likelihood function provides a **principled approach** to define *goodness* via negative log likelihood
+Given objective function ``\ell(\mathbf{w})``, and  ``\mathbf{w} =\begin{bmatrix} w_1  \\  w_2 \\ \vdots \\  w_n \end{bmatrix}``
+
+
+
+###### *Gradient descent* aims at optimising/minimising the objective function
 
 ```math
-\large
-\text{loss}(\mathbf{w}) = - \ln p(y^{(i)}|\mathbf{x}^{(i)}) 
+\boxed{\hat{\mathbf{w}}\leftarrow \arg\min_{\mathbf{w}} \ell(\mathbf{w})}
 ```
 
 
-* different models/loss depending on the nature of your data
 
-  * *e.g.* ``y^{(i)}`` is continuous but noisy, we can assume Laplace or Cauchy likelihood for ``y^{(i)}``
-    * robust regression
+## Recap: Gradient descent 
 
-  * *e.g.* ``y^{(i)}`` is continuous but ``\sigma^2`` is not constant but depend on ``x^{(i)}``
-    * heterogeneous regression
+
+Given objective function ``\ell(\mathbf{w})``, and  ``\mathbf{w} =\begin{bmatrix} w_1  \\  w_2 \\ \vdots \\  w_n \end{bmatrix}``
+
+
+
+###### *Gradient descent* aims at optimising/minimising the objective function
+
+```math
+\boxed{\hat{\mathbf{w}}\leftarrow \arg\min_{\mathbf{w}} \ell(\mathbf{w})}
+```
+
+The algorithm starts with a random guess of ``\mathbf{w}^{(0)}`` and then iteratively update:
+
+```math
+\large
+\mathbf{w}^{(t)} \leftarrow \mathbf{w}^{(t-1)} - γ\, \mathbf{g}^{(t-1)}
+```
+
+* ``\gamma > 0``: learning rate
+
+To simplify the notation, ``\mathbf{g}`` denotes the gradient:
+
+```math
+\large
+\mathbf{g} \triangleq \nabla\ell(\mathbf{w}) = \begin{bmatrix} \frac{\partial}{\partial w_1} \ell(\mathbf{w}) \\ \frac{\partial}{\partial w_2} \ell(\mathbf{w})  \\ \vdots \\ \frac{\partial}{\partial w_m} \ell(\mathbf{w}) \end{bmatrix}
+```
+"""
+
+# ╔═╡ d32970e9-1ec5-4074-92a9-1989e86234f7
+md"""
+## An example
+
+The objective function is a simple _quadratic_ function
+
+```math
+\ell(\mathbf{w}) = \mathbf{w}^\top \mathbf{A}\,\mathbf{w}
+```
+
+* where ``\mathbf{A} = \begin{bmatrix}.5 & 0 \\ 0 &   9.75\end{bmatrix}`` 
+
+* the minimum is ``\hat{\mathbf{w}} = [0, 0]^\top``
+* the starting point ``\mathbf{w}^{(0)} = [10, 1]^\top``
+"""
+
+# ╔═╡ 65c48015-fcfb-41c7-b3c7-79411b9721b9
+md"""
+## Example -- gradient descent
+
+"""
+
+# ╔═╡ fd636237-ebc5-4d8c-9703-f3c93adfda5b
+md"""
+
+###### The convergence is pretty slow when ``\gamma = 0.05``
+"""
+
+# ╔═╡ 59b80abc-e696-4870-9cf8-0aaafcbbd6e0
+md"""
+
+## Limitations of gradient descent (1) 
+
+#### -- step length & zig-zag
 
 
 """
 
-# ╔═╡ 0d0559e1-41b7-414d-83ee-6c1271baf1e7
-plt_heter = let
-	Random.seed!(123)
-	n0 = 200
-	xs = range(-0.5, 1; length = n0)
-	true_w = [1, 3]
-	true_σ = [0, 1]
-	lnσ = true_σ[1] .+ true_σ[2] * xs 
-	ys = true_w[1] .+ 3 * xs +  exp.(lnσ).* randn(n0)
-	plt = plot(xs, ys, st=:scatter, framestyle=:origin, label="observations", legend=:topleft, size=(300,300), ms=3, alpha=.5)
-	# plot!(xs_new, ys_outliers, st=:scatter, framestyle=:origin, label="outliers", legend=:topright)
-	# w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=3, lc=1, label="the true signal: " * L"h(x)", title="Heterogeneous noise")
+# ╔═╡ e5b02c45-9b49-4ceb-8f88-2a25229ff62b
+md"""
 
-	xis = range(-.5, 1; length = 8)
-	for i in 1:length(xis)
-		x = xis[i]
-		μi = dot(true_w, [1, x])
-		σ = exp(true_σ[1] .+ true_σ[2] * x)
-		xs_ = μi- 4 * σ :0.1:μi+ 4 * σ
-		ys_ = pdf.(Normal(μi, σ), xs_)
-		ys_ = 0.1 *ys_ ./ maximum(ys_)
-		plot!(ys_ .+x, xs_, c=:grey, label="", linewidth=1)
-		# scatter!([xis[i]],[ys[i]], markershape = :circle, label="", c=1, markersize=4)
+###### The convergence is a bit better when ``\gamma = 0.1``
+"""
+
+# ╔═╡ 0af4a76f-578b-4195-826b-84cdf7b65afe
+md"""
+
+## Limitations of gradient descent (1) 
+
+#### -- step length & zig-zag
+
+
+"""
+
+# ╔═╡ 791cb069-a6a9-4c33-a4fd-677b7a4ceb6f
+md"""
+
+###### The convergence is a bit better when ``\gamma = 0.1``
+"""
+
+# ╔═╡ 6071849b-08f7-4618-a3b5-1c6ba67c6396
+md"""
+
+
+
+###### _However,_ the *Zig-zag* behaviour is also very inefficient 
+* _no convergence_ after 25 iterations
+"""
+
+# ╔═╡ b2b0ef75-7192-4d2c-9fcc-3bc4e49da8cc
+md"""
+
+
+## Aside: on-line sample mean algorithm
+
+
+!!! question "Compute average on-line"
+	Given a stream of data (and we do not know the final size in advance)
+	```math
+		\mathcal{D} = \{d_1, d_2, \ldots\},
+	```
+	How to compute the mean online?
+	```math
+		\mu^{(t)} = \frac{1}{t}\sum_{i=1}^t d_i
+	```
+	* for ``t \geq 1``
+    * *e.g.* ``\mu^{(1)} = d_1``, ``\mu^{(2)} =\frac{1}{2}(d_1+d_2)``
+
+##### Why _online_?
+
+* we do not want to save the data ``\mathcal{D}`` in memory
+
+* we always have the latest ``\mu^{(t)}`` available
+"""
+
+# ╔═╡ bebe066b-c212-402f-af15-6c329e42941e
+md"""
+
+## A recursive formula for ``\mu^{(t)}``
+
+Given the mean of the first ``t-1`` data, ``\mu^{(t-1)}``:
+
+
+```math
+\large
+\mu^{(t-1)} = \frac{1}{t-1} \sum_{i=1}^{t-1} d_i
+```
+
+Then
+
+```math
+\large
+(t-1) \cdot \mu^{(t-1)} = \sum_{i=1}^{t-1} d_i
+```
+
+
+
+"""
+
+# ╔═╡ 749db615-65c5-41fb-9232-f0c936f2c811
+md"""
+
+## A recursive formula for ``\mu^{(t)}``
+
+Given the mean of the first ``t-1`` data, ``\mu^{(t-1)}``:
+
+
+```math
+\large
+\mu^{(t-1)} = \frac{1}{t-1} \sum_{i=1}^{t-1} d_i
+```
+
+Then
+
+```math
+\large
+(t-1) \cdot \mu^{(t-1)} = \sum_{i=1}^{t-1} d_i
+```
+
+
+We can therefore establish the following _recursive_ formula to **update** ``\mu^{(t)}``:
+
+```math
+\large
+\begin{align}
+\mu^{(t)} &= \frac{1}{t}\left[\;\overbrace{\underbrace{(t-1)\;\cdot\;\mu^{(t-1)}}_{d_1+d_2+\ldots+d_{t-1} }\;+\; d_t}^{\text{sum of first } t \text{ data}}\;\right ]
+\end{align}
+```
+
+"""
+
+# ╔═╡ 27457b37-3939-4b86-b29c-240cd214c94d
+md"""
+
+## A recursive formula for ``\mu^{(t)}``
+
+Given the mean of the first ``t-1`` data, ``\mu^{(t-1)}``:
+
+
+```math
+\large
+\mu^{(t-1)} = \frac{1}{t-1} \sum_{i=1}^{t-1} d_i
+```
+
+_therefore,_
+
+```math
+\large
+(t-1) \times \mu^{(t-1)} = \sum_{i=1}^{t-1} d_i
+```
+
+
+We can therefore establish the following _recursive_ formula to **update** ``\mu^{(t)}``:
+
+```math
+\large
+\begin{align}
+\mu^{(t)} &= \frac{1}{t}\left[\;\overbrace{\underbrace{(t-1)\;\cdot\;\mu^{(t-1)}}_{d_1+d_2+\ldots+d_{t-1} }\;+\; d_t}^{\text{sum of first } t \text{ data}}\;\right ]\\
+&= \frac{t-1}{t}\, \mu^{(t-1)} + \frac{1}{t}\, d_t 
+\end{align}
+```
+
+"""
+
+# ╔═╡ c3f2a18c-8f4d-46c5-a326-3bfdba99934b
+md"""
+
+## A recursive formula for ``\mu^{(t)}``
+
+Given the mean of the first ``t-1`` data, ``\mu^{(t-1)}``:
+
+
+```math
+\large
+\mu^{(t-1)} = \frac{1}{t-1} \sum_{i=1}^{t-1} d_i
+```
+
+Then
+
+```math
+\large
+(t-1) \cdot \mu^{(t-1)} = \sum_{i=1}^{t-1} d_i
+```
+
+
+We can therefore establish the following _recursive_ formula to **update** ``\mu^{(t)}``:
+
+```math
+\large
+\begin{align}
+\mu^{(t)} &= \frac{1}{t}\left[\;\overbrace{\underbrace{(t-1)\;\cdot\;\mu^{(t-1)}}_{d_1+d_2+\ldots+d_{t-1} }\;+\; d_t}^{\text{sum of first } t \text{ data}}\;\right ]\\
+&= \frac{t-1}{t} \mu^{(t-1)} + \frac{1}{t}d_t \quad \quad \# \text{ note } \tfrac{t-1}{t} + \tfrac{1}{t} =1\\
+&= \colorbox{lightgreen}{$\beta_t\, \mu^{(t-1)} + (1-\beta_t)\, d_t$}
+\end{align}
+```
+* where ``\beta_t = \frac{t-1}{t}``
+
+* an online update formula
+"""
+
+# ╔═╡ 3e68c117-2016-4da6-931a-912309499a7d
+md"""
+
+
+## A recursive on-line algorithm
+
+In pseudo code:
+
+----
+
+**Initialisation**: ``\mu^{(0)} = 0``
+
+
+*for* ``t= 1,2,\ldots``
+
+```math
+\begin{align}
+\beta_t &\leftarrow \frac{t-1}{t}\quad \quad \# \texttt{a discount factor}\\
+\mu^{(t)} &\leftarrow \beta_t\, \mu^{(t-1)} + (1-\beta_t)\, d_t \\
+\end{align}
+```
+
+---
+
+
+"""
+
+# ╔═╡ f48c2156-79d6-43c7-b53b-0b3fc77b0b12
+begin
+	Random.seed!(123)
+	ndata = 100
+
+	true_f(x) = @. sin(0.5 * x) * 5 + x
+	# data2 = sin.(0.5 * range(0, 20 * π, ndata)) * 5 + 1 * range(0, 20, ndata)
+	data2 = true_f(range(0, 15 * π, ndata))
+	data2 .+= randn(length(data2)) * 3
+
+
+	data1 = randn(ndata)
+end;
+
+# ╔═╡ 23c4f897-765e-44a9-8f06-83e1d0b6a34f
+md"""
+## Problem of simple average
+
+
+When ``t \rightarrow \infty`` large,
+
+```math
+\frac{1}{t} \rightarrow 0;\quad  \frac{t-1}{t} \rightarrow 1
+```
+
+
+Then 
+
+```math
+\begin{align}
+\mu^{(t)} &= \frac{t-1}{t}\, \mu^{(t-1)} + \frac{1}{t}\, d_t \\
+&\approx 1 \cdot \mu^{(t-1)} + 0\cdot\, (d_t -\mu^{(t-1)})\\
+
+&= \mu^{(t-1)}
+\end{align}
+```
+
+* the mean ``\mu^{(t)}`` converges and 
+* ``d^{(t)}``'s contribution vanishes as ``t`` increases
+"""
+
+# ╔═╡ 9d7c9641-1653-428a-b366-ab74d9c7c78d
+md"""
+
+## An example
+"""
+
+# ╔═╡ 352eeeac-b7a2-4b28-be35-be05d044281a
+begin
+	plot(data2, st=:scatter, alpha=0.8, xlabel=L"t", ylabel="data", label="", title="A dataset with shifting mean")
+	# plot!(true_f)
+end
+
+# ╔═╡ a00ddb3b-6036-4ff7-ae4d-2969cac6ce21
+md"""
+
+## An example
+"""
+
+# ╔═╡ ee40107d-41f8-400a-b86d-0ac092e6bb80
+gif_2, plt_mean2=let
+
+	data = data2
+	
+	# plt = plot(data, st=:scatter, c=:gray, alpha=0.1, label="data", xlabel=L"t")
+	plt = plot(xlabel=L"t", ylabel=L"d",ylim = extrema(data) .+ (-4, +4))
+
+	μt = 0
+	anim = @animate for t in 1:length(data)
+		scatter!([t], [data[t]], label="", c=1, title="Online simple average "*L"\mu^{(%$(t))}")
+		βt = (t-1)/t
+		newμt =  βt * μt + (1-βt) * data[t]
+		lbl = (t == 1) ? L"\mu_{(t)}" : ""
+		plot!([t-1, t], [μt, newμt], c =4, lw=2, st=:path, label=lbl)
+		μt = newμt
+	end
+
+	gif(anim, fps=10), plt
+
+end;
+
+# ╔═╡ b7ffb0f7-1ca8-48ac-89d0-63768a48932b
+gif_2
+
+# ╔═╡ a8cb91a2-9c1d-43ef-aaae-f2d6638c5423
+plt_mean2
+
+# ╔═╡ fd004056-68b2-4cd5-8719-bf8aed131483
+gif_1, plt_mean1=let
+
+	data = data1
+	
+	# plt = plot(data, st=:scatter, c=:gray, alpha=0.1, label="data", xlabel=L"t")
+	plt = plot(xlabel=L"t", ylabel=L"d",ylim = extrema(data) .* 1.2)
+
+	μt = 0
+	anim = @animate for t in 1:length(data)
+		scatter!([t], [data[t]], label="", c=1, title="Online simple average "*L"\mu^{(%$(t))}")
+		βt = (t-1)/t
+		newμt =  βt * μt + (1-βt) * data[t]
+		lbl = (t == 1) ? L"\mu_{(t)}" : ""
+		plot!([t-1, t], [μt, newμt], c =4, lw=2, st=:path, label=lbl)
+		μt = newμt
+	end
+
+	gif(anim, fps=10), plt
+
+end;
+
+# ╔═╡ 5832e04f-e5e0-4c55-a9aa-1be7e9fe1a91
+gif_1
+
+# ╔═╡ 465b942d-d8af-4314-b84c-643125172eaf
+plt_mean1
+
+# ╔═╡ a22221c1-9a94-406d-96e3-6d584b9187cd
+md"""
+
+## Solution: Exponentially Moving Weighted Average (EMWA)
+
+
+
+###### We can also simply set ``\beta_t \in [0, 1]`` a constant 
+
+
+----
+
+**Initialisation**: ``\mu^{(0)} = 0``
+
+Choose fixed discount factor *e.g.* ``\beta \leftarrow 0.9``
+
+*for* ``t= 1,2,\ldots``
+
+```math
+\begin{align}
+
+\mu^{(t)} &\leftarrow \beta \, \mu^{(t-1)} + (1-\beta)\, d_t \\
+\end{align}
+```
+
+---
+"""
+
+# ╔═╡ 00a01580-a254-40b3-ab2f-b1d745e67ac8
+md"""
+
+## Solution: Exponentially Moving Weighted Average (EMWA)
+
+
+
+###### We can also simply set ``\beta_t \in [0, 1]`` a constant 
+
+
+----
+
+**Initialisation**: ``\mu^{(0)} = 0``
+
+Choose fixed discount factor *e.g.* ``\beta \leftarrow 0.9``
+
+*for* ``t= 1,2,\ldots``
+
+```math
+\begin{align}
+
+\mu^{(t)} &\leftarrow \beta \, \mu^{(t-1)} + (1-\beta)\, d_t \\
+\end{align}
+```
+
+---
+"""
+
+# ╔═╡ 14c5ff65-4e01-48d7-af58-01a78ec60788
+md"""
+
+Let's assume ``\beta=0.9``, then the new ``\mu^{(t)}`` is a weighted average
+```math
+\mu^{(t)} = 0.9\cdot \mu^{(t-1)} + 0.1\cdot d_t
+```
+* the new data ``d_t`` is given a *constant* weight ``0.1``, which does not diminish over the time
+"""
+
+# ╔═╡ 9cf9bc30-479f-4686-a22d-998e619bc865
+md"""
+
+## Why _exponentially weighted_?
+
+
+It can be proved that the weights assigned are **exponentially weighted**
+
+
+```math
+\large
+\mu^{(t+1)} \propto (\beta^t \, d_1 + \beta^{t-1}\, d_2 + \ldots + \beta^0 d_{t+1})
+```
+
+
+* the most recent observation is given weight ``\beta^0 = 1``
+* earlier observations are discounted exponentially ``\beta^{t-i+1}``
+"""
+
+# ╔═╡ 2ffeee86-af16-408f-b819-4bb7ac3219a4
+let
+	n = 20
+	βs = [0.9, 0.3]
+
+	plt = plot( xlabel="data index", ylabel="Weights")
+	plot!(1:n, ones(n) * 1/n, markershape=:circle, ms=1,st=:sticks, label="", lw=1, c=1)
+	plot!(1:n,c=1, ones(n) * 1/n, fill=true, alpha=0.5, label="simple average")
+	for (i, β) in enumerate(βs) 	
+		weights = (1-β) * [β^(t-1) for t in n:-1:1]
+	# plot()
+		plot!(1:n, weights, markershape=:circle, ms=1,st=:sticks, label="", lw=1, c=i+1)
+
+		plot!(weights, c=i+1, fill=true, alpha=0.5, label="EWMA "*L"\beta= %$(β)")
 	end
 	plt
-end;
-
-# ╔═╡ 173b7d36-4b5a-4297-b462-3d16fc564f41
-begin
-	Random.seed!(123)
-	n_obs = 100
-	# the input x is fixed; non-random
-	xs = range(-0.5, 1; length = n_obs)
-	true_w = [1.0, 1.0]
-	true_σ² = 0.05
-	ys = zeros(n_obs)
-	for (i, xⁱ) in enumerate(xs)
-		hⁱ = true_w' * [1, xⁱ]
-		ys[i] = hⁱ + rand(Normal(0, sqrt(true_σ²)))
-	end
 end
 
-# ╔═╡ 771b7002-24c3-44a9-994f-6522afb57dcd
-plt_out=let
-	Random.seed!(123)
-	n0 = 100
-	xs_new = collect(range(-0.55, -0.4, length=4))
-	ys_outliers = ones(length(xs_new)) * 5 + randn(length(xs_new))/5
-	xs_out = [xs; xs_new]
-	ys_out = [ys; ys_outliers]
-	outlier_plt = plot(xs, ys, st=:scatter, framestyle=:origin, c=1, alpha=.5, label="observations", legend=:topleft)
-	plot!(xs_new, ys_outliers, st=:scatter, framestyle=:origin,c=1, label="outliers", legend=:topright)
-	w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=3, lc=1, label="the true signal: " * L"h(x)", size=(300,300),  title="Outlier observations")
-	outlier_plt
-end;
-
-# ╔═╡ d04bc149-4815-40bc-9d65-c68cc107c5bb
-plot(plot(plt_out, title="Robust regression",size=(300,300)), plt_heter, size=(600,300))
-
-# ╔═╡ 7cdd0017-f485-4ded-a0f8-7f8635761b68
-md"""
-
-## Why bother MLE ?
-
-And nearly all discriminative ML models are *probabilistic regression* model
-  * **Binary classification**:  ``y^{(i)}`` is binary, we can assume Bernoulli likelihood for ``y^{(i)}``
-    * logistic regression 
-  * **Multi-class classification**:  ``y^{(i)}`` is categorical, we can assume Multinoulli likelihood for ``y^{(i)}``
-    * softmax regression 
-  * **Others**: ``y^{(i)}`` is count data, # of visitors of a webpage, we can assume a Poisson likelihood
-    * Poisson regression
-"""
-
-# ╔═╡ dd55a282-9e21-4111-9c2d-372d3eee26ce
-md"""
-
-
-## Outliers -- robust linear regression
-
-If our dataset contains outliers...
-
-* `Gaussian` likelihood is not *robust* to outliers
-* 4 noisy outliers change the regression line a lot
-"""
-
-# ╔═╡ 5e6b83d7-3551-4b5c-96c2-366bf8eb33e4
-md"Add `Gaussian` likelihood fit: $(@bind add_gaussian_plt CheckBox(default=false))"
-
-# ╔═╡ bbb449e1-f6ba-40fa-a892-09786419cda1
-md"""
-
-## `Laplace` distribution
-
-
-```math
-\large
-	p(y|\mu, \sigma) = \frac{1}{2\sigma}\exp\left (-\frac{|y -\mu|}{\sigma}\right )
-```
-
-
-* ``\mu``: location
-* ``\sigma``: scale
-"""
-
-# ╔═╡ 97fca6ae-f19c-4440-a5ca-633af08910e5
-md"Add `Gaussian` $(@bind add_gaussian CheckBox(default=false)),
-Add `Laplace` samples $(@bind add_lap_s CheckBox(default=false)),
-Add `Gaussian` samples $(@bind add_gauss_s CheckBox(default=false))
-"
-
-# ╔═╡ a63881f1-9248-4052-ad56-04767d680f38
-let
-	# gr()
-	# μs = [ 0, 3]
-	# σ²s = [1 , 2 , 5]
-	Random.seed!(123456)
-	nn = 400
-	ys = rand(Laplace(), nn)
-	plt_gaussian = plot(title="Gaussian/Laplace distributions", xlabel=L"y",ylabel=L"p(y)", framestyle=:origin)
-
-
-	plot!(plt_gaussian, -4.5:0.1:4.5, (x) -> pdf(Laplace(0, sqrt(1)), x), fill=true, alpha=0.5, label=L"\texttt{Laplace}(μ=0, σ=1)", c=1)
-
-	if add_gaussian
-		plot!(plt_gaussian, -4.5:0.1:4.5, (x) -> pdf(Normal(0, sqrt(1)), x), fill=true, alpha=0.5, label=L"\mathcal{N}(μ=0, σ^2=1)", c=2)
-	end
-
-
-	if add_lap_s
-		scatter!(ys, zeros(length(ys)) .-0.05, c=1,  markersize=3, alpha=.4, label="Laplace samples")
-	end
-
-	if add_gauss_s
-		ys_gaus = randn(nn)
-		scatter!(ys_gaus, zeros(length(ys)) .-0.025, c=2,  markersize=3, alpha=.4, label="Gaussian samples")
-	end
-
-	plt_gaussian
-	# # end
-	# plt_gaussian
-end
-
-# ╔═╡ 7cdf569c-a944-45ad-b672-c6e73cc7eacc
-md"""
-
-
-## Robust linear regression
-
-Just replace the `Gaussian` with `Laplace`!
-
-$$\large y^{(i)} = \mathbf{w}^\top \mathbf{x}^{(i)} + \epsilon^{(i)}, \;\; \epsilon^{(i)} \sim  \texttt{Laplace}(0, \sigma)$$
-
-which implies 
-
-$\large \begin{align}p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) &= \texttt{Laplace}(y^{(i)};  \mathbf{w}^\top \mathbf{x}^{(i)} , \sigma)\\
-&= \frac{1}{2\sigma}\text{exp}\left (-\frac{|y^{(i)}-{\mathbf{w}}^\top\mathbf{x}^{(i)}|}{\sigma}\right)\end{align}$
-
-* ``y^{(i)}`` is a univariate Laplace with mean $\mathbf{w}^\top \mathbf{x}^{(i)}$ and scale $\sigma$ 
-
-"""
-
-# ╔═╡ 085f5bb8-0f1b-47b2-94a0-2f93629e446e
-md"``x_i`` $(@bind xᵢ0_lap Slider(-0.5:0.1:1, default=0.15));	``\sigma`` $(@bind σ0_lap Slider(0.01:0.01:0.5, default=0.1))"
-
-# ╔═╡ 996276c4-e8af-4c06-a5f5-bb7b63e1b744
-md"input $x^{(i)}=$ $(xᵢ0_lap); and ``\sigma =`` $(σ0_lap)"
-
-# ╔═╡ a373376c-368b-45b9-9a97-e0392d78c077
-begin
-	Random.seed!(123)
-	yy_laplace = true_w[1] .+ xs * true_w[2] + rand(Laplace(0, σ0_lap), n_obs);
-end;
-
-# ╔═╡ f5e88531-0cc4-49bc-93b3-f763b7c64e2b
-let
-	gr()
-	σ0 = σ0_lap
-	xᵢ0 = xᵢ0_lap
-	b_1 = 3.0
-	p_lr = plot(title="Robust regression's probabilistic model",legend=:bottomright)
-	β0 = true_w
-	n0 = n_obs
-	# xx = [ones(n0) collect(xs)]
-	yy = yy_laplace
-	plot!(xs, yy, st=:scatter, ylim=[0, 3],framestyle=:origin, label="observations", legend=:topleft)
-	plot!(-0.5:0.1:1.0, x->β0[1]+β0[2]*x, c= 1, linewidth=5, label="",  ylim=[0, 3],framestyle=:origin)
-	# xis = [-0.35, -0.2, 0, 0.25, 0.5, 0.75, 0.99, xᵢ0]
-	xis = [range(-0.5, 1.0, 8)...]
-	push!(xis, xᵢ0)
-	for i in 1:length(xis)
-		x = xis[i]
-		μi = dot(β0, [1, x])
-		σ = σ0
-		xs_ = μi- 4*σ :0.01:μi+ 4 *σ
-		ys_ = pdf.(Laplace(μi, σ), xs_)
-		ys_ = 0.1 *ys_ ./ maximum(ys_)
-		if i == length(xis)
-			scatter!([x],[μi], markerstrokewidth =2, markershape = :diamond, c=:red, label=L"h(x)", markersize=6)
-			plot!(ys_ .+x, xs_, c=:red, label="", linewidth=3)
-		else
-			plot!(ys_ .+x, xs_, c=:gray, label="", linewidth=1)
-			# scatter!([x],[μi], markerstrokewidth =2, markershape = :diamond, label="μ @ x="*string(x))
-		end
+# ╔═╡ adb336ba-fcc0-415a-891f-7c52fb068312
+gif_3, plt_mean3=let
+	β = 0.9
+	data = data2
+	
+	# plt = plot(data, st=:scatter, c=:gray, alpha=0.1, label="data", xlabel=L"t")
+	plt = plot(xlabel=L"t", ylabel=L"d",ylim = extrema(data) .+ (-4, +4))
+	βt = β
+	μt = 0
+	anim = @animate for t in 1:length(data)
+		scatter!([t], [data[t]], label="", c=1, title="EWMA with "*L"\beta=%$(β);\;\; \mu^{(%$(t))}")
 		
+		newμt =  βt * μt + (1-βt) * data[t]
+		lbl = (t == 1) ? L"\mu_{(t)}" : ""
+		plot!([t-1, t], [μt, newμt], c =4, lw=2, st=:path, label=lbl)
+		μt = newμt
 	end
-	p_lr	
-end
 
-# ╔═╡ 7dea21ce-04b6-424d-9d14-464aa901918e
-md"""
-## Log-likelihood and MLE
+	gif(anim, fps=5), plt
 
-Based on the `Laplace`'s likelihood
+end;
 
-$\large p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) = \frac{1}{2\sigma}\text{exp}\left (-\frac{|y^{(i)}-{\mathbf{w}}^\top\mathbf{x}^{(i)}|}{\sigma}\right)$
+# ╔═╡ 848054d5-c484-432e-be1f-1744510f73a2
+gif_3
 
-
-The log-transformed likelihood for ``y^{(i)}`` therefore is
-
-$$\large\ln p({y}^{(i)}| \mathbf{w}, \sigma, \mathbf{x}^{(i)}) = -\ln 2\sigma -\frac{1}{\sigma}|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|$$
-
-## Log-likelihood and MLE
-
-Based on the `Laplace`'s likelihood
-
-$\large p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) = \frac{1}{2\sigma}\text{exp}\left (-\frac{|y^{(i)}-{\mathbf{w}}^\top\mathbf{x}^{(i)}|}{\sigma}\right)$
-
-
-The log-transformed likelihood for ``y^{(i)}`` therefore is
-
-$$\large\ln p({y}^{(i)}| \mathbf{w}, \sigma, \mathbf{x}^{(i)}) = -\ln 2\sigma -\frac{1}{\sigma}|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|$$
-
-The log-likelihood of the whole training data is 
-
-$$\large \begin{align}\ell (\mathbf{w}, \sigma) &= \ln p(\mathcal{D}|\mathbf{w}, \sigma) \\
-&= \sum_{i=1}^n \ln p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma)\\
-&= -n \ln 2\sigma -\frac{1}{\sigma} \underbrace{\sum_{i=1}^n|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|}_{\text{sum of absolute deviations!}}
-\end{align}$$
-
-
-## MLE for robust regression
-
-MLE aims at **minimising** the negative log-likelihood ``\ell(\mathbf{w})``:
-
-
-```math
-\large
-\begin{align}
-&\;\;\;\;\;\,\hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}} -\ell (\mathbf{w}) \\
-
-&\Rightarrow \hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}}  \underbrace{\sum_{i=1}^n|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|}_{\text{sum of absolute deviations!}} + C
-
-\end{align}
-```
-
-
-"""
-
-# ╔═╡ 51f2b7fb-0ded-445d-a43e-4fe884fbe584
+# ╔═╡ ff84798b-f6c1-47b9-946a-91eb4196ff44
 md"""
 
-## Learning -- Gradient descent
+## Effect of ``\beta``
 
-"""
-
-# ╔═╡ 3886400e-f985-4a69-b9cd-930bb0996eb0
-md"""
-
-Consider the ``i``-th loss only
-
-
-```math
-\large
-\begin{align}
-	&l^{(i)}(\mathbf{w}) = |{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|\\
-
-&\nabla l^{(i)}(\mathbf{w})= ?
-\end{align}
-```
-
-* the total loss (and gradient) is just the sum (of the individual gradients)
-
-
-"""
-
-# ╔═╡ f963dd3d-2c53-46c6-b92a-6bece799af35
-md"""
-
-## Learning -- Gradient descent
-
-"""
-
-# ╔═╡ 309f7945-29f6-47cc-9ef4-24483f0f3855
-md"""
-
-Consider the ``i``-th loss only
-
-
-```math
-\large
-\begin{align}
-	&l^{(i)}(\mathbf{w}) = |{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|\\
-
-&\nabla l^{(i)}(\mathbf{w})= ?
-\end{align}
-```
-
-* the total loss (and gradient) is just the sum (of the individual gradients)
-
-Note that
-
-```math
-\large
-l^{(i)}(\mathbf{w}) = \begin{cases} {y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ -{y}^{(i)}+\mathbf{w}^\top\mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases} 
-```
 
 
 
 """
 
-# ╔═╡ 6d1c080e-0523-46a2-b3f3-0f91a595d351
-aside(tip(plot(abs, size=(275,200),lw=2, title=L"f(x)=|x|", label="")))
-
-# ╔═╡ 7084f202-3d8f-42ff-b3be-0717612b345d
-md"""
-
-## Learning -- Gradient descent
-
-"""
-
-# ╔═╡ db222925-812f-4dfa-b102-f1a9b44d8824
-md"""
-
-Consider the ``i``-th loss only
-
-
-```math
-\large
-\begin{align}
-	&l^{(i)}(\mathbf{w}) = |{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|\\
-
-&\nabla l^{(i)}(\mathbf{w})= ?
-\end{align}
-```
-
-* the total loss (and gradient) is just the sum (of the individual gradients)
-
-
-Note that
-
-```math
-\large
-l^{(i)}(\mathbf{w}) = \begin{cases} {y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ -{y}^{(i)}+\mathbf{w}^\top\mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases} 
-```
-
-
-Its gradient therefore is
-
-
-```math
-\large
-\nabla l^{(i)}(\mathbf{w}) = \begin{cases} - \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ \mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases}= - {\normalsize\texttt{sign}}(y^{(i)} - \mathbf{w}^\top \mathbf{x}^{(i)})\cdot \mathbf{x}^{(i)}
-```
-* `sign`: `sign(-2) = -1`, `sign(2)=1`
-
-"""
-
-# ╔═╡ d28073c7-08e6-490e-95ba-8cda4ae9aa4a
-md"""
-## Learning -- Gradient descent (cont.)
-"""
-
-# ╔═╡ c395f3aa-5e00-4f54-9a4e-845adee810a3
-md"""
-
-##
-
-
-The final gradient is the sum of the individual gradients
-
-```math
-\large
-\begin{align}
-\nabla l(\mathbf{w}) &= \sum_{i=1}^n\nabla l^{(i)}(\mathbf{w}) = - \sum_{i=1}^n  \texttt{sign}(y^{(i)} - \mathbf{w}^\top \mathbf{x}^{(i)})\cdot \mathbf{x}^{(i)} \\
-&= -\mathbf{X}^\top \cdot \mathbf{\texttt{sign}}(\mathbf{y} - \mathbf{Xw})
-\end{align}
-```
-"""
-
-# ╔═╡ fb1ffb36-c064-4e01-bc93-c5989c83edcb
-md"""
-
-**Implementation of the gradient in Python**
-```python
-	# implementation in Python and Numpy
-	# @: matrix multiplication
-	# np.sign: Numpy provides the sign function
-	grad = - Xs.T @ np.sign(ys - (Xs @ w))
-
-```
-
-"""
-
-# ╔═╡ 34f3186a-5c46-4a1d-8abc-d96fe20c4d6e
-md"""
-**Implementation of the gradient in Julia**
-
-```julia
-	# much cleaner implementation in Julia
-	# ".": broadcasting
-	∇l = - Xs' * sign.(ys - Xs * w)
-```
-
-"""
-
-# ╔═╡ 1b9a92f3-8996-4829-9929-52fba1cfe91f
-md"""
-## Robust regression -- result
-
-
-```julia
-	wₜ = [0,0]
-	γ = 0.001
-	# gradient descent
-	for _ in 1:100
-		∇wₜ = - Xs' * sign.(ys - Xs * w)
-		wₜ = wₜ - γ * ∇wₜ
+# ╔═╡ 53d98475-4c75-4399-96b2-ee4623121309
+gif_4, plt_mean4= let
+	β = 0.4
+	data = data2
+	
+	# plt = plot(data, st=:scatter, c=:gray, alpha=0.1, label="data", xlabel=L"t")
+	plt = plot(xlabel=L"t", ylabel=L"d",ylim = extrema(data) .+ (-4, +4))
+	βt = β
+	μt = 0
+	anim = @animate for t in 1:length(data)
+		scatter!([t], [data[t]], label="", c=1, title="EWMA with "*L"\beta=%$(β);\;\; \mu^{(%$(t))}")
+		
+		newμt =  βt * μt + (1-βt) * data[t]
+		lbl = (t == 1) ? L"\mu_{(t)}" : ""
+		plot!([t-1, t], [μt, newμt], c =4, lw=2, st=:path, label=lbl)
+		μt = newμt
 	end
-```
+
+	gif(anim, fps=5), plt
+
+end;
+
+# ╔═╡ 0675960b-0d73-493b-8091-be0a8c37ca14
+TwoColumn(md"""
+##### Larger ``\beta``: smoother curve; 
+* historical data given more weights
+* the curve slow to react to the trend 
+$(plot(plt_mean3, size=(320,300), titlefontsize=12))
 """
+	
+	, md"""
+##### Smaller ``\beta``: wiggly curve
+* more sensitive to the new data
+* the curve closely follow the trend
+	
+$(plot(plt_mean4, size=(320,300), titlefontsize=12))
+	""")
 
-# ╔═╡ c3eeb2e9-93b8-4bb6-afd4-b08d23358f6e
-md"##"
-
-# ╔═╡ 747fadfb-ba6b-4520-8166-f538da1d194d
-md"Add robust regrssion fit: $(@bind add_robust CheckBox(default=false))"
-
-# ╔═╡ 7a0b667e-f2d6-496c-b223-62854690fe5f
+# ╔═╡ 267ba8d6-74ef-4ccf-a5f5-8571ef9891b3
 md"""
 
-## Aside: sub-derivative
-
-The gradient for the absolute deviation loss is
-
-```math
-\nabla l^{(i)}(\mathbf{w}) = \begin{cases} - \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ \mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases}
-```
-
-> What is the gradient when 
-> ```math
->\large
-> y^{(i)} = \mathbf{w}^\top \mathbf{x}^{(i)}
-> ```
-"""
-
-# ╔═╡ 4e0a8f9c-93f8-4329-bb7f-1c0ece6f38cb
-md"""
-## Aside: sub-derivative
+## `Momentum` method
 
 
-The absolute value function 
+A simple solution is called `Momentum`
+
+
+* the idea: use **the average of** some recent **past gradients**
+
+
 
 ```math
 \large
-f(x) =|x|
+\boxed{\begin{align}
+\mathbf{d}^{(t-1)} &\leftarrow \beta\,\mathbf{d}^{(t-2)} + (1-\beta)\, \mathbf{g}^{(t-1)}\quad \# \text{EW moving average}\\
+
+\mathbf{w}^{(t)} &\leftarrow \mathbf{w}^{(t-1)} - \gamma\, \mathbf{d}^{(t-1)}
+\end{align}}
 ```
 
+* we can initialise with ``\mathbf{d}^{(0)} = \mathbf{0}`` or ``=\mathbf{g}^{(1)}``
+"""
+
+# ╔═╡ 64a95557-9f91-4d5d-9f5d-0d8d912e0f20
+md"""
+
+## Demonstration: `Momentum`
+"""
+
+# ╔═╡ 3b16f5dc-d9ad-4f19-9b80-b2e6bbcea2c6
+md"""
+
+## Gradient descent _vs_ `Momentum`
+"""
+
+# ╔═╡ 6518a6f9-761f-4535-a52f-83e1c4143d87
+md"""
+
+## Limitation of Gradient descent 2 
+#### -- plateau in-resilient
+"""
+
+# ╔═╡ e80debf7-8f26-40a4-b17e-6184325e5827
+md"""
+
+## Gradient descent struggles
+
+**Gradient descent** fails miserably
+
+
+"""
+
+# ╔═╡ 86dd6aca-312e-4fee-b471-d7168c86ce7d
+md"""
+
+## `Momentum` also struggles
+"""
+
+# ╔═╡ 0ee47753-5c87-45bc-bf55-dc4c419e6934
+md"""
+
+## The problem ?
+
+
+
+"""
+
+# ╔═╡ aebaf029-7b5f-4156-9340-80f644c117e9
+md"""
+
+## Towards `RProp`
+
+
+
+##### Solution: instead of using ``\mathbf{g}^{(t)}``, use its sign!
+ 
+
 ```math
-f'(x) =\begin{cases}
-1 & x>0 \\
--1 & x<0 \\
-\colorbox{pink}{$[-1, 1]$}& \colorbox{pink}{$x=0$}
+\texttt{sign}(x) =\begin{cases}1  & \text{if } x \geq 0 \\
+-1 & \text{if } x<0
 \end{cases}
 ```
-"""
 
-# ╔═╡ 9e25d784-da56-4894-aa53-b8c8e1c0733b
-md"Add sub-derivative: $(@bind add_sub CheckBox(default=false))
-Sub gradient ``\partial f``: $(@bind subk Slider(-1:0.1:1, default=0))
-"
-
-# ╔═╡ 77b112ef-f21a-40e5-becf-260116e9d04a
-let
-
-	plt = plot(abs, label = L"|x|", framestyle=:origin, lw=2, title=L"f(x) =|x|", ylim=[-2,3], legend=:outerright)
-
-	df(x; k = 0.5) = k * x 
-	
-
-	if add_sub
-		# plot!(-4.5:0.5:4.5, (x) -> 0.5*x, lw=1.5, label="")
-		plot!(-4.5:0.5:4.5, (x) -> subk*x, lc=2,lw=1.5, label="")
-	end
-
-	plt
-end
-
-# ╔═╡ d60a639a-51f7-4a46-9a7b-f34933898c79
-md"""
-
-## Aside: sub-derivative
-
-The gradient for the absolute deviation loss is
+Apply ``\texttt{sign}`` element-wisely to each ``\frac{\partial }{\partial w_j} \ell(\mathbf{w})``, for all ``t``
 
 ```math
-\large
-\nabla l^{(i)}(\mathbf{w}) = \begin{cases} - \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ \mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)} \\
-[-\mathbf{x}^{(i)}, \mathbf{x}^{(i)}]  & \text{if}\; y^{(i)} = \mathbf{w}^\top \mathbf{x}^{(i)}
-\end{cases} 
+\mathbf{d}^{(t-1)} = \texttt{sign}(\mathbf{g}^{(t-1)}) = \begin{bmatrix} \texttt{sign}\left (\frac{\partial}{\partial w_1} \ell(\mathbf{w}^{(t-1)})\right ) \\ \texttt{sign}\left (\frac{\partial}{\partial w_2} \ell(\mathbf{w}^{(t-1)}) \right ) \\ \vdots \\ \texttt{sign}\left (\frac{\partial}{\partial w_n} \ell(\mathbf{w}^{(t-1)}) \right )\end{bmatrix}
 ```
 
 """
 
-# ╔═╡ 46f38254-0176-414a-9c46-9e6057ed94be
-begin
-	function laplace_reg_loss(w, X, y) 
-		diff = sum(abs.(X * w - y))
-		return diff
- 	end
-end;
+# ╔═╡ c3140e0e-61ad-43ac-b3de-988b0bee4f15
+md"""
 
-# ╔═╡ f46b008a-1fc7-461a-9f68-efc68506186b
-# begin
-# 	function ∇laplace_reg_loss2(w, X, y) 
-# 		# return zeros(length(w))
-# 		# error1 = - sign.(y - X * w) .* X
-# 		# error2 = (error1.^2 .+ ϵ).^(-0.5)
-# 		# error = error2 .* error1
-# 		# (- X' * error)/length(y)
-# 		# return sum(error1, dims=1)[:]/length(y)
+#### How it works?
+"""
 
-# 		return - X' * sign.(y - X * w) / length(y)
-# 	end
+# ╔═╡ 98408363-dd47-4aa7-a62c-71d7e92a9ed8
+md"""
+
+Add RProp gradient ``\texttt{sign}(\mathbf{g})``: $(@bind add_rpg CheckBox(default=false))
+"""
+
+# ╔═╡ b3c61071-0f25-41e6-99f9-e193f40777b2
+# md"""
+
+# ## Towards `RProp`
 
 
-# 	function ∇laplace_reg_loss1(w, X, y) 
-# 		# return zeros(length(w))
-# 		error1 = - sign.(y - X * w) .* X
-# 		# error2 = (error1.^2 .+ ϵ).^(-0.5)
-# 		# error = error2 .* error1
-# 		# (- X' * error)/length(y)
-# 		return sum(error1, dims=1)[:]/length(y)
 
-# 		# return - X' * sign.(y - X * w) 
-# 	end
+# ##### Idea: instead of using ``\mathbf{g}^{(t)}``, use its sign!
+ 
 
-# end;
+# ```math
+# \texttt{sign}(x) =\begin{cases}1  & \text{if } x \geq 0 \\
+# -1 & \text{if } x<0
+# \end{cases}
+# ```
 
-# ╔═╡ bb583c35-64af-41bb-a805-fb505001e29f
-xs_out, ys_out, outlier_plt = let
-	Random.seed!(123)
-	xs_new = collect(range(-0.55, -0.4, length=4))
-	ys_outliers = ones(length(xs_new)) * 5 + randn(length(xs_new))/5
-	xs_out = [xs; xs_new]
-	ys_out = [ys; ys_outliers]
-	outlier_plt = plot(xs, ys, st=:scatter, framestyle=:origin, label="observations", legend=:topleft, alpha=0.5)
-	plot!(xs_new, ys_outliers, st=:scatter, framestyle=:origin, c=1, label="outliers", legend=:topright)
-	w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=2, lc=1, label="the true signal: " * L"h(x)")
-	if add_gaussian_plt
-		plot!(-0.5:0.1:1.0, (x) -> w_out[1] + w_out[2]*x, lw=2, label="Gaussian MLE " * L"\hat{h}(x)", title="LSE or Gaussian likelihood is not robust")
-	end
-	xs_out, ys_out, outlier_plt
-end;
+# Apply ``\texttt{sign}`` element-wisely to each ``\frac{\partial }{\partial w_j} \ell(\mathbf{w})``, for all ``t``
 
-# ╔═╡ 4a47a0d2-f05f-4a01-a505-5b3de7f53872
-outlier_plt
+# ```math
+# \mathbf{d}^{(t-1)} = \texttt{sign}(\mathbf{g}^{(t-1)}) = \begin{bmatrix} \texttt{sign}\left (\frac{\partial}{\partial w_1} \ell(\mathbf{w}^{(t-1)})\right ) \\ \texttt{sign}\left (\frac{\partial}{\partial w_2} \ell(\mathbf{w}^{(t-1)}) \right ) \\ \vdots \\ \texttt{sign}\left (\frac{\partial}{\partial w_n} \ell(\mathbf{w}^{(t-1)}) \right )\end{bmatrix}
+# ```
 
-# ╔═╡ 8fe3a3a2-65df-4e9c-bdaa-64ebf06b2208
-Xs_out = [ones(length(xs_out)) xs_out];
+# """
 
-# ╔═╡ 4382f47e-3c62-4ddc-9502-ebeb8d009e26
-w_laplace, losses_laplace = let
-	max_iters = 100
-	wₜ = zeros(2)
-	∇l(w) = Zygote.gradient((x) -> laplace_reg_loss(x, Xs_out, ys_out), w)[1]
-	γ = 0.001
-	loss = []
-	for _ in 1:max_iters
-		∇wₜ = ∇l(wₜ)
-		wₜ = wₜ - γ * ∇wₜ
-		push!(loss, laplace_reg_loss(wₜ, Xs_out, ys_out))
-	end
-	wₜ, loss
-end;
+# ╔═╡ 72960519-0f21-4fe5-9363-61175e0c5063
+md"""
 
-# ╔═╡ f0ad4fdb-2a07-436e-81a7-47a249d6871d
-plot(losses_laplace, xlabel="Iteration", ylabel="Laplace loss", label="", title="Gradient descent's loss trajectory")
+## `RProp` 
 
-# ╔═╡ 89d18c2a-ee6c-4eb7-81f5-0bfec682f4db
-let
-	gr()
-	plt = plot(xs_out, ys_out, st=:scatter, framestyle=:origin, label="observations", legend=:topleft, alpha=.5)
-	w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=3, lc=1, label="the true signal: " * L"h(x)", legend=:topright)
+##### `RProp`: _**R**esilient back**Prop**agation_
 
-	plot!(-0.5:0.1:1.0, (x) -> w_out[1] + w_out[2]*x, lw=2, lc=2, label="Gaussian MLE " * L"\hat{h}(x)", title="Robust regression with Laplace likelihood")
-	if add_robust
-		plot!(-0.5:0.1:1.0, (x) -> w_laplace[1] + w_laplace[2]*x, lw=3, lc=4,  label="Laplace MLE " * L"\hat{h}(x)")
-	end
-	plt
-end
+----
+
+for each ``t``
+
+* apply ``\texttt{sign}`` element-wisely to each ``\frac{\partial }{\partial w_j} \ell(\mathbf{w})``, for all ``t``
+
+```math
+\mathbf{d}^{(t-1)} = \texttt{sign}(\mathbf{g}^{(t-1)}) = \begin{bmatrix} \texttt{sign}\left (\frac{\partial}{\partial w_1} \ell(\mathbf{w}^{(t-1)})\right ) \\ \texttt{sign}\left (\frac{\partial}{\partial w_2} \ell(\mathbf{w}^{(t-1)}) \right ) \\ \vdots \\ \texttt{sign}\left (\frac{\partial}{\partial w_n} \ell(\mathbf{w}^{(t-1)}) \right )\end{bmatrix}
+```
+```math
+\large
+\mathbf{w}^{(t)} \leftarrow \mathbf{w}^{(t-1)} - γ\, \mathbf{d}^{(t-1)}
+```
+----
+
+
+or I'd rather just call it
+* ##### `sign(∇ℓ)` descent 
+"""
+
+# ╔═╡ 1a57df9e-63e4-4496-850e-ed6c592fc12a
+md"""
+
+## Demonstration
+"""
+
+# ╔═╡ 9424354c-7a8e-449c-8c64-5916882458b3
+md"""
+
+## Gradient descent *vs* `Momentum` *vs* `RProp`
+"""
+
+# ╔═╡ e9f81ad3-29f3-466f-9bed-ef06dfe64b27
+md"""
+
+## An alternative formula for `RProp`
+
+Note that 
+
+```math
+\begin{align}
+\texttt{sign}(x) &= \begin{cases}1  & \text{if } x \geq 0 \\
+-1 & \text{if } x<0
+\end{cases}  \\
+&= \frac{x}{ |x|} \quad \# \text{absolute value}\\
+&=\frac{x}{ \sqrt{x^2}}
+\end{align}
+```
+
+
+Therefore, `RProp` can also be implemented as 
+
+```math
+\begin{align}
+\mathbf{d}^{(t-1)} &= \texttt{sign}(\mathbf{g}^{(t-1)}) = \begin{bmatrix}\frac{\mathbf{g}^{(t-1)}_1}{ \sqrt{\left (\mathbf{g}^{(t-1)}_1\right )^2}}  \\ 
+\frac{\mathbf{g}^{(t-1)}_2}{ \sqrt{\left (\mathbf{g}^{(t-1)}_2\right )^2}} 
+\\ \vdots \\ \frac{\mathbf{g}^{(t-1)}_m}{ \sqrt{\left (\mathbf{g}^{(t-1)} \right )^2}} \end{bmatrix} \\
+\mathbf{w}^{(t)} &\leftarrow \mathbf{w}^{(t-1)} - γ\, \mathbf{d}^{(t-1)}
+\end{align}
+```
+"""
+
+# ╔═╡ 60887b8f-9ba2-4aaf-8760-d92a66a75cc1
+md"""
+
+## An alternative formula for `RProp`
+
+Note that 
+
+```math
+\begin{align}
+\texttt{sign}(x) &= \begin{cases}1  & \text{if } x \geq 0 \\
+-1 & \text{if } x<0
+\end{cases}  \\
+&= \frac{x}{ |x|} \quad \# \text{absolute value}\\
+&=\frac{x}{ \sqrt{x^2}}
+\end{align}
+```
+
+
+Therefore, `RProp` can also be implemented as 
+
+```math
+\begin{align}
+\mathbf{d}^{(t-1)} &\leftarrow \begin{bmatrix}\frac{\mathbf{g}^{(t-1)}_1}{ \sqrt{\left (\mathbf{g}^{(t-1)}_1\right )^2}+\epsilon}  \\ 
+\frac{\mathbf{g}^{(t-1)}_2}{ \sqrt{\left (\mathbf{g}^{(t-1)}_2\right )^2+\epsilon}} 
+\\ \vdots \\ \frac{\mathbf{g}^{(t-1)}_m}{ \sqrt{\left (\mathbf{g}^{(t-1)} \right )^2}+\epsilon} \end{bmatrix} \\
+\mathbf{w}^{(t)} &\leftarrow \mathbf{w}^{(t-1)} - γ\, \mathbf{d}^{(t-1)}
+\end{align}
+```
+
+* in practice, we add a small constant ``\epsilon`` to avoid dividing by zero problem
+"""
+
+# ╔═╡ 4da613dc-4d03-4d94-b963-90892c004af2
+md"""
+
+## An alternative formula for `RProp`
+
+Note that 
+
+```math
+\large
+\begin{align}
+\texttt{sign}(x) &= \begin{cases}1  & \text{if } x \geq 0 \\
+-1 & \text{if } x<0
+\end{cases}  \\
+&= \frac{x}{ |x|} \quad \# \text{absolute value}\\
+&=\frac{x}{ \sqrt{x^2}}
+\end{align}
+```
+
+
+Therefore, `RProp` can be specified as (here we introduce ``\mathbf{v}``: gradient's square)
+
+```math
+\begin{align}
+\color{red}{\mathbf{v}^{(t-1)}} &\color{red}{\leftarrow (\mathbf{g}^{(t-1)})^2} = \small \begin{bmatrix} \left (\mathbf{g}^{(t-1)}_1\right )^2 \\ 
+\left (\mathbf{g}^{(t-1)}_2\right )^2
+\\ \vdots \\ \left (\mathbf{g}^{(t-1)}_m\right )^2 \end{bmatrix}  \\
+\mathbf{d}^{(t-1)} &\leftarrow  \frac{\mathbf{g}^{(t-1)}}{\sqrt{\mathbf{v}^{(t-1)}}+\epsilon} \quad \# \text{sign}(\nabla\ell)\\
+\mathbf{w}^{(t)} &\leftarrow \mathbf{w}^{(t-1)} - γ\, \mathbf{d}^{(t-1)}
+\end{align}
+```
+
+"""
+
+# ╔═╡ c337818e-a45f-48a1-b1f0-f02ba0f264f9
+md"""
+
+## `RMSProp`
+
+##### -- minibatches version `RProp`
+\
+
+
+**Root Mean Squared Propogation** (`RMSProp`) is a variant of `RProp`
+
+* stochastic gradient descent with **mini-batches**'s gradient can be noisy
+
+* we use **exponentially weighted moving average** to smooth out the gradient square ``\mathbf{v}^{(t-1)}`` between the batches
+
+\
+
+
+"""
+
+# ╔═╡ 9a79612a-e8dd-4cb0-8776-9e22e00c299d
+TwoColumn(md"""
+Resilient backprop (`RProp`)
+
+
+---
+_for each_ ``t``
+
+```math
+\small
+\begin{align}
+\mathbf{v}^{(t-1)} &\leftarrow \left (\mathbf{g}^{(t-1)}\right )^2  \\
+\mathbf{d}^{(t-1)} &\leftarrow  \frac{\mathbf{g}^{(t-1)}}{\sqrt{\mathbf{v}^{(t-1)}}+\epsilon} \\
+\mathbf{w}^{(t)} &\leftarrow \mathbf{w}^{(t-1)} - γ\, \mathbf{d}^{(t-1)}
+\end{align}
+```
+---
+
+
+""", md"""
+**Root Mean Squared Propogation** (`RMSProp`)
+
+
+----
+_for each_ ``t``
+
+```math
+\small
+\begin{align}
+\color{red}{\mathbf{v}^{(t-1)}} & \color{red}\leftarrow \beta\, \mathbf{v}^{(t-2)} + (1-\beta)\left (\mathbf{g}^{(t-1)}\right )^2  \quad \# \text{EWMA of } \mathbf{v}  \\
+\mathbf{d}^{(t-1)} &\leftarrow  \frac{\mathbf{g}^{(t-1)}}{\sqrt{\mathbf{v}^{(t-1)}}+\epsilon} \\
+\mathbf{w}^{(t)} &\leftarrow \mathbf{w}^{(t-1)} - γ\, \mathbf{d}^{(t-1)}
+\end{align}
+```
+
+----
+
+
+* ``\beta = 0.9`` is a good choice (between 0.5  and 0.9)
+
+""")
+
+# ╔═╡ 77f1314c-bfcb-4d56-b1bb-01afadcf0517
+aside(tip(md"""
+
+
+We name ``\mathbf{g}^2`` as ``\mathbf{v}`` on purpose
+
+* ``\mathbf{v}`` here stands for **variance**
+
+
+It can be shown that 
+
+```math
+\bar{\mathbf{g}} =\mathbb{E}[\mathbf{g}] =\mathbf{0}
+```
+
+* *i.e.* the expected value (or long term average) of the gradient is zero (this is known as the *score* function in frequentist statistical inference jargon)
+
+* the random variables here are sampling distrbution of the data 
+
+
+Therefore, the variance 
+
+```math
+\begin{align}
+\mathbb{V}[\mathbf{g}] &= \mathbb{E}[(\mathbf{g} -\mathbb{E}[\mathbf{g}])  (\mathbf{g} -\mathbb{E}[\mathbf{g}])^\top ] \\
+&=\mathbb{E}[\mathbf{g}\mathbf{g}^\top ]
+\end{align}
+```
+
+If we assume the variance is a diagonal matrix, then
+
+$\begin{align}
+\mathbf{v} &= \text{diag}(\mathbb{V}[\mathbf{g}]) = \mathbb{E}[\mathbf{g} \odot \mathbf{g}]\\
+&= \mathbb{E} [\mathbf{g}^2]
+\end{align}$
+"""))
+
+# ╔═╡ 9bbd144e-72fd-43b8-bbb1-46f7d198063a
+md"""
+
+## Comparison
+"""
+
+# ╔═╡ d5507c0a-a924-4e29-a415-7c031a6cae63
+md"""
+
+## `Adam`  -- a more adaptive alternative
+
+#### -- `Momentum` with `RMSProp`
+
+
+\
+
+**Adaptive Moment Estimation** (`Adam`) is another variant 
+
+
+* it introduces EWMA estimation of ``\mathbf{g}`` together with ``\mathbf{v}``
+
+* combination of all above flavours: `RProp`, `Momentum` and `RMSProp`
+"""
+
+# ╔═╡ 4a20ceb4-d318-42c3-8f7e-27ebe1d75a80
+TwoColumn(md"""
+**Root Mean Squared Propogation** (`RMSProp`)
+
+
+---
+_for each_ ``t``
+
+```math
+\small
+\begin{align}
+\mathbf{v}^{(t-1)} &\leftarrow \beta\, \mathbf{v}^{(t-2)} + (1-\beta)\left (\mathbf{g}^{(t-1)}\right )^2    \\
+\mathbf{d}^{(t-1)} &\leftarrow  \frac{\mathbf{g}^{(t-1)}}{\sqrt{\mathbf{v}^{(t-1)}}+\epsilon} \\
+\mathbf{w}^{(t)} &\leftarrow \mathbf{w}^{(t-1)} - γ\, \mathbf{d}^{(t-1)}
+\end{align}
+```
+---
+
+
+""", md"""
+**Adaptive Moment Estimation** (`Adam`) 
+
+
+---
+_for each_ ``t``
+
+```math
+\small
+\begin{align}
+\color{red}\mathbf{m}^{(t-1)} &\color{red}{\leftarrow \beta_1\, \mathbf{m}^{(t-2)} + (1-\beta_1) \mathbf{g}^{(t-1)} } \quad \# \text{EWMA of } \mathbf{g}  \\
+\mathbf{v}^{(t-1)} &\leftarrow \beta_2\, \mathbf{v}^{(t-2)} + (1-\beta_2)\left (\mathbf{g}^{(t-1)}\right )^2  \quad \# \text{EWMA of } \mathbf{v}  \\
+\mathbf{d}^{(t-1)} &\leftarrow  \frac{\mathbf{m}^{(t-1)}}{\sqrt{\mathbf{v}^{(t-1)}}+\epsilon} \\
+\mathbf{w}^{(t)} &\leftarrow \mathbf{w}^{(t-1)} - γ\, \mathbf{d}^{(t-1)}
+\end{align}
+```
+---
+
+* ``\beta_1 = 0.9, \beta_2 =0.99`` is commonly used
+
+""")
+
+# ╔═╡ d5369f75-b6ea-4e37-b362-6099971cadb1
+md"""
+
+## Comparison
+"""
+
+# ╔═╡ 07af2fa0-0c01-428f-88cd-fef8ffd402e9
+md"""
+
+## Comparison
+"""
+
+# ╔═╡ a0b0df2e-5fe7-4b5e-a41a-71ce0ed4e7f3
+md"""
+
+## So what method to use?
+
+
+
+
+"""
+
+# ╔═╡ a862a5d1-4ccf-4d29-b3c6-c5ab48c264ad
+md"""
+
+
+###### _No easy answer to this question_
+
+* note that the above is just one hand-crafted example
+
+* usually `Adam` (and also `RMSProp`) works well straight out of the box
+  
+* you should just do trial and error
+
+
+###### The effect of optimiser is usually not _that_ significant
+
+* even vanilla gradient descent should work reasonably well
+
+* if training fails, it is more likely your code is wrong rather than the fault of the optimiser!
+"""
 
 # ╔═╡ 0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 md"""
@@ -728,31 +1206,309 @@ function arrow3d!(x, y, z,  u, v, w; as=0.1, lc=:black, la=1, lw=0.4, scale=:ide
     end
 end
 
+# ╔═╡ fc523f31-ed47-464d-8fdc-5410f0e483e3
+function g1(w; A = diagm([.5, 9.75]), b =zeros(2), c=0)
+	# forward 
+	l = w' * A * w + w'*b + c
+	# backward 
+	# gw = (A + A') * w + b
+	return l
+end;
+
+# ╔═╡ 1996275f-0aa5-4ca4-a613-7f6998d46d15
+begin
+	gr()
+	plot(-1:0.1:10.5, -2:0.1:2, (w1, w2) -> g1([w1, w2]), st=:contourf, c=:coolwarm, colorbar=false, ratio=1.2, ylim=(-2,2), size=(600,310), xlabel=L"w_1", ylabel=L"w_2", title="An example")
+
+	scatter!([0],[0], ms=4, markershape=:x, markerstrokewidth=5, label="minimum", ylim=(-2,2), xlim =(-1, 10.5))
+	scatter!([10], [1], ms=6,  markerstrokewidth=5, c=4, markershape=:cross, label="starting "*L"\mathbf{w}_0")
+	# plot(-2:0.1:10.5, -2:0.1:2, (w1, w2) -> g1([w1, w2]), st=:surface, c=:coolwarm, colorbar=false, ratio=1.2, ylim=(-2,2), size=(700,320), xlabel=L"w_1", ylabel=L"w_2")
+end
+
+# ╔═╡ 8f3dd723-2662-4f80-b772-c4047b68f0d3
+function g2(w)
+	w1, w2 = w[1], w[2]
+	max(0, tanh(4*w1 + 4*w2)) + abs(0.5*w1) 
+end;
+
+# ╔═╡ 0777d82d-320b-454d-a476-2cb895194456
+let
+	gr()
+	plot(-3:0.1:3, -2:0.1:4, (x, y) -> g2([x, y]), st=:contourf, c=:coolwarm, size=(400,350), colorbar=false)
+	scatter!([0],[-1.5], ms=5, markershape=:x,c=:red,  markerstrokewidth=5, label="minimum", ylim=(-2,2), xlim =(-1, 10.5))
+	scatter!([2], [2], ms=8,  markerstrokewidth=5, c=:blue, markershape=:cross, label="starting "*L"\mathbf{w}_0", xlim = (-3,3), ylim =(-2,4))
+end
+
+# ╔═╡ 72493456-a531-47be-b799-ff9d7dfa488e
+let
+	plotly()
+	plot(-3:0.1:3, -2:0.1:4, (x, y) -> g2([x, y]), st=:surface, c=:jet, size=(400,400), colorbar=false)
+end
+
+# ╔═╡ c4432aa9-85ac-4833-99d9-48e3fe34f50d
+gt = gradient(g2, [2., 2.])[1];
+
+# ╔═╡ 76839145-2fd2-4f32-bbc0-09624b4df361
+TwoColumn(md"""
+```math
+\mathbf{g} \triangleq \nabla\ell(\mathbf{w}) = \begin{bmatrix} \frac{\partial}{\partial w_1} \ell(\mathbf{w}) \\ \frac{\partial}{\partial w_2} \ell(\mathbf{w}) \end{bmatrix} \approx  \begin{bmatrix} 0.5\\ 2.04 \times 10^{-13}\end{bmatrix}
+```
+or $(latexify_md(round.(gt; digits=2)))
+* the partial of ``w_2`` is very small
+
+* ``w_2`` **barely gets any update**
+
+```math
+\begin{bmatrix} w_1^{(t)} \\ w_2^{(t)} \end{bmatrix} = \begin{bmatrix} w_1^{(t-1)} \\ w_2^{(t-1)} \end{bmatrix} -\gamma \begin{bmatrix} 0.5\\ 0.0 \end{bmatrix}
+```
+
+""", let
+	gr()
+	plt = plot(-3:0.1:3, -2:0.1:4, (x, y) -> g2([x, y]), st=:contourf, c=:coolwarm, size=(310,310), colorbar=false)
+	scatter!([0],[-1.5], ms=5, markershape=:x,c=:red,  markerstrokewidth=5, label="minimum", ylim=(-2,2), xlim =(-1, 10.5))
+	scatter!([2], [2], ms=5,  markerstrokewidth=5, c=:blue, markershape=:x, label="starting "*L"\mathbf{w}_0", xlim = (-3,3), ylim =(-2,4))
+
+	w0 = [2, 2.]
+	g1 = gradient(g2, w0)[1] * 1.5
+	vg = w0 - g1
+	# quiver!([w0[1]], [w0[2]], quiver=([vg[1] - w0[1]], [vg[2] - w0[2]]), label="grad")
+
+	plot!([w0[1], vg[1]], [w0[2],vg[2]], line = (:arrow, 2, :blue), label = "")
+
+	annotate!([vg[1]], [vg[2]+0.2], text(L"\mathbf{g}", 12, :blue, :right))
+
+	
+	plt
+end)
+
+# ╔═╡ a294e093-60a1-42f4-a732-1c2fae5c46ba
+let
+	gt = gradient(g2, [2., 2.])[1]
+	gt, sign.(gt)
+end
+
+# ╔═╡ a2b85d68-5320-40d3-b91c-ab30323dc605
+let
+	gr()
+	plt = plot(-3:0.1:3, -2:0.1:4, (x, y) -> g2([x, y]), st=:contourf, c=:coolwarm, size=(500,400), colorbar=false)
+	scatter!([0],[-1.5], ms=5, markershape=:x,c=:red,  markerstrokewidth=5, label="minimum", ylim=(-2,2), xlim =(-1, 10.5))
+	scatter!([2], [2], ms=5,  markerstrokewidth=5, c=:blue, markershape=:x, label="starting "*L"\mathbf{w}_0", xlim = (-3,3), ylim =(-2,4))
+
+	w0 = [2, 2.]
+	g1 = gradient(g2, w0)[1]
+	vg = w0 - g1
+	# quiver!([w0[1]], [w0[2]], quiver=([vg[1] - w0[1]], [vg[2] - w0[2]]), label="grad")
+
+	plot!([w0[1], vg[1]], [w0[2],vg[2]], line = (:arrow, 3, :blue), label = "")
+
+	annotate!([vg[1]], [vg[2]+0.2], text(L"\mathbf{g}", 12, :blue, :right))
+
+	if add_rpg
+		pg = .8 * sign.(g1)
+		vpg = w0 - pg
+		plot!([w0[1], vpg[1]], [w0[2],vpg[2]], line = (:arrow, 3, :red), label = "")
+	
+		annotate!([vpg[1]], [vpg[2]+0.2], text(L"\texttt{sign}(\mathbf{g})", 12, :red, :right))
+	end
+	plt
+end
+
+# ╔═╡ 6b405fbb-c7e7-4bca-a1ab-dc2c37b97961
+function produce_anim(f, ws, losses; method="Gradient descent", color=:thermal, ms=5, xlims = (-1.0, 10.5), ylims = (-2.0, 2.0), steps = 100, ratio = 1.2, fig_size=(700, 320), minimum = nothing)
+	gr()
+	# range_num = 200
+	plt = plot(range(xlims..., steps), range(ylims..., steps), (w1, w2) -> f([w1, w2]), st=:contourf, c=:coolwarm, colorbar=false, ratio=ratio, ylim=ylims, xlim=xlims, size=fig_size, xlabel = L"w_1", ylabel=L"w_2")
+	# plt = plot()
+	traces = ws
+	cscheme = cgrad(color, rev=true)
+	anim = []
+	losses_ = losses / maximum(losses)
+	if !isnothing(minimum)
+		scatter!([minimum[1]], [minimum[2]], markersize=6, mc = get(cscheme, 0), markershape=:x, label="minimum", markerstrokewidth=3)
+	end
+	wt = traces[:, 1]
+	scatter!([wt[1]], [wt[2]], color = get(cscheme, losses_[1]), markersize = ms, label="")
+	
+	anim = @animate for t in 2:(size(traces)[2])
+		plot!(plt, [traces[1, t]], [traces[2, t]], st=:scatter, color=get(cscheme, losses_[t]), label="", markersize=ms, title=method*"; Iteration: $(t)")
+		plot!(plt, [wt[1], traces[1, t]], [wt[2], traces[2, t]], line = (:path, 1, :gray), label="")
+		wt = traces[1:2, t]
+	end
+
+	# title!(plt, method*" trajectory")
+	return anim, plt
+end
+
+# ╔═╡ 78d7da50-6937-4834-baa5-ade61aad4756
+function train_optimiser(f; max_iters =25, w_init=[10, 1.], optimiser = Descent(0.1))
+	maxiters = max_iters
+	model = (w = w_init,)
+	optim = Optimisers.setup(optimiser, model)
+	losses = []
+	ws = zeros(2, maxiters+1)
+	ws[:, 1] = model.w
+	for i in 2:(maxiters+1)
+		li, grad = withgradient(model) do m
+			f(m.w)[1]
+		end
+		push!(losses, li)
+		Optimisers.update!(optim, model, grad[1])
+		ws[:, i] = model.w
+	end
+	push!(losses, f(model.w)[1])
+
+	return losses, ws
+end
+
+# ╔═╡ 485edefb-caec-47c7-b67c-0aa26f1d6152
+begin
+
+	optims_g1 = [Descent(0.05), Descent(0.1), Momentum(0.1, 0.2), Momentum(0.05, 0.6)]
+	names_g1 = ["Gradient descent "*L"\gamma=0.05", "Gradient descent "*L"\gamma=0.1", "Momentum "*L"\beta=0.2", "Momentum "*L"\beta = 0.6"]
+	losses_g1 = []
+	anims_g1 = []
+	plts_g1 = []
+	for (i, opt) in enumerate(optims_g1)
+		loss, ws = train_optimiser(g1; max_iters =25, optimiser = opt)
+		anim, plt = produce_anim(g1, ws, loss; method=names_g1[i], fig_size=(600,300), minimum =zeros(2))
+		push!(losses_g1, loss)
+		push!(anims_g1, anim)
+		push!(plts_g1, plt)
+	end
+
+	# losses_g1, anims_g1
+
+end;
+
+# ╔═╡ e446b537-8cf8-4838-b8a1-51cec0cd8402
+gif(anims_g1[1], fps=3)
+
+# ╔═╡ b077d3c7-6afe-43cc-a4e3-8f41e9567ba0
+let
+	gif(anims_g1[2], fps=3)
+end
+
+# ╔═╡ 305c6931-ba8d-4e5f-baea-7d844edfb71d
+let
+	plt = plot(xlabel="Iteration", ylabel="Loss", size=(550,300), title="Gradient descent with different learning rates", titlefontsize=12, legendfontsize=10)
+	for (i,l) in enumerate(losses_g1[1:2])
+		plot!(l, label=names_g1[i], lw=1.8)
+	end
+	plt
+end
+
+# ╔═╡ 2067bfe9-20ad-42d6-a0bb-dc003a2ba0e5
+let
+	gif(anims_g1[2], fps=3)
+end
+
+# ╔═╡ 42e8b5be-f834-4799-a28c-d07103ad9e70
+gif(anims_g1[3], fps=3)
+
+# ╔═╡ e8588c68-1f60-449b-9092-2146e7d10463
+gif(anims_g1[4], fps=3)
+
+# ╔═╡ 8ccdb56f-5a0b-4f32-a77e-ec0bc7f72f0d
+plot(plts_g1..., layout=(2,2), titlefontsize=8, size=(800, 450))
+
+# ╔═╡ 2bcf770b-da47-4102-abb2-c9bf7576706c
+let
+	plt = plot(xlabel="Iteration", ylabel="Loss")
+	for (i,l) in enumerate(losses_g1)
+		plot!(l, label=names_g1[i], lw=1.5)
+	end
+	plt
+end
+
+# ╔═╡ 09b50288-7d4c-47c4-af3b-5a3d8d904c8a
+begin
+
+	optims = [Descent(0.3), Momentum(0.3, 0.7), Rprop(0.3), RMSProp(0.3), Adam(0.3)]
+	names = ["Gradient descent","Momentum", "Rprop", "RMSProp", "Adam"]
+	losses_g2 = []
+	anims_g2 = []
+	plts_g2 = []
+	for (i, opt) in enumerate(optims)
+		loss, ws = train_optimiser(g2; max_iters =50, w_init=[2, 2.], optimiser = opt)
+		anim, plt = produce_anim(g2, ws, loss; xlims =(-3., 4.), ylims =(-3., 4.), fig_size=(400,400), ratio=1, ms=3, method=names[i])
+		push!(losses_g2, loss)
+		push!(anims_g2, anim)
+		push!(plts_g2, plt)
+	end
+
+	# losses_g2, anims_g2
+end
+
+# ╔═╡ 945120a5-1e92-4a46-a3be-3f1b5d765df8
+let
+	Logging.disable_logging(Logging.Info) # or e.g. Logging.Info
+	TwoColumn(gif(anims_g2[1]; fps=4), md"")
+end
+
+# ╔═╡ 1816987f-f14a-4aae-9aa9-c41e4a5c06ac
+let
+	Logging.disable_logging(Logging.Info) # or e.g. Logging.Info
+	TwoColumn(gif(anims_g2[1]; fps=4), gif(anims_g2[2]; fps=4))
+end
+
+# ╔═╡ c9ad9b05-d3a1-425f-94ca-b5a394cfdad0
+let
+	Logging.disable_logging(Logging.Info) # or e.g. Logging.Info
+	TwoColumn(gif(anims_g2[2]; fps=15), gif(anims_g2[3]; fps=15))
+	# gif(anims_g2[3]; fps=15)
+end
+
+# ╔═╡ 2350cfa1-e873-465e-a837-ef436aff4530
+plot(plts_g2[[1,2,3]]..., layout=(1,3),titlefontsize=10, size=(800,350))
+
+# ╔═╡ a6c54a00-b89b-41f7-9de9-c5e2f835da7e
+let
+	Logging.disable_logging(Logging.Info) # or e.g. Logging.Info
+	TwoColumn(gif(anims_g2[3]; fps=4), gif(anims_g2[4]; fps=3))
+end
+
+# ╔═╡ d3133877-ba2e-4faa-91c9-0798760858d3
+let
+	Logging.disable_logging(Logging.Info) # or e.g. Logging.Info
+	TwoColumn(gif(anims_g2[4]; fps=10), gif(anims_g2[5]; fps=10))
+end
+
+# ╔═╡ 624cde95-7e4a-419a-b859-499f8919b6aa
+plot(plts_g2[[1; 3:end]]..., layout=(2,2), titlefontsize=10, size=(800, 800))
+
+# ╔═╡ e4798d52-9435-4f23-a8fc-732a556a61fd
+let
+	plt = plot(xlabel="Iteration", ylabel="Loss", title="Comparison between different optimisers")
+	for (i,l) in enumerate(losses_g2)
+		plot!(l, label=names[i], lw=1.5)
+	end
+	plt
+end
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-Distributions = "~0.25.100"
 HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.16.1"
-Plots = "~1.38.17"
+Optimisers = "~0.3.0"
+Plots = "~1.39.0"
 PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.52"
-StatsPlots = "~0.15.6"
 Zygote = "~0.6.63"
 """
 
@@ -762,7 +1518,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "bcca2b3b41294b200020955c854e231d0a86aecd"
+project_hash = "c2ba669d6a3c287863ac651a71d2b2be70a109cd"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -786,35 +1542,19 @@ deps = ["LinearAlgebra", "Requires"]
 git-tree-sha1 = "76289dc51920fdc6e0013c872ba9551d54961c24"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 version = "3.6.2"
-weakdeps = ["StaticArrays"]
 
     [deps.Adapt.extensions]
     AdaptStaticArraysExt = "StaticArrays"
+
+    [deps.Adapt.weakdeps]
+    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 version = "1.1.1"
 
-[[deps.Arpack]]
-deps = ["Arpack_jll", "Libdl", "LinearAlgebra", "Logging"]
-git-tree-sha1 = "9b9b347613394885fd1c8c7729bfc60528faa436"
-uuid = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
-version = "0.5.4"
-
-[[deps.Arpack_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "OpenBLAS_jll", "Pkg"]
-git-tree-sha1 = "5ba6c757e8feccf03a1554dfaf3e26b3cfc7fd5e"
-uuid = "68821587-b530-5797-8361-c406ea357684"
-version = "3.5.1+1"
-
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
-
-[[deps.AxisAlgorithms]]
-deps = ["LinearAlgebra", "Random", "SparseArrays", "WoodburyMatrices"]
-git-tree-sha1 = "66771c8d21c8ff5e3a93379480a2307ac36863f7"
-uuid = "13072b0f-2c55-5437-9ae7-d433b7a33950"
-version = "1.0.1"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -841,12 +1581,6 @@ git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
 
-[[deps.Calculus]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
-uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
-version = "0.5.1"
-
 [[deps.ChainRules]]
 deps = ["Adapt", "ChainRulesCore", "Compat", "Distributed", "GPUArraysCore", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "Statistics", "StructArrays"]
 git-tree-sha1 = "f98ae934cd677d51d2941088849f0bf2f59e6f6e"
@@ -858,12 +1592,6 @@ deps = ["Compat", "LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "1.16.0"
-
-[[deps.Clustering]]
-deps = ["Distances", "LinearAlgebra", "NearestNeighbors", "Printf", "Random", "SparseArrays", "Statistics", "StatsBase"]
-git-tree-sha1 = "b86ac2c5543660d238957dbde5ac04520ae977a7"
-uuid = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
-version = "0.15.4"
 
 [[deps.CodeTracking]]
 deps = ["InteractiveUtils", "UUIDs"]
@@ -975,33 +1703,9 @@ git-tree-sha1 = "23163d55f885173722d1e4cf0f6110cdbaf7e272"
 uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "1.15.1"
 
-[[deps.Distances]]
-deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
-git-tree-sha1 = "b6def76ffad15143924a2199f72a5cd883a2e8a9"
-uuid = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-version = "0.10.9"
-weakdeps = ["SparseArrays"]
-
-    [deps.Distances.extensions]
-    DistancesSparseArraysExt = "SparseArrays"
-
 [[deps.Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
-
-[[deps.Distributions]]
-deps = ["FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SpecialFunctions", "Statistics", "StatsAPI", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "938fe2981db009f531b6332e31c58e9584a2f9bd"
-uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.100"
-
-    [deps.Distributions.extensions]
-    DistributionsChainRulesCoreExt = "ChainRulesCore"
-    DistributionsDensityInterfaceExt = "DensityInterface"
-
-    [deps.Distributions.weakdeps]
-    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-    DensityInterface = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
@@ -1013,12 +1717,6 @@ version = "0.9.3"
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
-
-[[deps.DualNumbers]]
-deps = ["Calculus", "NaNMath", "SpecialFunctions"]
-git-tree-sha1 = "5837a837389fccf076445fce071c8ddaea35a566"
-uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
-version = "0.6.8"
 
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
@@ -1043,18 +1741,6 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers",
 git-tree-sha1 = "74faea50c1d007c85837327f6775bea60b5492dd"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.2+2"
-
-[[deps.FFTW]]
-deps = ["AbstractFFTs", "FFTW_jll", "LinearAlgebra", "MKL_jll", "Preferences", "Reexport"]
-git-tree-sha1 = "b4fbdd20c889804969571cc589900803edda16b7"
-uuid = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
-version = "1.7.1"
-
-[[deps.FFTW_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "c6033cc3892d0ef5bb9cd29b7f2f0331ea5184ea"
-uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
-version = "3.3.10+0"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
@@ -1093,10 +1779,12 @@ deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "Lo
 git-tree-sha1 = "cf0fe81336da9fb90944683b8c41984b08793dad"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
 version = "0.10.36"
-weakdeps = ["StaticArrays"]
 
     [deps.ForwardDiff.extensions]
     ForwardDiffStaticArraysExt = "StaticArrays"
+
+    [deps.ForwardDiff.weakdeps]
+    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [[deps.FreeType2_jll]]
 deps = ["Artifacts", "Bzip2_jll", "JLLWrappers", "Libdl", "Zlib_jll"]
@@ -1109,6 +1797,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "aa31987c2ba8704e23c6c8ba8a4f769d5d7e4f91"
 uuid = "559328eb-81f9-559d-9380-de523a88c83c"
 version = "1.0.10+0"
+
+[[deps.Functors]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "9a68d75d466ccc1218d0552a8e1631151c569545"
+uuid = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
+version = "0.4.5"
 
 [[deps.GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
@@ -1175,12 +1869,6 @@ git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
 uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
 version = "2.8.1+1"
 
-[[deps.HypergeometricFunctions]]
-deps = ["DualNumbers", "LinearAlgebra", "OpenLibm_jll", "SpecialFunctions"]
-git-tree-sha1 = "f218fe3736ddf977e0e772bc9a586b2383da2685"
-uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
-version = "0.3.23"
-
 [[deps.Hyperscript]]
 deps = ["Test"]
 git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
@@ -1205,21 +1893,9 @@ git-tree-sha1 = "eac00994ce3229a464c2847e956d77a2c64ad3a5"
 uuid = "7869d1d1-7146-5819-86e3-90919afe41df"
 version = "0.4.10"
 
-[[deps.IntelOpenMP_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "ad37c091f7d7daf900963171600d7c1c5c3ede32"
-uuid = "1d5cc7b8-4909-519e-a0f8-d0f5ad9712d0"
-version = "2023.2.0+0"
-
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
-
-[[deps.Interpolations]]
-deps = ["Adapt", "AxisAlgorithms", "ChainRulesCore", "LinearAlgebra", "OffsetArrays", "Random", "Ratios", "Requires", "SharedArrays", "SparseArrays", "StaticArrays", "WoodburyMatrices"]
-git-tree-sha1 = "721ec2cf720536ad005cb38f50dbba7b02419a15"
-uuid = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
-version = "0.14.7"
 
 [[deps.IrrationalConstants]]
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
@@ -1260,12 +1936,6 @@ deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
 git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
 uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
 version = "0.9.25"
-
-[[deps.KernelDensity]]
-deps = ["Distributions", "DocStringExtensions", "FFTW", "Interpolations", "StatsBase"]
-git-tree-sha1 = "90442c50e202a5cdf21a7899c66b240fdef14035"
-uuid = "5ab0869b-81aa-558d-bb23-cbf5423bbe9b"
-version = "0.6.7"
 
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1373,10 +2043,10 @@ uuid = "7add5ba3-2f88-524e-9cd5-f83b8a55f7b8"
 version = "1.42.0+0"
 
 [[deps.Libiconv_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "c7cb1f5d892775ba13767a87c7ada0b980ea0a71"
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "f9557a255370125b405568f9767d6d195822a175"
 uuid = "94ce4f54-9a6c-5748-9c1c-f9c7231a4531"
-version = "1.16.1+2"
+version = "1.17.0+0"
 
 [[deps.Libmount_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1421,9 +2091,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.LoggingExtras]]
 deps = ["Dates", "Logging"]
-git-tree-sha1 = "a03c77519ab45eb9a34d3cfe2ca223d79c064323"
+git-tree-sha1 = "0d097476b6c381ab7906460ef1ef1638fbce1d91"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
-version = "1.0.1"
+version = "1.0.2"
 
 [[deps.LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
@@ -1435,12 +2105,6 @@ version = "2.3.0"
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
 uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
 version = "0.1.4"
-
-[[deps.MKL_jll]]
-deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
-git-tree-sha1 = "eb006abbd7041c28e0d16260e50a24f8f9104913"
-uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
-version = "2023.2.0+0"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
@@ -1481,38 +2145,15 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 version = "2022.10.11"
 
-[[deps.MultivariateStats]]
-deps = ["Arpack", "LinearAlgebra", "SparseArrays", "Statistics", "StatsAPI", "StatsBase"]
-git-tree-sha1 = "68bf5103e002c44adfd71fea6bd770b3f0586843"
-uuid = "6f286f6a-111f-5878-ab1e-185364afe411"
-version = "0.10.2"
-
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
 git-tree-sha1 = "0877504529a3e5c3343c6f8b4c0381e57e4387e4"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.0.2"
 
-[[deps.NearestNeighbors]]
-deps = ["Distances", "StaticArrays"]
-git-tree-sha1 = "2c3726ceb3388917602169bed973dbc97f1b51a8"
-uuid = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
-version = "0.4.13"
-
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
-
-[[deps.Observables]]
-git-tree-sha1 = "6862738f9796b3edc1c09d0890afce4eca9e7e93"
-uuid = "510215fc-4207-5dde-b226-833fc4488ee2"
-version = "0.5.4"
-
-[[deps.OffsetArrays]]
-deps = ["Adapt"]
-git-tree-sha1 = "2ac17d29c523ce1cd38e27785a7d23024853a4bb"
-uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-version = "1.12.10"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1548,6 +2189,12 @@ git-tree-sha1 = "13652491f6856acfd2db29360e1bbcd4565d04f1"
 uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
 version = "0.5.5+0"
 
+[[deps.Optimisers]]
+deps = ["ChainRulesCore", "Functors", "LinearAlgebra", "Random", "Statistics"]
+git-tree-sha1 = "af65afa916284e6c7e89f0ab974500cc9235618e"
+uuid = "3bd65402-5787-11e9-1adc-39752487f4e2"
+version = "0.3.0"
+
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "51a08fb14ec28da2ec7a927c4337e4332c2a4720"
@@ -1563,12 +2210,6 @@ version = "1.6.2"
 deps = ["Artifacts", "Libdl"]
 uuid = "efcefdf7-47ab-520b-bdef-62a2eaa19f15"
 version = "10.42.0+0"
-
-[[deps.PDMats]]
-deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "67eae2738d63117a196f497d7db789821bce61d1"
-uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
-version = "0.11.17"
 
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools", "UUIDs"]
@@ -1606,9 +2247,9 @@ version = "1.3.5"
 
 [[deps.Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "UnitfulLatexify", "Unzip"]
-git-tree-sha1 = "9f8675a55b37a70aa23177ec110f6e3f4dd68466"
+git-tree-sha1 = "ccee59c6e48e6f2edf8a5b64dc817b6729f99eb5"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.38.17"
+version = "1.39.0"
 
     [deps.Plots.extensions]
     FileIOExt = "FileIO"
@@ -1670,12 +2311,6 @@ git-tree-sha1 = "364898e8f13f7eaaceec55fd3d08680498c0aa6e"
 uuid = "c0090381-4147-56d7-9ebc-da0b1113ec56"
 version = "6.4.2+3"
 
-[[deps.QuadGK]]
-deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "6ec7ac8412e83d57e313393220879ede1740f9ee"
-uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.8.2"
-
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
@@ -1683,16 +2318,6 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 [[deps.Random]]
 deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-
-[[deps.Ratios]]
-deps = ["Requires"]
-git-tree-sha1 = "1342a47bf3260ee108163042310d26f2be5ec90b"
-uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
-version = "0.4.5"
-weakdeps = ["FixedPointNumbers"]
-
-    [deps.Ratios.extensions]
-    RatiosFixedPointNumbersExt = "FixedPointNumbers"
 
 [[deps.RealDot]]
 deps = ["LinearAlgebra"]
@@ -1735,18 +2360,6 @@ git-tree-sha1 = "1e597b93700fa4045d7189afa7c004e0584ea548"
 uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
 version = "3.5.3"
 
-[[deps.Rmath]]
-deps = ["Random", "Rmath_jll"]
-git-tree-sha1 = "f65dcb5fa46aee0cf9ed6274ccbd597adc49aa7b"
-uuid = "79098fc4-a85e-5d69-aa6a-4863f24498fa"
-version = "0.7.1"
-
-[[deps.Rmath_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "6ed52fdd3382cf21947b15e8870ac0ddbff736da"
-uuid = "f50d1b31-88e8-58de-be2c-1cc44531875f"
-version = "0.4.0+0"
-
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 version = "0.7.0"
@@ -1757,18 +2370,8 @@ git-tree-sha1 = "30449ee12237627992a99d5e30ae63e4d78cd24a"
 uuid = "6c6a2e73-6563-6170-7368-637461726353"
 version = "1.2.0"
 
-[[deps.SentinelArrays]]
-deps = ["Dates", "Random"]
-git-tree-sha1 = "04bdff0b09c65ff3e06a05e3eb7b120223da3d39"
-uuid = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
-version = "1.4.0"
-
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
-
-[[deps.SharedArrays]]
-deps = ["Distributed", "Mmap", "Random", "Serialization"]
-uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 
 [[deps.Showoff]]
 deps = ["Dates", "Grisu"]
@@ -1804,16 +2407,6 @@ weakdeps = ["ChainRulesCore"]
     [deps.SpecialFunctions.extensions]
     SpecialFunctionsChainRulesCoreExt = "ChainRulesCore"
 
-[[deps.StaticArrays]]
-deps = ["LinearAlgebra", "Random", "StaticArraysCore"]
-git-tree-sha1 = "9cabadf6e7cd2349b6cf49f1915ad2028d65e881"
-uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.6.2"
-weakdeps = ["Statistics"]
-
-    [deps.StaticArrays.extensions]
-    StaticArraysStatisticsExt = "Statistics"
-
 [[deps.StaticArraysCore]]
 git-tree-sha1 = "36b3d696ce6366023a0ea192b4cd442268995a0d"
 uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
@@ -1836,35 +2429,11 @@ git-tree-sha1 = "75ebe04c5bed70b91614d684259b661c9e6274a4"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.34.0"
 
-[[deps.StatsFuns]]
-deps = ["HypergeometricFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
-git-tree-sha1 = "f625d686d5a88bcd2b15cd81f18f98186fdc0c9a"
-uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
-version = "1.3.0"
-
-    [deps.StatsFuns.extensions]
-    StatsFunsChainRulesCoreExt = "ChainRulesCore"
-    StatsFunsInverseFunctionsExt = "InverseFunctions"
-
-    [deps.StatsFuns.weakdeps]
-    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
-
-[[deps.StatsPlots]]
-deps = ["AbstractFFTs", "Clustering", "DataStructures", "Distributions", "Interpolations", "KernelDensity", "LinearAlgebra", "MultivariateStats", "NaNMath", "Observables", "Plots", "RecipesBase", "RecipesPipeline", "Reexport", "StatsBase", "TableOperations", "Tables", "Widgets"]
-git-tree-sha1 = "9115a29e6c2cf66cf213ccc17ffd61e27e743b24"
-uuid = "f3b207a7-027a-5e70-b257-86293d7955fd"
-version = "0.15.6"
-
 [[deps.StructArrays]]
 deps = ["Adapt", "DataAPI", "GPUArraysCore", "StaticArraysCore", "Tables"]
 git-tree-sha1 = "521a0e828e98bb69042fec1809c1b5a680eb7389"
 uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 version = "0.6.15"
-
-[[deps.SuiteSparse]]
-deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
-uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[deps.SuiteSparse_jll]]
 deps = ["Artifacts", "Libdl", "Pkg", "libblastrampoline_jll"]
@@ -1875,12 +2444,6 @@ version = "5.10.1+6"
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 version = "1.0.3"
-
-[[deps.TableOperations]]
-deps = ["SentinelArrays", "Tables", "Test"]
-git-tree-sha1 = "e383c87cf2a1dc41fa30c093b2a19877c83e1bc1"
-uuid = "ab02a1b2-a7df-11e8-156e-fb1833f50b87"
-version = "1.2.0"
 
 [[deps.TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -1975,23 +2538,11 @@ git-tree-sha1 = "4528479aa01ee1b3b4cd0e6faef0e04cf16466da"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
 version = "1.25.0+0"
 
-[[deps.Widgets]]
-deps = ["Colors", "Dates", "Observables", "OrderedCollections"]
-git-tree-sha1 = "fcdae142c1cfc7d89de2d11e08721d0f2f86c98a"
-uuid = "cc8bc4a8-27d6-5769-a93b-9d913e69aa62"
-version = "0.6.6"
-
-[[deps.WoodburyMatrices]]
-deps = ["LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "de67fa59e33ad156a590055375a30b23c40299d3"
-uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
-version = "0.5.5"
-
 [[deps.XML2_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "93c41695bc1c08c46c5899f4fe06d6ead504bb73"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Zlib_jll"]
+git-tree-sha1 = "04a51d15436a572301b5abbb9d099713327e9fc4"
 uuid = "02c8fc9c-b97f-50b9-bbe4-9be30ff0a78a"
-version = "2.10.3+0"
+version = "2.10.4+0"
 
 [[deps.XSLT_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libgcrypt_jll", "Libgpg_error_jll", "Libiconv_jll", "Pkg", "XML2_jll", "Zlib_jll"]
@@ -2236,57 +2787,114 @@ version = "1.4.1+0"
 
 # ╔═╡ Cell order:
 # ╟─9f90a18b-114f-4039-9aaf-f52c77205a49
+# ╟─a533cf6c-22d8-4659-813a-f1e12984326b
+# ╟─d400c959-0a96-49bf-9239-de12d5e39de1
+# ╟─30e2c8a3-0bc1-42d3-bd27-d7e493f4c164
+# ╟─e1e8c5ca-874c-4a30-9211-8c29ee226c3b
 # ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
+# ╟─52dcd4b9-9ef7-4128-a81d-d7e454cae9d6
+# ╟─19ebad08-8461-46fc-90bf-fcb1fa30d833
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
-# ╟─fc4bb806-0c85-48d9-b4af-ed957af361d3
-# ╟─a19e9007-e5b3-44d9-a071-92443ab21e28
-# ╟─d04bc149-4815-40bc-9d65-c68cc107c5bb
-# ╟─0d0559e1-41b7-414d-83ee-6c1271baf1e7
-# ╟─173b7d36-4b5a-4297-b462-3d16fc564f41
-# ╟─771b7002-24c3-44a9-994f-6522afb57dcd
-# ╟─7cdd0017-f485-4ded-a0f8-7f8635761b68
-# ╟─dd55a282-9e21-4111-9c2d-372d3eee26ce
-# ╟─5e6b83d7-3551-4b5c-96c2-366bf8eb33e4
-# ╟─4a47a0d2-f05f-4a01-a505-5b3de7f53872
-# ╟─bbb449e1-f6ba-40fa-a892-09786419cda1
-# ╟─97fca6ae-f19c-4440-a5ca-633af08910e5
-# ╟─a63881f1-9248-4052-ad56-04767d680f38
-# ╟─7cdf569c-a944-45ad-b672-c6e73cc7eacc
-# ╟─996276c4-e8af-4c06-a5f5-bb7b63e1b744
-# ╟─085f5bb8-0f1b-47b2-94a0-2f93629e446e
-# ╟─f5e88531-0cc4-49bc-93b3-f763b7c64e2b
-# ╟─a373376c-368b-45b9-9a97-e0392d78c077
-# ╟─7dea21ce-04b6-424d-9d14-464aa901918e
-# ╟─51f2b7fb-0ded-445d-a43e-4fe884fbe584
-# ╟─3886400e-f985-4a69-b9cd-930bb0996eb0
-# ╟─f963dd3d-2c53-46c6-b92a-6bece799af35
-# ╟─309f7945-29f6-47cc-9ef4-24483f0f3855
-# ╟─6d1c080e-0523-46a2-b3f3-0f91a595d351
-# ╟─7084f202-3d8f-42ff-b3be-0717612b345d
-# ╟─db222925-812f-4dfa-b102-f1a9b44d8824
-# ╟─d28073c7-08e6-490e-95ba-8cda4ae9aa4a
-# ╟─c395f3aa-5e00-4f54-9a4e-845adee810a3
-# ╟─fb1ffb36-c064-4e01-bc93-c5989c83edcb
-# ╟─34f3186a-5c46-4a1d-8abc-d96fe20c4d6e
-# ╟─1b9a92f3-8996-4829-9929-52fba1cfe91f
-# ╟─f0ad4fdb-2a07-436e-81a7-47a249d6871d
-# ╟─c3eeb2e9-93b8-4bb6-afd4-b08d23358f6e
-# ╟─747fadfb-ba6b-4520-8166-f538da1d194d
-# ╟─89d18c2a-ee6c-4eb7-81f5-0bfec682f4db
-# ╟─7a0b667e-f2d6-496c-b223-62854690fe5f
-# ╟─4e0a8f9c-93f8-4329-bb7f-1c0ece6f38cb
-# ╟─9e25d784-da56-4894-aa53-b8c8e1c0733b
-# ╟─77b112ef-f21a-40e5-becf-260116e9d04a
-# ╟─d60a639a-51f7-4a46-9a7b-f34933898c79
-# ╟─46f38254-0176-414a-9c46-9e6057ed94be
-# ╟─58204d30-9975-4546-8591-64dc44b3524b
-# ╟─8fe3a3a2-65df-4e9c-bdaa-64ebf06b2208
-# ╟─f46b008a-1fc7-461a-9f68-efc68506186b
-# ╟─4382f47e-3c62-4ddc-9502-ebeb8d009e26
-# ╟─bb583c35-64af-41bb-a805-fb505001e29f
+# ╟─7091d2cf-9237-45b2-b609-f442cd1cdba5
+# ╟─0a7f37e1-51bc-427d-a947-31a6be5b765e
+# ╟─a696c014-2070-4041-ada3-da79f50c9140
+# ╟─595a5ef3-4f54-4502-a943-ace4146efa31
+# ╟─bc1ee08d-9376-44d7-968c-5e114b09a5e0
+# ╟─84c68c61-7168-44c5-a606-b1b252377229
+# ╟─d32970e9-1ec5-4074-92a9-1989e86234f7
+# ╟─1996275f-0aa5-4ca4-a613-7f6998d46d15
+# ╟─65c48015-fcfb-41c7-b3c7-79411b9721b9
+# ╟─fd636237-ebc5-4d8c-9703-f3c93adfda5b
+# ╟─e446b537-8cf8-4838-b8a1-51cec0cd8402
+# ╟─59b80abc-e696-4870-9cf8-0aaafcbbd6e0
+# ╟─e5b02c45-9b49-4ceb-8f88-2a25229ff62b
+# ╟─b077d3c7-6afe-43cc-a4e3-8f41e9567ba0
+# ╟─305c6931-ba8d-4e5f-baea-7d844edfb71d
+# ╟─0af4a76f-578b-4195-826b-84cdf7b65afe
+# ╟─791cb069-a6a9-4c33-a4fd-677b7a4ceb6f
+# ╟─6071849b-08f7-4618-a3b5-1c6ba67c6396
+# ╟─2067bfe9-20ad-42d6-a0bb-dc003a2ba0e5
+# ╟─485edefb-caec-47c7-b67c-0aa26f1d6152
+# ╟─b2b0ef75-7192-4d2c-9fcc-3bc4e49da8cc
+# ╟─bebe066b-c212-402f-af15-6c329e42941e
+# ╟─749db615-65c5-41fb-9232-f0c936f2c811
+# ╟─27457b37-3939-4b86-b29c-240cd214c94d
+# ╟─c3f2a18c-8f4d-46c5-a326-3bfdba99934b
+# ╟─3e68c117-2016-4da6-931a-912309499a7d
+# ╟─f48c2156-79d6-43c7-b53b-0b3fc77b0b12
+# ╟─5832e04f-e5e0-4c55-a9aa-1be7e9fe1a91
+# ╟─465b942d-d8af-4314-b84c-643125172eaf
+# ╟─23c4f897-765e-44a9-8f06-83e1d0b6a34f
+# ╟─9d7c9641-1653-428a-b366-ab74d9c7c78d
+# ╟─352eeeac-b7a2-4b28-be35-be05d044281a
+# ╟─a00ddb3b-6036-4ff7-ae4d-2969cac6ce21
+# ╟─b7ffb0f7-1ca8-48ac-89d0-63768a48932b
+# ╟─a8cb91a2-9c1d-43ef-aaae-f2d6638c5423
+# ╟─ee40107d-41f8-400a-b86d-0ac092e6bb80
+# ╟─fd004056-68b2-4cd5-8719-bf8aed131483
+# ╟─a22221c1-9a94-406d-96e3-6d584b9187cd
+# ╟─00a01580-a254-40b3-ab2f-b1d745e67ac8
+# ╟─14c5ff65-4e01-48d7-af58-01a78ec60788
+# ╟─848054d5-c484-432e-be1f-1744510f73a2
+# ╟─9cf9bc30-479f-4686-a22d-998e619bc865
+# ╟─2ffeee86-af16-408f-b819-4bb7ac3219a4
+# ╟─adb336ba-fcc0-415a-891f-7c52fb068312
+# ╟─ff84798b-f6c1-47b9-946a-91eb4196ff44
+# ╟─0675960b-0d73-493b-8091-be0a8c37ca14
+# ╟─53d98475-4c75-4399-96b2-ee4623121309
+# ╟─267ba8d6-74ef-4ccf-a5f5-8571ef9891b3
+# ╟─64a95557-9f91-4d5d-9f5d-0d8d912e0f20
+# ╟─42e8b5be-f834-4799-a28c-d07103ad9e70
+# ╟─e8588c68-1f60-449b-9092-2146e7d10463
+# ╟─3b16f5dc-d9ad-4f19-9b80-b2e6bbcea2c6
+# ╟─8ccdb56f-5a0b-4f32-a77e-ec0bc7f72f0d
+# ╟─2bcf770b-da47-4102-abb2-c9bf7576706c
+# ╟─6518a6f9-761f-4535-a52f-83e1c4143d87
+# ╟─0777d82d-320b-454d-a476-2cb895194456
+# ╟─72493456-a531-47be-b799-ff9d7dfa488e
+# ╟─e80debf7-8f26-40a4-b17e-6184325e5827
+# ╟─945120a5-1e92-4a46-a3be-3f1b5d765df8
+# ╟─86dd6aca-312e-4fee-b471-d7168c86ce7d
+# ╟─1816987f-f14a-4aae-9aa9-c41e4a5c06ac
+# ╟─0ee47753-5c87-45bc-bf55-dc4c419e6934
+# ╟─76839145-2fd2-4f32-bbc0-09624b4df361
+# ╟─c4432aa9-85ac-4833-99d9-48e3fe34f50d
+# ╟─aebaf029-7b5f-4156-9340-80f644c117e9
+# ╟─c3140e0e-61ad-43ac-b3de-988b0bee4f15
+# ╟─a294e093-60a1-42f4-a732-1c2fae5c46ba
+# ╟─98408363-dd47-4aa7-a62c-71d7e92a9ed8
+# ╟─a2b85d68-5320-40d3-b91c-ab30323dc605
+# ╟─b3c61071-0f25-41e6-99f9-e193f40777b2
+# ╟─72960519-0f21-4fe5-9363-61175e0c5063
+# ╟─1a57df9e-63e4-4496-850e-ed6c592fc12a
+# ╟─c9ad9b05-d3a1-425f-94ca-b5a394cfdad0
+# ╟─9424354c-7a8e-449c-8c64-5916882458b3
+# ╟─2350cfa1-e873-465e-a837-ef436aff4530
+# ╟─e9f81ad3-29f3-466f-9bed-ef06dfe64b27
+# ╟─60887b8f-9ba2-4aaf-8760-d92a66a75cc1
+# ╟─4da613dc-4d03-4d94-b963-90892c004af2
+# ╟─c337818e-a45f-48a1-b1f0-f02ba0f264f9
+# ╟─9a79612a-e8dd-4cb0-8776-9e22e00c299d
+# ╟─77f1314c-bfcb-4d56-b1bb-01afadcf0517
+# ╟─09b50288-7d4c-47c4-af3b-5a3d8d904c8a
+# ╟─9bbd144e-72fd-43b8-bbb1-46f7d198063a
+# ╟─a6c54a00-b89b-41f7-9de9-c5e2f835da7e
+# ╟─d5507c0a-a924-4e29-a415-7c031a6cae63
+# ╟─4a20ceb4-d318-42c3-8f7e-27ebe1d75a80
+# ╟─d5369f75-b6ea-4e37-b362-6099971cadb1
+# ╟─d3133877-ba2e-4faa-91c9-0798760858d3
+# ╟─07af2fa0-0c01-428f-88cd-fef8ffd402e9
+# ╟─624cde95-7e4a-419a-b859-499f8919b6aa
+# ╟─e4798d52-9435-4f23-a8fc-732a556a61fd
+# ╟─a0b0df2e-5fe7-4b5e-a41a-71ce0ed4e7f3
+# ╟─a862a5d1-4ccf-4d29-b3c6-c5ab48c264ad
 # ╟─0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 # ╟─8687dbd1-4857-40e4-b9cb-af469b8563e2
 # ╟─fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
+# ╠═fc523f31-ed47-464d-8fdc-5410f0e483e3
+# ╠═8f3dd723-2662-4f80-b772-c4047b68f0d3
+# ╠═6b405fbb-c7e7-4bca-a1ab-dc2c37b97961
+# ╠═78d7da50-6937-4834-baa5-ade61aad4756
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

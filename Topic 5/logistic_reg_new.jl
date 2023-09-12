@@ -14,11 +14,13 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ e1d678d8-5a54-4f11-8fc6-5938c732c971
-using DataFrames, Distributions, Flux
-
-# ╔═╡ 53fece27-0cf8-42ac-a2d1-a60dafde5820
-using StatsPlots
+# ╔═╡ 86ac8000-a595-4162-863d-8720ff9dd3bd
+begin
+	using StatsPlots
+	using LogExpFunctions
+	using StatsBase
+	using Distributions
+end
 
 # ╔═╡ 9f90a18b-114f-4039-9aaf-f52c77205a49
 begin
@@ -34,23 +36,17 @@ begin
 	
 end
 
-# ╔═╡ 587b7208-2559-4e4d-958c-09b0eec20caf
+# ╔═╡ ece21354-0718-4afb-a905-c7899f41883b
 begin
 	using Logging
-	Logging.disable_logging(Logging.Info) ; # or e.g. Logging.Info
+	Logging.disable_logging(Logging.Info); # or e.g. Logging.Info
 end;
 
-# ╔═╡ a0c70958-56fc-4536-ac9a-c5feea3e025b
-using PalmerPenguins
-
-# ╔═╡ d0867ff4-da8a-45ce-adbc-8af12af89779
-using StatsBase
-
-# ╔═╡ bc1c6156-5b95-4f22-949a-f2ae81d5b94d
-using MLUtils
-
-# ╔═╡ c9939ed7-1f77-448f-b593-3da7d6c1a901
+# ╔═╡ 2588893b-7978-45af-ac71-20cb2af34b10
 using Zygote
+
+# ╔═╡ 1aa0cc79-e9ca-44bc-b9ab-711eed853f00
+using MLUtils
 
 # ╔═╡ 3e2e1ea8-3a7d-462f-ac38-43a087907a14
 TableOfContents()
@@ -64,8 +60,7 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Multi-class classification
-
+#### Logistic regression 
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -78,529 +73,162 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 
 """
 
-# ╔═╡ 603fdd1f-4505-4d57-965f-2d273c3c9979
-begin
-	ENV["DATADEPS_ALWAYS_ACCEPT"] = true
-	table = PalmerPenguins.load()
- 	df = DataFrame(table)
-end;
-
-# ╔═╡ 55f51fdf-50a5-4afa-9fcd-06802b5373da
+# ╔═╡ 7091d2cf-9237-45b2-b609-f442cd1cdba5
 md"""
 
 ## Topics to cover
 	
 """
 
-# ╔═╡ 8c7c35d2-f310-4cb9-88ff-ed384cf237a7
+# ╔═╡ 0a7f37e1-51bc-427d-a947-31a6be5b765e
 aside((md"""$(@bind next1 Button("next")) 
 $(@bind init1 Button("init"))
 	"""))
 
-# ╔═╡ 86ba1a8f-8458-498a-83a5-b8d00a251cca
+# ╔═╡ 595a5ef3-4f54-4502-a943-ace4146efa31
 begin
 	init1
 	next_idx = [0];
 end;
 
-# ╔═╡ 4a4e93af-aab7-4c1a-a7cb-d603b5a735a1
+# ╔═╡ a696c014-2070-4041-ada3-da79f50c9140
 begin
 	next1
-	topics = ["Multi-class classification", "One-vs-all classifier", "Softmax regression", "Gradient derivation"]
+	topics = ["Binary linear classifier: logistic regression", "Probabilistic model and Cross entropy loss", "Regularisation", "Evaluation", "Case study: MNIST dataset"]
 	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
 end
 
-# ╔═╡ 98401938-f855-403f-bfd5-d7d01393facb
+# ╔═╡ bc1ee08d-9376-44d7-968c-5e114b09a5e0
 let
 	next1
 	next_idx[1] += 1
 end;
 
-# ╔═╡ 3b5d83b5-b284-4c9e-b0bf-23be52f511bd
+# ╔═╡ bcc3cea5-0564-481b-883a-a45a1b870ba3
 md"""
+## Binary classification
 
-# One-versus-all scheme
-"""
 
-# ╔═╡ cf744c13-74c7-4c94-946b-7fb36b69f3da
-
-md"""
-## Multi-class classification
 
 """
 
-# ╔═╡ c91f899c-18a3-46f8-b0a2-af122b06007c
-TwoColumn(md"""Many classification problems have more than two classes: 
-
-* face recognition
-* hand gesture recognition
-* general object detection
-* speech recognition
-* ...
-
-(R.H.S) is a ``C=3`` class classification problem
-* **Binary classifier** is fundamentally insufficient to deal with multi-class problems """, html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/threeclass.png
-' width = '300' /></center>"	)
-
-# ╔═╡ 02fdb54a-01e5-4af7-8261-893c745fa5cf
+# ╔═╡ 2d70884d-c922-45e6-853e-5608affdd860
 md"""
 
-## One-versus-all multi-class classification
+## A first attempt -- use regression
 
 
-##### One bianry classifier is not enough BUT a handful of them is useful
+Just treat the categorical labels ``y^{(i)}`` as numerical values
 
-\
-
-**Idea:** when dealing with ``C>2`` classes, we learn ``C`` linear classifiers (one per class)
-* each distinguishing **one class** from the **rest of the data**
-* *i.e.* A multi ``C``-class classification ``\Rightarrow`` ``C`` binary classification problem
-"""
-
-# ╔═╡ ee3384c7-b7d1-4b2c-80ca-bc60a33ce398
-md"""
-
-## One-versus-all scheme
-
-A ``C=3`` classification problem
-"""
-
-# ╔═╡ 118eed06-b3a4-4549-8eb9-135338aeefc1
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/threeclass.png
-' width = '350' /></center>"	
-
-# ╔═╡ 6ea0a24a-3c79-46dd-a257-208c7a6805d0
-md"""
-
-**One-vs-all**: reduces to ``C=3`` binary classification problems
-"""
-
-# ╔═╡ c6d947e6-f4e0-47ac-9cce-9c281972acca
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/onevsall1.png
-' width = '750' /></center>"	
-
-# ╔═╡ c6db445b-85f2-491b-b2bb-aa7984a90152
-md"
-[source](https://www.cambridge.org/highereducation/books/machine-learning-refined/0A64B2370C2F7CE3ACF535835E9D7955#overview)
-"
-
-# ╔═╡ 4096a11d-2a58-4647-801a-c61e26219e13
-md"""
-
-## Recap: binary logistic regression
-
-The binary logistic regression model:
-"""
-
-# ╔═╡ b1005326-2a78-4ed4-9dee-6f4ea629f24f
-md"""
-
+For better visualisation, we replace
 
 ```math
-\large 
-\sigma(\mathbf{x}) = \frac{1}{1+ e^{- \mathbf{w}^\top\mathbf{x}}}
+	y=0\;\; \text{with}\;\; \tilde{y}=-1
 ``` 
-
-
-* ``z = \mathbf{w}^\top \mathbf{x}`` is called the *logit* value
+  * to differentiate from the original label; use ``\tilde{y}``
+  * the targets are categorical labels, the label scheme is really arbitrary
 """
 
-# ╔═╡ c7544900-9d54-4d9e-b32e-051d547ac5f1
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS3105/logistic_reg_neuron.png
-' width = '400' /></center>"
-
-# ╔═╡ b367f7ba-89df-4c09-8402-cdffe9155153
+# ╔═╡ a7cbd3b5-494a-45ef-9bed-1aa1ba2d7924
 md"""
 
-## One-vs-all implementation
+## A first attempt -- use regression (cont.)
 
+The fitting result by **least squared estimation**
 
-We need ``C`` logistic regression, therefore ``C`` outputs
-\
+"""
 
-* each output is associated with one output
+# ╔═╡ 8c69c448-c104-4cae-9352-10d4cec512a9
+md"""
 
-```math
-\large
-z_c = h_c(\mathbf{x}) = \mathbf{w}_c^\top \mathbf{x} + b_c
-```
+## Least square -- classification decision boundary
 
 
 """
 
-# ╔═╡ 2dfec88b-380d-49ad-80f5-cdcd01e21cea
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/multiclass1.svg
-' height = '350' /></center>"	
-
-# ╔═╡ 9e2d337a-0e26-4718-85ea-66b54349ec5d
+# ╔═╡ bf83caa9-d9f9-48a2-9563-152fcbb8afdc
 md"""
 
-## One-vs-all implementation
+##
+"""
 
+# ╔═╡ ea55660a-090b-453c-a141-b6867670ba48
+md"""
+
+## Least square classifier fails
+
+
+##### What if we *add some more data* ?
+
+* **_ideally_**, the old decision boundary **shouldn't** change much
+"""
+
+# ╔═╡ 3315ef07-17df-4fe1-a7a5-3e8f039c0cc1
+linear_reg(X, y; λ = 1) = (X' * X + λ *I) \ X' * y;
+
+# ╔═╡ c936fe77-827b-4245-93e5-d239d467bffd
+md"""
+
+## Least square classifier fails
+
+
+##### The least-square classifier is overly *sensitive* to the extra data
+
+"""
+
+# ╔═╡ cdccf955-19f3-45bb-8dfe-2e15addcdd32
+md"""
+
+## Why?
+
+
+**Firstly**, the sum of squared error (SSE) loss doesn't make sense
+
+```math
+\large
+\text{SSE Loss}(\mathbf{w}) = \frac{1}{2} \sum_{i=1}^{n} (y^{(i)} - \mathbf{w}^\top \mathbf{x}^{(i)})^2
+```
+
+* least square tries to please every data point (equally) in squared loss sense
 
 
 """
 
-# ╔═╡ 44bc4e5b-28f8-4e2b-a5f2-b62ecc059ac4
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/multiclass2.svg
-' height = '350' /></center>"	
-
-# ╔═╡ e5d97403-420a-4588-ba3b-99842da5927f
+# ╔═╡ 331571e5-f314-42db-ae56-66e64e485b85
 md"""
 
-## One-vs-all implementation
+## Why? (conti.)
 
 
-
-"""
-
-# ╔═╡ 23fbea1f-b083-46a1-924c-5485478345e3
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/multiclass3.svg
-' height = '350' /></center>"	
-
-# ╔═╡ a1e0cfec-d1ad-4692-8125-c109819e3c75
-md"""
-
-## One-vs-all implementation
-
-
-We need ``C`` logistic regression, therefore ``C`` outputs
-\
-
-* each output is associated with one output
+**Secondly**, the prediction function 
 
 ```math
 \large
-z_c = h_c(\mathbf{x}) = \mathbf{w}_c^\top \mathbf{x} + b_c
-```
-
-* apply `logistic` function **individually** to squeeze the output to ``(0,1)``
-
-```math
-\large
-\sigma_c = \sigma \circ h_c(\mathbf{x}) = \sigma(\mathbf{w}_c^\top \mathbf{x} + b_c)
-```
-"""
-
-# ╔═╡ 71183436-0231-4e89-af31-9fb6ae9996f2
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/multiclass4.svg
-' height = '350' /></center>"	
-
-# ╔═╡ ade61f89-509e-4068-8fba-e5f95cdc13a2
-md"""
-
-## One-vs-all implementation
-
-We need ``C`` logistic regression, therefore ``C`` outputs
-\
-
-* each output is associated with one output
-
-```math
-\large
-z_c = h_c(\mathbf{x}) = \mathbf{w}_c^\top \mathbf{x} + b_c
-```
-
-* apply `logistic` function **individually** to squeeze the output to ``(0,1)``
-
-```math
-\large
-\sigma_c = \sigma \circ h_c(\mathbf{x}) = \sigma(\mathbf{w}_c^\top \mathbf{x} + b_c)
-```
-
-**In matrix** notation
-
-```math
-\Large
-\boldsymbol{\sigma} =\sigma.(\mathbf{W}_{C\times m}\mathbf{x}_{m\times 1} +\mathbf{b}_{C\times 1})
-```
-
-"""
-
-# ╔═╡ 44c19857-0051-4f27-b9f0-5ad7d81d9760
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/multiclass5.svg
-' width = '900' /></center>"	
-
-# ╔═╡ 825161ce-ebc0-4b3a-a6db-c0e3fd8d0bb7
-md"""
-## Aside: one hot encoding of categorical labels
-
-
-We need to introduce temporary labels  ``\tilde{\mathbf{y}}`` for the categorical targets
-
-```math
-\large y \in \{1,2,\ldots, C\}
-```
-
-and the (**one-hot-encoding**)  scheme is simply (note ``\tilde{\mathbf{y}}`` is a ``C\times 1`` vector!)
-
-```math
-\large
-\tilde{\mathbf{y}} = \begin{bmatrix}\tilde{{y}}_1\\ \tilde{{y}}_c\\ \vdots\\ \tilde{{y}}_C \end{bmatrix},\;\; \text{where}\;\;
-\tilde{{y}}_c =\begin{cases}1 & \text{if} \; y = c\\
-
-0 & \text{if} \; y \neq c
-\end{cases}
-```
-
-
-"""
-
-# ╔═╡ 12871097-913a-489c-a5f8-9ed73be2dda2
-TwoColumn(md"""
-**For example**, ``y \in \{\texttt{seal}, \texttt{panda}, \texttt{duck}\}``,
-
-
-Encode ``y=\texttt{seal}`` with
-
-
-```math
-\large
-\tilde{\mathbf{y}}_{\texttt{seal}} = \begin{bmatrix} 
-1 &
-0 &
-0
-\end{bmatrix}^\top
-```
-* ``\tilde{\mathbf{y}}_{\text{seal}; 1} = 1``: the one-vs-all target
-
-
-Encode ``y=\texttt{panda}`` with
-
-
-```math
-\large
-\tilde{\mathbf{y}}_{\texttt{panda}} = \begin{bmatrix} 
-0 &
-1 &
-0
-\end{bmatrix}^\top
-```
-
-
-
-Encode ``y=\texttt{duck}`` with
-
-
-```math
-\large
-\tilde{\mathbf{y}}_{\texttt{duck}} = \begin{bmatrix} 
-0 &
-0 &
-1
-\end{bmatrix}^\top
-```
-
-* the one-hot vectors can be interpreted as probability distributions: ``p(y)``
-* *i.e.* 100% that observation is a `seal`, `panda` or `duck`
-""", 
-	
-	html"<center><img src='https://d33wubrfki0l68.cloudfront.net/8850c924730b56bbbe7955fd6593fd628249ecff/275c5/images/multiclass-classification.png
-' width = '400' /></center>")
-
-# ╔═╡ a6318c24-91cb-4a6f-809c-bec648569f7c
-md"""
-
-## One-vs-all loss
-
-``C`` logistic regression, therefore ``C`` outputs
-\
-
-```math
-\large
-\sigma_c = \sigma \circ h_c(\mathbf{x}) = \sigma(\mathbf{w}_c^\top \mathbf{x} + b_c)
-```
-
-**In matrix** notation, the output ``\boldsymbol{\sigma}`` is a ``C\times 1`` vector
-
-```math
-\Large
-\boldsymbol{\sigma} =\sigma.(\mathbf{W}_{C\times m}\mathbf{x}_{m\times 1} +\mathbf{b}_{C\times 1})
-```
-
-The loss for the ``i``-th observation is the sum of individual ``C`` cross entropy losses
-
-
-```math
-\large 
-L^{(i)}(\mathbf{W}, \mathbf{b}) = \sum_{c=1}^C \underbrace{-{\tilde{y}_c^{(i)}} \ln \sigma^{(i)}_c- (1- \tilde{y}^{(i)}_c) \ln (1-\sigma_c^{(i)})}_{\text{CE for class }c}
-```
-"""
-
-# ╔═╡ 05f4be36-fd3e-4ffe-8049-eeeee4af03b5
-md"""
-
-## One-vs-all loss
-
-``C`` logistic regression, therefore ``C`` outputs
-\
-
-```math
-\large
-\sigma_c = \sigma \circ h_c(\mathbf{x}) = \sigma(\mathbf{w}_c^\top \mathbf{x} + b_c)
-```
-
-**In matrix** notation, the output ``\boldsymbol{\sigma}`` is a ``C\times 1`` vector
-
-```math
-\Large
-\boldsymbol{\sigma} =\sigma.(\mathbf{W}_{C\times m}\mathbf{x}_{m\times 1} +\mathbf{b}_{C\times 1})
-```
-
-The loss for the ``i``-th observation is the sum of individual ``C`` cross entropy losses
-
-
-```math
-\large 
-L^{(i)}(\mathbf{W}, \mathbf{b}) = \sum_{c=1}^C \underbrace{-{\tilde{y}_c^{(i)}} \ln \sigma^{(i)}_c- (1- \tilde{y}^{(i)}_c) \ln (1-\sigma_c^{(i)})}_{\text{CE for class }c}
-```
-
-
-The total losses therefore is 
-
-
-```math
-\large 
 \begin{align}
-L(\mathbf{W}, \mathbf{b}) &= \sum_{i=1}^n L^{(i)}(\mathbf{W}, \mathbf{b}) \\
-&=\sum_{i=1}^n\sum_{c=1}^C{-{\tilde{y}_c^{(i)}} \ln \sigma^{(i)}_c- (1- \tilde{y}^{(i)}_c) \ln (1-\sigma_c^{(i)})}
+h(\mathbf{x}; \mathbf{w}) &= \mathbf{w}^{\top} \mathbf{x}^{(i)} \\
+&\in (-\infty, \infty)
 \end{align}
 ```
+The target ``y`` is **binary**, but the hyperplane ``\large h(\cdot)\in (-\infty, +\infty)`` is **unbounded**
+  * *e.g.* the output ``h(\mathbf{x}) = 100``, or ``-100`` does not make sense
+
+
 """
 
-# ╔═╡ e769fb23-7852-473f-bcd6-ae971f0ae66c
-md"""
-## Gradient
-
-The gradients are almost the same as binary logistic regression
-* ``C`` independent logistic regression
-* except the parameters now are a **matrix**
-* it is left as an exercise
-"""
-
-# ╔═╡ 514b9328-6987-4436-b460-bfe9438c3ec6
+# ╔═╡ 324ea2b8-c350-438d-8c8f-6404045fc19f
 md"""
 
-## One-vs-all prediction
-
-
-> **Prediction**: given ``\mathbf{x}_{test}``, what is its label ``y_{test} \in \{1, \ldots, C\}``
-
-
-**A simple rule**: we can simply pick the most **confident** class, the output ``\sigma`` is the largest 
-
-```math
-\Large
-\begin{align}
-\hat{y} &= \arg\max_{c=1\ldots C} P(\tilde{y} =c|\mathbf{W}, \mathbf{b})_{\text{one vs all}}\\
-&=\arg\max_{c=1\ldots C} \sigma_c
-\end{align}
-```
+## Towards logistic regression
 
 """
 
-# ╔═╡ b20dd0fb-ebae-4276-8f0b-401bc40c16ee
-md"""
-
-## A case study: Palmer Penguins dataset
-"""
-
-# ╔═╡ 0c4008d0-b457-41b4-a578-b5a63c72a5b7
-html"<center><img src='https://allisonhorst.github.io/palmerpenguins/reference/figures/lter_penguins.png
-' width = '600' /></center>"	
-
-# ╔═╡ 652bfbc5-769a-4f25-af45-b3337a32b368
-first(df, 5);
-
-# ╔═╡ a365490e-a4d9-4af0-835d-25b60327308e
-md"""
-
-## Dataset -- multi-class classification
-
-"""
-
-# ╔═╡ 2799fba9-8500-432f-9b2e-c164476dcb33
-TwoColumn(md"""The predictors/features: ``\mathbf{x}``
-* flipper length (*mm*)
-* body mass (*g*)
-* bill length (*mm*)
-* bill depth (*mm*)
-
-The output prediction targets: ``y`` the **species** , *i.e.* 
-
-$y \in \{\text{Adelie}, \text{Chinstrap}, \text{Gentoo}\}$
-
-* 3-class classification """, html"<center><img src='https://allisonhorst.github.io/palmerpenguins/reference/figures/culmen_depth.png
-' width = '350' /></center>"	)
-
-# ╔═╡ f1f9ceeb-601e-4311-ad1b-7347efa5893b
-md"""
-
-## Demonstration -- one vs all
-
-We apply **mini-batch** stochastic gradient descent
-
-* learning rate ``0.05``
-* ``1000`` epochs with mini-batch size of ``50``
-"""
-
-# ╔═╡ 95f0779a-776e-4589-9be4-0f60a83050d0
-md"""
-## Demonstration -- one vs all
-
-"""
-
-# ╔═╡ 3b1c6e5d-8179-4f3b-b37a-c533668beb2c
-md"""
-Add class ``c``'s one-v-all boundary: $(@bind ovall_c Select(1:1:3));
-Add the total decision boundary: $(@bind add_ovall CheckBox(default=false))
-"""
-
-# ╔═╡ 96864302-2257-43a4-801b-150423e64047
-plt1 = @df df scatter(:bill_length_mm, :flipper_length_mm, group =:species, framestyle=:origins,  xlabel="flipper length (mm)", ylabel="body mass (g)");
-
-# ╔═╡ 5015bc1d-3b84-43be-b1c8-76953f362eab
-plt2 = @df df scatter(:bill_length_mm, :bill_depth_mm, group =:species, framestyle=:origins,  xlabel="bill length (mm)", ylabel="bill depth (g)");
-
-# ╔═╡ 8bbdc4e2-5433-4e71-8922-c8fc435ce420
-TwoColumn(md"""
-\
-\
-\
-\
-
-We focus on two predictors: 
-
-* bill length and bill depth and 
-* classify the species
-""", plot(plt2, size=(350,350)))
-
-# ╔═╡ 48255e3f-307a-49cc-ad5e-cb3557cbff11
-md"""
-
-# Softmax regression
-"""
-
-# ╔═╡ 8fb15c2c-d2ed-4da7-b570-3a4f6580f53e
-md"""
-
-## Recap: binary logistic regression
-
-The logistic function
-
-```math
-\large
-\sigma(x)=\frac{1}{1+e^{-x}} : \mathbb{R} \rightarrow (0,1)
-```
-"""
-
-# ╔═╡ ffa724f4-8bfd-4d8c-bc6b-83ffc83c8cfa
+# ╔═╡ 3a50c68d-5cb1-45f5-a6af-c07ab280b1ad
 TwoColumn(
 md"""
 \
 \
 
-> Idea: **squeeze** ``x`` to 0 and 1
+> Idea: **squeeze** ``h(\mathbf{x})`` to 0 and 1
 > * then interpret it as some **probability** of ``y^{(i)}`` being class 1
 
 """
@@ -611,231 +239,376 @@ html"<center><img src='https://carpentries-incubator.github.io/ml4bio-workshop/a
 	
 )
 
-# ╔═╡ 3de4bc6d-a616-4125-8e18-ce54f8cdd4e8
+# ╔═╡ c8e55a60-0829-4cc7-bc9b-065809ac791c
 md"""
 
-## Softmax function
-
-
-The idea is very similar, we want the output to be interpreted as a probability distribution
-
-$$\large 
-\text{output}_c \approx P(y=c |\mathbf{x})$$
-
-* *i.e.* all non negative and sum to one
-
-```math
-P(y=c |\mathbf{x}) > 0\;\; \text{for all class } c,\;\;\text{and } \sum_c P(y=c|\mathbf{x}) = 1
-```
+## Towards logistic regression
 
 
 """
 
-# ╔═╡ 520de0ba-11f9-42a9-9d29-fac3caf6cbe4
+# ╔═╡ 9d9c91b3-ed65-4929-8cfe-4de7a0d6f807
 TwoColumn(md"""
 
-Softmax function does the trick
-
-$$\large \text{softmax}_i(\mathbf{s}) = \frac{\exp(s_i)} {\sum_{c=1}^C \exp(s_c)}$$
-
-- ``C`` number of classes
-- note that the results are all positive (due to `exp`) and **sum to one**
-
-""", html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/exponentially_normalized_histogram.png
-' height = '200' /></center>")
-
-# ╔═╡ 4730c3dc-c6c5-4151-ad21-8e4335d846a7
-md"""
-
-## Softmax example
-"""
-
-# ╔═╡ df9fd096-56a4-4610-b1fc-f7cce4e19e83
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS3105/softmax.jpeg
-' width = '500' /></center>"
-
-# ╔═╡ e73864ff-7106-4523-a049-805ca009796b
-md"figure source: [^1]"
-
-# ╔═╡ 0d9885b7-71aa-40ad-affa-3f8555226d36
-md"""
-## Softmax vs Hardmax
-It is a *soft* version of a *hardmax* function:
-
-```math
-\texttt{hardmax}\left (\begin{bmatrix}
--1.3\\
-5.1\\
-2.2\\
-0.7\\
--1.1
-\end{bmatrix}\right ) = \begin{bmatrix}
-0\\
-1\\
-0\\
-0\\
-0
-\end{bmatrix}
-```
-
-* winner-take-all, mathematically, each element is: ``\mathbf{1}(\mathbf{z}_i = \texttt{max}(\mathbf{z}))``
-
-
-
-"""
-
-# ╔═╡ 85da9bbd-ec12-48f0-9e96-0260cf68f04c
-@latexify softmax([-1.3, 5.1, 2.2, 0.7, -1.1])=$(round.(softmax([-1.3, 5.1, 2.2, 0.7, -1.1]); digits=2))
-
-# ╔═╡ e2b11e5b-616c-45e8-8e96-670c2487f8d3
-md"""
-Therefore,
-```math
-\texttt{softmax}(\mathbf{z}) \approx \texttt{hardmax}(\mathbf{z})
-```
-
-and indeed
-
-
-```math
-\arg\max_c\, \texttt{softmax}_c(\mathbf{z}) = \arg\max_c\, \texttt{hardmax}_c(\mathbf{z})
-```
-
-"""
-
-# ╔═╡ 9cf41a12-d0a3-48af-ad6c-862b8cbaad89
-md"""
-
-## Softmax regression
-
-
-There are still ``C`` outputs
 \
 
-* each output is still associated with one output
+Recall **logistic function** (also known as **sigmoid**)
 
 ```math
 \large
-z_c = h_c(\mathbf{x}) = \mathbf{w}_c^\top \mathbf{x} + b_c
-```
+\texttt{logistic}(x) \triangleq \sigma(x) = \frac{1}{1+e^{-x}}.
+``` 
 
+* ``\sigma`` as a shorthand notation for the logistic activation
 
-"""
+* it squeezes a line to 0 and 1
+  * ``x\rightarrow \infty``, ``\sigma(x) \rightarrow 1``
+   * ``x\rightarrow -\infty``, ``\sigma(x) \rightarrow 0``""", begin
+gr()
+plot(-10:0.2:10, logistic, c=7, xlabel=L"x",  label=L"\texttt{logistic}(x)", legend=:topleft, lw=3, size=(350,300), ylabel=L"P(y=1)")
+end
 
-# ╔═╡ 361c61d7-f4c3-48f7-83c0-54eb5d329ba6
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/multiclass3.svg
-' height = '350' /></center>"
+)
 
-# ╔═╡ 81e57214-62f5-4fe1-9a01-948c3175e43f
+# ╔═╡ 8da5d36d-7fe0-45ee-bbcc-abb9eb2831f6
 md"""
 
-## Softmax regression
+## Logistic regression function
 
 
-There are still ``C`` outputs
+Now feed a linear function ``\large h(x) = w_1 x + w_0`` to ``\large \sigma(\cdot)``
+
+
+```math
+\Large
+(\sigma \circ h) (x) = \sigma(h(x)) = \sigma(w_1 x+ w_0) = \frac{1}{1+e^{-w_1x -w_0}}
+```
+"""
+
+# ╔═╡ 6444df20-363c-4db3-acb0-efb3b17d7368
+md"Slope: ``w_1`` $(@bind w₁_ Slider([(0.0:0.0001:1.0)...; (1.0:0.005:20)...], default=1.0, show_value=true)),
+Intercept: ``w_0`` $(@bind w₀_ Slider(-10:0.5:10, default=0, show_value=true))"
+
+# ╔═╡ 5ffef289-18e0-40c8-be74-de9871a45687
+begin
+	k, b= w₁_, w₀_
+	gr()
+
+	plot(-20:0.1:20, (x) -> k* x+ b, ylim=[-0.2, 1.2], label=L"h(x) =%$(round(w₁_; digits=2)) x + %$(w₀_)", lw=2, l=:gray, ls=:dash, ylabel=L"\sigma(x) \triangleq P(y=1|x)")
+	
+	plot!(-20:0.1:20, (x) -> logistic( x ), xlabel=L"x", label=L"\sigma(x)", legend=:topleft, lw=2, size=(450,300), c=1)
+	
+	plot!(-20:0.1:20, (x) -> logistic(k * x + b), xlabel=L"x", label=L"\sigma(%$(round(w₁_; digits=2)) x + %$(w₀_))", legend=:topleft, lw=2, c=7, size=(450,300))
+end
+
+# ╔═╡ caef3a1c-c85d-4083-b8e3-4389d81ad6c1
+md"""
+
+## Logistic regression function 
+##### higher-dimensional
 \
-
-* each output is still associated with one output
+It transforms a hyperplane instead of a line:
 
 ```math
 \large
-z_c = h_c(\mathbf{x}) = \mathbf{w}_c^\top \mathbf{x} + b_c
+h(\mathbf{x}) = \mathbf{w}^\top \mathbf{x}
 ```
 
-* the difference: apply a **softmax** layer at the end
 
+```math
+\large
+\texttt{logistic}(h(\mathbf{x})) = σ(\mathbf{w}^\top \mathbf{x}) = \frac{1}{1+e^{-\mathbf{w}^\top \mathbf{x}}}
+```
 """
 
-# ╔═╡ 791330da-48ae-4ee0-a402-58764ce7e1bb
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/multiclass6.svg
-' height = '350' /></center>"
+# ╔═╡ e5853cf2-657c-473d-8617-db74e8f59ea2
+wv_ = [1, 1] * 1
 
-# ╔═╡ c31321f5-08a4-4a0e-af27-56bfc789c0a5
+# ╔═╡ 206c82ee-389e-4c92-adbf-9578f7125418
+meshgrid(x, y) = (repeat(x, outer=length(y)), repeat(y, inner=length(x))) # helper function to create a quiver grid.
+
+# ╔═╡ c03ab032-13b1-41a4-9477-6c79bb4fecd6
+begin
+	function ∇σ(w, x) 
+		wx = w' * x
+		logistic(wx) * (1-logistic(wx)) * x
+	end
+end
+
+# ╔═╡ 85cf441b-8b42-4dba-9bef-e54855cf0ce1
+let
+	gr()
+	w₀ = 0
+	w₁, w₂ = wv_[1], wv_[2]
+	plot(-5:0.5:5, -5:0.5:5, (x, y) -> logistic(w₀+ w₁* x + w₂ * y), st=:contourf, c=:jet, colorbar=false, alpha=0.5, xlim=[-5, 5], ylim=[-5, 5],  xlabel=L"x_1", ylabel=L"x_2", title="contour plot of "* L"σ(w^\top x)", ratio=1)
+	α = 2
+	xs_, ys_ = meshgrid(range(-5, 5, length=10), range(-5, 5, length=15))
+	∇f_d(x, y) = ∇σ([1, x, y], [w₀, w₁, w₂])[2:end] * α
+	quiver!(xs_, ys_, quiver = ∇f_d, c=:black)
+end
+
+# ╔═╡ 1a062043-8cfe-4946-8eb0-688d3896229e
 md"""
 
-## Softmax regression illustration
+## Logistic regression -- as a graph
+
+
+The function is actually a simpliest **neural network**
+
+
+```math
+\large 
+\sigma(\mathbf{x}) = \frac{1}{1+ e^{- \mathbf{w}^\top\mathbf{x}}}
+``` 
+
+
+which can be represented as a **computational graph**
+
+* ``z = \mathbf{w}^\top \mathbf{x}`` is called the *logit* value
 """
 
-# ╔═╡ a307d1dd-7257-472f-bdc0-58e0a712fda7
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/multiclass_histogram.png
-' width = '900' /></center>"
+# ╔═╡ 88093782-d180-4422-bd92-357c716bfc89
+html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS3105/logistic_reg_neuron.png
+' width = '400' /></center>"
 
-# ╔═╡ 78c2263a-1800-416b-bc27-8a743a1e76b0
+# ╔═╡ 2459a2d9-4f48-46ab-82e5-3968e713f15f
+html"<center><img src='https://carpentries-incubator.github.io/ml4bio-workshop/assets/logit_nodes.png
+' width = '400' /></center>";
+
+# ╔═╡ 91a6f3de-01c6-4215-9928-1ecce113adc1
 md"""
-## Softmax regression vs One-vs-All
 
+
+## Least square error loss
+
+Can we reuse the ordinary regression loss, *i.e.* sum squared error loss?
+
+```math
+\large
+loss(\hat{\mathbf{y}}, \mathbf{y}) = \frac{1}{2} \sum_{i=1}^n (y^{(i)} - \hat{y}^{(i)})^2 
+```
+
+
+* where ``\hat{y}^{(i)} = \sigma(\mathbf{w}^\top\mathbf{x}^{(i)})`` is the logistic function
 """
 
-# ╔═╡ 9e279970-7752-4148-9092-09820f176d94
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/multiclass5.svg
-' width = '850' /></center>"
-
-# ╔═╡ bc571979-9458-4bfa-b74f-9c8105b79545
-html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/multiclass7.svg
-' width = '850' /></center>"
-
-# ╔═╡ a49bcf15-a3bd-482b-a2a1-186a20aa9e1f
+# ╔═╡ 32eb5c4f-8fde-44c1-a748-905de6aaf364
 md"""
 
-## Cross entropy loss for softmax regression
 
-Recall the cross entropy (CE) loss for binary classification:
+## Least square error loss function
 
-$$\large 
-\begin{align}L(y, \hat{y}) &= - y \ln \underbrace{\hat{P}(y=1|\mathbf{x})}_{\hat{y}}  - (1-y)\ln (1-\hat{P}(y=1|\mathbf{x}))\\
-&=\begin{cases}- \ln \hat{y} & \text{if } y = 1\\  - \ln (1-\hat{y}) & \text{if } y = 0\end{cases}\end{align}$$
-  
-- ``y = 0`` or ``1``
-- ``\hat{y} = \hat{P}(y=1|\mathbf{x}) \in (0,1)`` is the predicted probability
+Can we reuse the ordinary regression loss, *i.e.* (mean) squared error loss?
 
-## Cross entropy loss for softmax regression
-
-Recall the cross entropy (CE) loss for binary classification:
-
-$$\large 
-\begin{align}L(y, \hat{y}) &= - y \ln \underbrace{\hat{P}(y=1|\mathbf{x})}_{\hat{y}}  - (1-y)\ln (1-\hat{P}(y=1|\mathbf{x}))\\
-&=\begin{cases}- \ln \hat{y} & \text{if } y = 1\\  - \ln (1-\hat{y}) & \text{if } y = 0\end{cases}\end{align}$$
-  
-- ``y = 0`` or ``1``
-- ``\hat{y} = \hat{P}(y=1|\mathbf{x}) \in (0,1)`` is the predicted probability
-
-Multiclass CE loss is just its generalisation (Multinouli likelihood)
-
-$$\large
-\begin{align}
-L(\mathbf{y}; \hat{\mathbf{y}}) &= - \sum_{j=1}^C  {y}_j \ln \underbrace{\hat{P}(y =j| \mathbf{x})}_{\text{softmax: } \hat{{y}}_j}\\
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= \begin{cases}- \ln \hat{y}_1 & \text{if } y = 1\\  - \ln \hat{y}_2 & \text{if } y = 2 \\ \vdots & \vdots \\- \ln \hat{y}_C & \text{if }y = C\end{cases}
-\end{align}$$
-
-- ``\mathbf{y}`` is the one-hot encoded label
-- ``\hat{\mathbf{y}}`` is the softmax output
+```math
+\large
+loss(\hat{\mathbf{y}}, \mathbf{y}) = \frac{1}{2n} \sum_{i=1}^n (y^{(i)} - \hat{y}^{(i)})^2 
+```
 
 
+* where ``\hat{y}^{(i)} = \sigma(\mathbf{w}^\top\mathbf{x}^{(i)})`` is the logistic function
 """
 
-# ╔═╡ 977112ba-29f5-4413-a7f8-4af33ce7fc44
+# ╔═╡ 16d84881-d40a-4694-9812-6896b336accc
+function logistic_mse_loss(w, X, y; agg=mean)
+	(0.5 * (y .- logistic.(X * w)).^2) |> agg
+end;
+
+# ╔═╡ dd0a4446-65ed-4b3d-87a6-ba950457aa72
+function zeroone_loss(w, X, y; agg=mean)
+	# (0.5 * (y .- logistic.(X * w)).^2) |> agg
+	y_ = 2 * y .- 1
+	(sign.(X * w) .!= y_) |> agg
+end;
+
+# ╔═╡ 27385a11-e8de-4d88-898a-8b9bd0a73ee2
 md"""
 
-## (Probabilistic) regression models
+
+## Least square error loss (for logistic regression) is non-convex
+
+Can we reuse the ordinary regression loss, *i.e.* (mean) squared error loss?
+
+```math
+\large
+loss(\hat{\mathbf{y}}, \mathbf{y}) = \frac{1}{2n} \sum_{i=1}^n (y^{(i)} - \hat{y}^{(i)})^2 
+```
 
 
-#### Probabilistic linear regression
+* where ``\hat{y}^{(i)} = \sigma(\mathbf{w}^\top\mathbf{x}^{(i)})`` is the logistic function
+
+
+##### The loss, *however*, is *non-convex*
+
+> It has too many **flat** areas!
+
+The **consequence**: gradient descent might struggle!
+* quite depends on the **initial starting** guess
+"""
+
+# ╔═╡ 72697e34-6f63-4d6b-a9ff-ae23a00d4ce2
+md"""
+
+## Non-convex loss: a bad starting point
+"""
+
+# ╔═╡ 593eb726-47a5-4783-8872-03a75c6cfb89
+md"""
+
+## Non-convex loss: if you are lucky 
+"""
+
+# ╔═╡ e7dac1a5-dc63-4364-a7d6-13ab9808c9c6
+# let
+# 	gr()
+# 	w0 = [-4.5, -4.5]
+# 	bias = 0.0	
+# 	grad = logistic_mse_loss_grad
+# 	γ = 0.5
+# 	maxiters = 1_000
+# 	ws = [w0]
+# 	loss = []
+# 	for i in 1:maxiters
+# 		li, gradw = grad(w0)
+# 		w0 -= γ * gradw[1]
+# 		push!(ws, w0)
+# 		push!(loss, li)
+# 	end
+# 	ws = hcat(ws...)
+# 	traces = ws
+# 	plt = plot(-8:0.5:10, -5:0.5:10, (w1, w2) -> logistic_mse_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:contourf, c=:jet, colorbar=false, title="Squared error loss",  ratio=1, alpha=0.8, xlim =(-8, 10), ylim = (-5, 10))
+# 	wt = traces[:, 1]
+# 	scatter!([wt[1]], [wt[2]], markershape=:xcross, label="start", markerstrokewidth=4, mc=3, markersize=6)
+# 	anim = @animate for t in 2:20:1_000
+# 		plot!([traces[1, t]], [traces[2, t]], st=:scatter, color=1, label="", markersize=3)
+# 		plot!([wt[1], traces[1, t]], [wt[2], traces[2, t]], line = (:arrow, 0.8, :gray), label="", title="Iteration $(t)")
+# 		wt = traces[1:2, t]
+# 	end 
+# 	gif(anim, fps=5)
+# end
+
+# ╔═╡ 52ff5315-002c-480b-9a4b-c04124498277
+md"""
+## Recap: probabilistic linear regression model
+
 
 > $\large \begin{align}p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) &= \mathcal{N}(y^{(i)};  \mathbf{w}^\top \mathbf{x}^{(i)} , \sigma^2)\end{align}$
-> * ``y^{(i)}`` is a Gaussian distributed with mean $\mathbf{w}^\top \mathbf{x}^{(i)}$ and variance $\sigma^2$ 
 
+* ``y^{(i)}`` is a univariate Gaussian with mean $\mathbf{w}^\top \mathbf{x}^{(i)}$ and variance $\sigma^2$ 
 
 
 """
 
-# ╔═╡ a3809050-7e2a-4ceb-a08a-4708247a761e
-let
+# ╔═╡ 0469b52f-ce98-4cfa-abf3-be53630b30dd
+md"""
+
+## Probabilistic model for logistic regression
+
+
+
+Since ``y^{(i)} \in \{0,1\}``, a natural choice of **likelihood** function is Bernoulli (the outcome is binary)
+
+> ```math
+> \large
+> 
+> p(y^{(i)}|\mathbf{w}, \mathbf{x}^{(i)}) = \texttt{Bernoulli}(\sigma^{(i)}) =\begin{cases}\sigma(\mathbf{w}^\top\mathbf{x}^{(i)}) & y^{(i)} =1
+> \\
+> 1-\sigma(\mathbf{w}^\top\mathbf{x}^{(i)}) & y^{(i)} = 0   \end{cases}
+> ```
+
+* short-hand notation ``\sigma^{(i)} =\sigma(\mathbf{w}^\top\mathbf{x}^{(i)})``
+
+
+"""
+
+# ╔═╡ 4f884fee-4934-46c3-8352-0105652f8537
+md"""
+
+
+## Probabilistic model for linear regression (cont.)
+
+
+
+Since ``y^{(i)} \in \{0,1\}``, a natural choice of **likelihood** function is Bernoulli (the outcome is binary)
+
+> ```math
+> \large
+> 
+> p(y^{(i)}|\mathbf{w}, \mathbf{x}^{(i)}) = \texttt{Bernoulli}(\sigma^{(i)}) =\begin{cases}\sigma(\mathbf{w}^\top\mathbf{x}^{(i)}) & y^{(i)} =1
+> \\
+> 1-\sigma(\mathbf{w}^\top\mathbf{x}^{(i)}) & y^{(i)} = 0   \end{cases}
+> ```
+
+* short-hand notation ``\sigma^{(i)} =\sigma(\mathbf{w}^\top\mathbf{x}^{(i)})``
+
+##### The generative story therefore is
+
+---
+
+
+Given fixed ``\{\mathbf{x}^{(i)}\}``, which are assumed fixed and non-random
+
+
+for each ``\mathbf{x}^{(i)}``
+  * compute regression function ``\sigma(\mathbf{x}^{(i)}) =\sigma(\mathbf{w}^\top \mathbf{x}^{(i)})``
+  * *generate* ``y^{(i)} \sim \texttt{Bernoulli}(\sigma(\mathbf{x}^{(i)}))``
+
+---
+"""
+
+# ╔═╡ 9dbf5502-fa44-404f-88ae-be3488e3e41c
+md"""
+
+##
+
+"""
+
+# ╔═╡ 6e92fa09-cf58-4d3c-9864-c6617f1e54d7
+md"Add true function ``\sigma(x; \mathbf{w})``: $(@bind add_h CheckBox(default=false)),
+Add ``p(y^{(i)}|x^{(i)})``: $(@bind add_pyi CheckBox(default=false)),
+Add ``y^{(i)}\sim p(y^{(i)}|x^{(i)})``: $(@bind add_yi CheckBox(default=false))
+"
+
+# ╔═╡ 6173a35d-1e28-45ac-93b8-d2fb1117bf02
+begin
 	Random.seed!(123)
-	xs = rand(18) * 2 .- 1 |> sort
+	n_obs = 20
+	# the input x is fixed; non-random
+	# xs = range(-1, 1; length = n_obs)
+	xs = sort(rand(n_obs) * 2 .- 1)
+	true_w = [0.0, 1.0] * 10
+	# true_σ² = 0.05
+	ys = zeros(Bool, n_obs)
+	for (i, xⁱ) in enumerate(xs)
+		hⁱ = true_w' * [1, xⁱ]
+		# ys[i] = hⁱ + rand(Normal(0, sqrt(true_σ²)))
+		ys[i] = rand() < logistic(hⁱ)
+	end
+end
+
+# ╔═╡ 8fd7703b-db80-4aa4-977f-c7e3ad1f9fb6
+TwoColumn(md"""
+
+To be more specific, the "story" for ``y^{(i)}`` is
+
+
+---
+
+
+Given fixed ``\{\mathbf{x}^{(i)}\}``, which are assumed fixed and non-random
+
+
+for each ``\mathbf{x}^{(i)}``
+  * *true signal* ``h(\mathbf{x}^{(i)}) =\mathbf{w}^\top \mathbf{x}^{(i)}``
+  * *generate* ``y^{(i)} \sim \mathcal{N}(\mu^{(i)}=h(\mathbf{x}^{(i)}), \sigma^2)``
+
+---
+
+""", let
+
 	plt = plot(xs, zeros(length(xs)), st=:scatter, framestyle=:origin, labels=L"x", color=:black, ms=5, markershape=:x, xlabel=L"x", ylim=[-2.2, 2.5], ylabel=L"y", legend=:outerbottom, size=(400,450))
 	true_w =[0, 1]
-	plot!(-1:0.1:1.1, (x) -> true_w[1] + true_w[2]*x, lw=2, label="the true signal: " * L"h(x)", title="Probabilistic linear regression", size=(650,400))
+	plot!(-1:0.1:1.1, (x) -> true_w[1] + true_w[2]*x, lw=2, label="the true signal: " * L"h(x)")
 	true_σ² = 0.05
 	σ²0 = true_σ²
 	xis = xs
@@ -848,51 +621,71 @@ let
 		xs_ = μi- 4 * σ :0.05:μi+ 4 * σ
 		ys_ = pdf.(Normal(μi, sqrt(σ²0)), xs_)
 		ys_ = 0.1 *ys_ ./ maximum(ys_)
-		if i == 1
-			plot!(ys_ .+x, xs_, c=1, label=L"p(y|x)", linewidth=1.0)
-		else
-			plot!(ys_ .+x, xs_, c=1, label="", linewidth=1.0)
-		end
-		
+		# scatter!([x],[μi], markerstrokewidth =1, markershape = :diamond, c=:grey, label="", markersize=3)
+		plot!(ys_ .+x, xs_, c=:grey, label="", linewidth=.5)
 		scatter!([xis[i]],[ys[i]], markershape = :circle, label="", c=1, markersize=4)
 	end
 
 	gif(anim; fps=4)
-end
+end)
 
-# ╔═╡ 81aa6f2c-a1ca-43f4-a550-a3ec45d2faaa
+# ╔═╡ 866e6bfe-748b-424c-b0af-b6f51c15be21
+md"
+Select ``x^{(i)}``: $(@bind add_i Slider(1:length(xs); show_value=true))
+"
+
+# ╔═╡ 1ae4fa36-0faa-438b-8be3-292ec7b617a0
+TwoColumnWideLeft(let
+	gr()
+	plt = plot(xs, zeros(length(xs)), st=:scatter, framestyle=:origin, labels=L"x", color=:black, ms=5, markershape=:x, xlabel=L"x", ylim=[-0.2, 1.2], ylabel=L"y", legend=:outerbottom, size=(450,350))
+
+	if add_h
+		plot!(-1.1:0.01:1.1, (x) -> logistic(true_w[1] + true_w[2]*x), lw=2, label="the true signal: " * L"h(x)")
+	end
+	# σ²0 = true_σ²
+	xis = xs
+	i = add_i
+
+	if add_yi
+		shapes = [:diamond, :circle]
+		scatter!([xis[i]],[ys[i]], markershape = shapes[ys[i] + 1], label="observation: "*L"y^{(i)}\sim \texttt{Bern}(\sigma^{(i)})", c = ys[i] +1, markersize=8)
+	end
+
+	plt
+end, 
+	let 
+	gr()
+	xis = xs
+	i = add_i
+	if add_pyi
+		x = xis[i]
+		μi = dot(true_w, [1, x])
+		σ = logistic(μi)
+		# scatter!([x],[μi], markerstrokewidth =1, markershape = :diamond, c=:grey, label="signal: "*L"h(x)", markersize=3)
+		# plot!(ys_ .+x, xs_, c=:grey, label="", linewidth=2)
+		plot(["y = 0", "y = 1"], [1-σ, σ], st=:bar, orientation=:v, size=(250,250), title="Bias: "*L"\sigma(x^{(i)})=%$(round(σ, digits=2))", ylim =(0, 1.02), label="", ylabel=L"P(y|x)" )
+	else
+		plot(size=(250,250))
+	end
+	
+end)
+
+# ╔═╡ 3e980014-daf7-4d8b-b9e6-14a5d078e3b6
 md"""
-
-## (Probabilistic) regression models
-
-
-#### Probabilistic linear regression
-
-> $\large \begin{align}p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) &= \mathcal{N}(y^{(i)};  \mathbf{w}^\top \mathbf{x}^{(i)} , \sigma^2)\end{align}$
-> * ``y^{(i)}`` is a Gaussian distributed with mean $\mathbf{w}^\top \mathbf{x}^{(i)}$ and variance $\sigma^2$ 
-
-#### Probabilistic logistic regression
-
-> ```math
-> \large
-> 
-> p(y^{(i)}|\mathbf{w}, \mathbf{x}^{(i)}) = \texttt{Bernoulli}(\sigma^{(i)}) =\begin{cases}\sigma^{(i)} & y^{(i)} =1
-> \\
-> 1-\sigma^{(i)} & y^{(i)} = 0   \end{cases}
-> ```
-> * ``\sigma^{(i)} = \sigma(\mathbf{w}^\top \mathbf{x}^{(i)})``
-> * ``y^{(i)}`` is a Bernoulli distributed with a bias $\sigma(\mathbf{w}^\top \mathbf{x}^{(i)})$
-
-
+## Demonstration (animation)
 """
 
-# ╔═╡ 0b5237ce-d9a5-4ca2-b616-4c59c6b1dd12
+# ╔═╡ 6cbddc5d-ae3f-43ac-9b7a-bbc779739353
+begin
+	bias = 0.0 # 2
+	slope = 1 # 10, 0.1
+end;
+
+# ╔═╡ 5d2f56e8-21b2-4aa9-b450-40f7881489e0
 let
 	gr()
 	n_obs = 20
-	bias = .5 # 2
-	slope = 1.2 # 10, 0.1
-	logistic = σ
+	# logistic = σ
 	Random.seed!(4321)
 	xs = sort(rand(n_obs) * 10 .- 5)
 	true_w = [bias, slope]
@@ -918,7 +711,7 @@ let
 		scatter!(plt, [xis[i]],[ys[i]], markershape = :circle, label="", c=ys[i]+1, markersize=5)
 		vline!(plt, [x], ls=:dash, lc=:gray, lw=0.2, label="")
 		plt2 = plot(Bernoulli(logistic(true_w[1] + true_w[2]*x)), st=:bar, yticks=(0:1, ["negative", "positive"]), xlim=[0,1.01], orientation=:h, yflip=true, label="", title=L"p(y|{x})", color=1:2)
-		plot(plt, plt2, layout=grid(2, 1, heights=[0.85, 0.15]), size=(700,500))
+		plot(plt, plt2, layout=grid(2, 1, heights=[0.85, 0.15]), size=(650,500))
 	end
 	# ys = xs * true_w[2] .+ true_w[1] + randn(length(xs)) * sqrt(σ²0)
 	
@@ -929,255 +722,920 @@ let
 	gif(anim; fps=4)
 end
 
-# ╔═╡ 68d6c0bd-0d71-48ba-97c2-53681fdc6e61
+# ╔═╡ 64a5e292-14b4-4df0-871d-65d9fec6201d
+# let
+# 	gr()
+# 	Random.seed!(4321)
+# 	xs = sort(rand(n_obs) * 10 .- 5)
+# 	true_w = [bias, slope]
+# 	# true_σ² = 0.05
+# 	ys = zeros(Bool, n_obs)
+# 	for (i, xⁱ) in enumerate(xs)
+# 		hⁱ = true_w' * [1, xⁱ]
+# 		# ys[i] = hⁱ + rand(Normal(0, sqrt(true_σ²)))
+# 		ys[i] = rand() < logistic(hⁱ)
+# 	end
 
+# 	x_centre = -true_w[1]/true_w[2]
+
+# 	plt = plot(xs, zeros(length(xs)), st=:scatter, framestyle=:origin, labels=L"x", color=:black, ms=5, markershape=:x, xlabel=L"x", ylim=[-0.1, 1.2], ylabel=L"y", legend=:outerbottom)
+# 	# true_w =[0, 1]
+# 	plot!(min(-5 + x_centre, -5):0.01:max(x_centre +5, 5), (x) -> logistic(true_w[1] + true_w[2]*x), lw=2, label="the regression function: " * L"\sigma(x)", title="Probabilistic model for logistic regression")
+
+# 	xis = xs
+
+# 	# ys = xs * true_w[2] .+ true_w[1] + randn(length(xs)) * sqrt(σ²0)
+# 	anim = @animate for i in 1:length(xis)
+# 		x = xis[i]
+# 		scatter!([xis[i]],[ys[i]], markershape = :circle, label="", c=ys[i]+1, markersize=5)
+# 	end
+
+# 	gif(anim; fps=5)
+# end
+
+# ╔═╡ 96b18c60-87c6-4c09-9882-fbbc5a53f046
 md"""
 
-## All are probabilistic models 
+## Probabilistic model for binary classification
 
 
-#### Probabilistic linear regression
-
-> $\large \begin{align}p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) &= \mathcal{N}(y^{(i)};  \mathbf{w}^\top \mathbf{x}^{(i)} , \sigma^2)\end{align}$
-> * ``y^{(i)}`` is a Gaussian distributed with mean $\mathbf{w}^\top \mathbf{x}^{(i)}$ and variance $\sigma^2$ 
-
-#### Probabilistic logistic regression
 
 > ```math
 > \large
 > 
-> p(y^{(i)}|\mathbf{w}, \mathbf{x}^{(i)}) = \texttt{Bernoulli}(\sigma^{(i)}) =\begin{cases}\sigma^{(i)} & y^{(i)} =1
+> p(y^{(i)}|\mathbf{w}, \mathbf{x}^{(i)}) = \texttt{Bernoulli}(\sigma^{(i)}) =\begin{cases}\sigma(\mathbf{w}^\top\mathbf{x}^{(i)}) & y^{(i)} =1
 > \\
-> 1-\sigma^{(i)} & y^{(i)} = 0   \end{cases}
+> 1-\sigma(\mathbf{w}^\top\mathbf{x}^{(i)}) & y^{(i)} = 0   \end{cases}
 > ```
-> * ``\sigma^{(i)} = \sigma(\mathbf{w}^\top \mathbf{x}^{(i)})``
-> * ``y^{(i)}`` is a Bernoulli distributed with a bias $\sigma(\mathbf{w}^\top \mathbf{x}^{(i)})$
 
-#### Probabilistic softmax regression
+* short-hand notation ``\sigma^{(i)} =\sigma(\mathbf{w}^\top\mathbf{x}^{(i)})``
 
-> ```math
-> \large
-> 
-> p(y^{(i)}|\mathbf{W}, \mathbf{x}^{(i)}) = \texttt{Categorical}(\boldsymbol\sigma^{(i)}) =\begin{cases}\sigma^{(i)}_1 & y^{(i)} =1
-> \\
-> \sigma^{(i)}_2 & y^{(i)} =2 \\
-> \vdots & \vdots \\
-> \sigma_C^{(i)} & y^{(i)} = C\end{cases}
-> ```
-> * ``y^{(i)}`` is a Categorical distributed with parameter $\boldsymbol\sigma^{(i)}=\texttt{softmax}(\mathbf{W} \mathbf{x}^{(i)} +\mathbf{b})$
-> * ``\texttt{Categorical}`` is also known as ``\texttt{Multinoulli}`` (with ``n=1``)
+
+Recall the above likelihood can be written in one-line
+
+```math
+\large
+p(y^{(i)}|\mathbf{w}, \mathbf{x}^{(i)}) =  (\sigma^{(i)})^{y^{(i)}} (1-\sigma^{(i)})^{1- y^{(i)}}
+```
+
+
+And its log transformation (log-likelihood) is 
+
+
+```math
+\large
+\ln p(y^{(i)}|\mathbf{w}, \mathbf{x}^{(i)}) =  {y^{(i)}} \ln \sigma^{(i)}+ (1- y^{(i)}) \ln (1-\sigma^{(i)})
+```
 """
 
-# ╔═╡ 00fb253a-ad48-4d28-af17-5cdbc2cb81cb
-let
+# ╔═╡ 35d5f991-5194-4174-badc-324ad7d15ac3
+md"""
+
+## (Log-)likelihood function
+
+
+
+For logistic regression model
+
+* the unknown (hypothesis) are: ``\mathbf{w}``
+
+* the data observations are: ``\mathcal{D} =\{y^{(1)}, y^{(2)}, \ldots, y^{(n)}\}``
+
+* as usual, ``\{\mathbf{x}^{(i)}\}`` are assumed fixed
+
+
+
+Therefore, the log-likelihood function is
+
+```math
+\large
+\begin{align}
+\ln p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{i}\}) &= \sum_{i=1}^n \ln p(y^{(i)}|\mathbf{w}, \mathbf{x}^{(i)}) \\
+
+&= \sum_{i=1}^n {y^{(i)}} \ln \sigma^{(i)}+ (1- y^{(i)}) \ln (1-\sigma^{(i)})
+\end{align}
+```
+
+
+In practice, we use take the average/mean loss rather than the sum
+
+```math
+\large
+\frac{1}{n}\ln p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{i}\}) =\colorbox{pink}{$\frac{1}{n}$}\sum_{i=1}^n {y^{(i)}} \ln \sigma^{(i)}+ (1- y^{(i)}) \ln (1-\sigma^{(i)})
+```
+
+
+
+## MLE
+
+**Learning** is just to maximise the log likelihood function *w.r.t.* ``\mathbf{w}``, which is **MLE**
+
+
+```math
+\hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\max_{\mathbf{w}} \ln p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{i}\})
+```
+
+or minimise its negative (also known as **cross-entropy** (CE) loss)
+
+
+```math
+\large
+\hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}} \underbrace{-\ln p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{i}\})}_{\text{CE loss}(\mathbf{w})}
+```
+
+"""
+
+# ╔═╡ f693814d-9639-4abb-a5b4-e83fe7a28a77
+md"""
+
+## Cross-entropy loss -- how ?
+
+
+##### *Cross-entropy* loss but _WHY_ and _How_?
+\
+
+Consider one observation ``\{\mathbf{x}^{(i)}, y^{(i)}\}`` only, the loss is
+
+```math
+\large
+\begin{align}
+ \text{CE}(\mathbf{w}) = - {y^{(i)}} \ln \sigma^{(i)}- (1- y^{(i)}) \ln (1-\sigma^{(i)})
+\end{align}
+```
+When ``y^{(i)} = 1``, *i.e.* the true label is 1, the loss becomes 
+
+```math
+\large
+\begin{align}
+y^{(i)} = 1\; \Rightarrow\; \text{CE error}^{(i)} &= - 1 \ln \sigma^{(i)}- (1- 1) \ln (1-\sigma^{(i)})\\
+&= - \ln (\sigma^{(i)})
+\end{align}
+```
+"""
+
+# ╔═╡ 67f7449f-19b8-4607-9e32-0f8a16a806c0
+TwoColumn(md"""
+
+\
+\
+
+
+When ``y^{(i)} = 1``, *i.e.* the true label is 1, the loss becomes 
+
+\
+
+```math
+\begin{align}
+ \text{CE}(\mathbf{w}) &= - 1 \ln \sigma^{(i)}- (1- 1) \ln (1-\sigma^{(i)})\\
+&= - \ln (\sigma^{(i)})
+\end{align}
+```
+
+
+* when the prediction is correct,  the loss is zero
+* when the prediction is wrong, the loss is `Inf` loss
+
+""", let
 	gr()
-	# logistic = σ
-	Random.seed!(12345)
-	n_obs = 35
-
-	xs = sort(rand(n_obs) * 10 .- 5)
-	# true_W = randn(3, 1) * 3
-	# true_b = [0, -10, 1]
-
-	
-	true_W = [-2, 0, 2]
-	true_b =[0,3,0]
-	σs = softmax(true_W * xs' .+ true_b)
-	ys = rand.([Categorical(p[:]) for p in eachcol(σs)])
-	x_centre = 0
-	plt = plot(xs, zeros(length(xs)), st=:scatter, framestyle=:origin, labels=L"x", color=:black, ms=5, markershape=:x, xlabel=L"x", ylim=[-0.1, 1.2], ylabel=L"p(y|x)", legend=:outerbottom)
-	# # true_w =[0, 1]
-	for c in 1:3
-		plot!(plt, min(-6 + x_centre, -5):0.01:max(x_centre +6, 5), (x) -> softmax(true_b + true_W * x)[c], lw=2, label="softmax: " * L"p(y=%$(c)|x)=\sigma_{%$(c)}(x)", title="Probabilistic model for softmax regression", legendfontsize=10)
-	end
-
-	xis = xs
-	anim = @animate for i in 1:length(xis)
-		x = xis[i]
-		scatter!(plt, [xis[i]],[(ys[i] -1) *0.5], markershape = :circle, label="", c=ys[i]+1, markersize=5)
-		vline!(plt, [x], ls=:dash, lw=0.2, lc=:gray, label="")
-		plt2 = plot(Categorical(σs[:, i]), st=:bar, yticks=(1:3, [L"y= 1", L"y= 2", L"y= 3"]), xlim=[0,1.01], orientation=:h, yflip=true, label="", color=[2,3,4], title=L"p(y|{x})")
-		plot(plt, plt2, layout=grid(2, 1, heights=[0.8, 0.2]),size=(700,500))
-	end
-	gif(anim; fps=4)
-end
-
-# ╔═╡ 3bf0cab8-de5d-4a58-b92e-c530aeca7547
-md"""
-
-## MLE is Cross-entropy
+	plot(0:0.005:1, (x) -> -log(x), lw=2, xlabel="Predicted probability: "* L"\sigma^{(i)}", ylabel="loss", label=L"-\ln \sigma^{(i)}", title=L"y^{(i)}=1"* ": i.e. class label is 1", annotate = [(1, 0.9, text("perfect pred", "Computer Modern", :right, rotation = 270 ,:green, 12)), (0.11, 3.5, text("worst pred", :right, "Computer Modern", rotation = 270 ,:red, 12))], size=(350,350))
 
 
-#### Probabilistic softmax regression
+	quiver!([1], [0.8], quiver=([1-1], [0-0.8]), c=:green, lw=3)
+	quiver!([0.07], [5], quiver=([0.0- 0.06], [5-5]), c=:red, lw=3)
 
-> ```math
-> \large
-> \begin{align}
-> p(y^{(i)}|\mathbf{W}, \mathbf{x}^{(i)}) &= \texttt{Categorical}(\boldsymbol\sigma^{(i)}) =\begin{cases}\sigma^{(i)}_1 & y^{(i)} =1
-> \\
-> \sigma^{(i)}_2 & y^{(i)} =2 \\
-> \vdots & \vdots \\
-> \sigma_C^{(i)} & y^{(i)} = C\end{cases}\\
-> &=\prod_{j=1}^C (\sigma^{(i)}_j)^{I(y^{(i)}=j)}
-> \end{align}
-> ```
-> * ``y^{(i)}`` is a Categorical distributed with parameter $\boldsymbol\sigma^{(i)}= \texttt{softmax}(\mathbf{Wx}+\mathbf{b})$
-> * ``\texttt{Categorical}`` is also known as ``\texttt{Multinoulli}`` (with ``n=1``)
+	quiver!([0.25], [2], quiver=([0.75- 0.25], [2-2]), c=:green, lw=3)
+	quiver!([0.75], [3], quiver=([0.25- 0.75], [3-3]), c=:red, lw=3)
+	annotate!(0.5, 2.1, text("better","Computer Modern", :green, :bottom))
+	annotate!(0.5, 3.1, text("worse","Computer Modern", :red, :bottom))
+end)
 
-The log-likelihood becomes 
-
-
-```math
-\large 
-\begin{align}
-\ln p(y^{(i)}|\mathbf{W}, \mathbf{x}^{(i)}) &= \ln \prod_{j=1}^C (\sigma_j^{(i)})^{I(y^{(i)} = j)} = \sum_{j=1}^C I(y^{(i)} = j) \ln\sigma_j^{(i)}\\
-&=\sum_{j=1}^C I(y^{(i)} = j) \ln\sigma_j^{(i)}
-\end{align}
-```
-
-* the negative value is the same as cross entropy
-* note that ``\sigma_j^{(i)} = \hat{y}_j^{(i)}``: the class ``j``'s softmax output
-* and here ``y^{(i)} \in \{1,2,\ldots, C\}`` (not one-hot encoded)
-"""
-
-# ╔═╡ 8986d0dc-fb2e-43dc-b61a-f38ce1f94d1a
-md"""
-
-## CE loss summary
-
-
-The total loss over all training data is
-
-$$
-\large
-\begin{align}
-L(\{\mathbf{y}^{(i)}\}; \{\hat{\mathbf{y}}^{(i)}\}) &= - \sum_{i=1}^n\sum_{j=1}^C  {y}_j^{(i)} \ln \underbrace{\hat{P}(y^{(i)} =j| \mathbf{x}^{(i)})}_{\text{softmax: } \hat{\mathbf{y}}_j}\\
-&=- \sum_{i=1}^n\sum_{j=1}^C  {y}_j^{(i)} \ln \hat{{y}}_j^{(i)}
-\end{align}$$
-
-- ``\mathbf{y}`` is the one-hot encoded label
-- ``\hat{\mathbf{y}}`` is the softmax output
-
-"""
-
-# ╔═╡ 0d38feef-ea74-4f99-8064-8fa7a6d4d6ae
-md"""
-
-## Gradient of softmax regression
-
-
-The **gradient** for _softmax regression_ is
-
-
-```math
-\large
-\nabla L^{(i)}(\mathbf{W})  = -  \underbrace{(\mathbf{y}^{(i)} - \hat{\mathbf{y}}^{(i)})}_{\text{pred. error for }i} \cdot (\mathbf{x}^{(i)})^\top
-```
-* ``\mathbf{y}``: one-hot vector
-* ``\hat{\mathbf{y}}``: softmax output vector
-
-* note the gradient dimension is ``C\times m`` which is of the same dimension of ``\mathbf{W}``
-
-```math
--\boxed{(\mathbf{y}^{(i)} - \hat{\mathbf{y}}^{(i)})}_{C\times 1} \cdot \boxed{(\mathbf{x}^{(i)})^\top}_{1\times m}
-```
-
-the gradient is the generalisation of the binary logistic regression case, where
-
-```math
-\nabla L^{(i)}(\mathbf{w})  = -  \underbrace{({y}^{(i)} - \hat{{y}}^{(i)})}_{\text{pred. error for }i} \cdot \mathbf{x}^{(i)}\;\;\; \# \text{binary loss's gradient}
-```
-"""
-
-# ╔═╡ 67dbd8c3-3200-4a6c-b8ca-bf17aff233e4
-md"""
-
-## Vectorised gradient
-
-
-The total **gradient** for _softmax regression_ is
-
-```math
-\large
-\begin{align}
-\nabla L(\mathbf{W})   &= \sum_{i=1}^n\nabla L^{(i)}(\mathbf{W})  = - \sum_{i=1}^n {(\mathbf{y}^{(i)} - \hat{\mathbf{y}}^{(i)})} \cdot (\mathbf{x}^{(i)})^\top \\
-&=- (\mathbf{Y} -\hat{\mathbf{Y}})^\top\cdot {\mathbf{X}}
-\end{align}
-```
-* ``\mathbf{Y}_{n\times C}``: one-hot vector of the full batch
-* ``\hat{\mathbf{Y}}_{n\times C}``: softmax outputs of the full batch
-
-* note again the dimension matches, *i.e.* ``C\times m`` which is of the same dimension of ``\mathbf{W}``
-
-```math
-\boxed{(\mathbf{Y} -\hat{\mathbf{Y}})^\top}_{C\times n}\cdot \boxed{\mathbf{X}}_{n\times m}
-```
-"""
-
-# ╔═╡ 80cdc39a-86be-45c1-8cde-5389c99ad354
+# ╔═╡ fb0361a6-c967-4dcd-9002-55ae25e225a5
 aside(tip(md"""
 
-Assume ``\mathbf{x}_i`` is the ``i``th-row of ``\mathbf{X}_{n\times m}`` , then
+Recall ``\sigma^{(i)} = p(y^{(i)}=1|\mathbf{x}^{(i)})``
+
+"""))
+
+# ╔═╡ 5c0eaab3-de6d-457f-a0c3-8ea6b5da2c88
+md"""
+
+##
+"""
+
+# ╔═╡ de93ac5e-bec6-4764-ac6d-f84076ff20ee
+TwoColumn(md"""
+
+\
+\
+
+
+When ``y^{(i)} = 0``, *i.e.* the true label is 0, the loss becomes 
+
+\
+
 ```math
-\sum_{i=1}^n \mathbf{x}_i\mathbf{x}_i^\top =\mathbf{X}^\top\mathbf{X}
+\begin{align}
+ \text{CE}(\mathbf{w}) &= - 0 \ln \sigma^{(i)}- (1- 0) \ln (1-\sigma^{(i)})\\
+&= - \ln (1-\sigma^{(i)})
+\end{align}
+```
+""", let
+	gr()
+	plot(0:0.005:1, (x) -> -log(1-x), lw=2, xlabel="Predicted probability: "* L"\sigma^{(i)}", ylabel="loss", label=L"-\ln(1-\sigma^{(i)})", title=L"y^{(i)}=0"* ": the true class label is 0", size=(350,350))
+
+
+	# quiver!([0], [0.8], quiver=([1-1], [0-0.8]), c=:red, lw=3)
+	
+	# quiver!([0.07], [5], quiver=([0.0- 0.06], [5-5]), c=:green, lw=3)
+
+	quiver!([0.25], [2], quiver=([0.75- 0.25], [2-2]), c=:red, lw=3)
+	quiver!([0.75], [3], quiver=([0.25- 0.75], [3-3]), c=:green, lw=3)
+	annotate!(0.5, 2.1, text("worse", "Computer Modern", :red, :bottom))
+	annotate!(0.5, 3.1, text("better", "Computer Modern", :green, :bottom))
+end)
+
+# ╔═╡ a50cc950-45ca-4745-9f47-a3fbb28db782
+md"""
+
+
+## Surrogate loss
+
+
+"""
+
+# ╔═╡ 1421c748-083b-4977-8a88-6a39c9b9906d
+TwoColumn(md"""
+
+\
+\
+
+For classification, a more **natural** **loss** is 1/0 classification accuracy:
+
+
+```math
+\large
+\begin{align}
+\ell_{1/0}(\mathbf{y}, \hat{\mathbf{y}}) = \frac{1}{n}\sum_{i=1}^n \mathbb{I}(y^{(i)} \neq \hat{y}^{(i)})\\
+\text{where }\; \hat{y}^{(i)} = \mathbb{I}(\sigma^{(i)} > 0.5)
+\end{align}
 ```
 
-Similarly, assume ``\mathbf{Y}_{(n\times l)}`` and ``\mathbf{y}_{i}`` is the ``i``th-row, then
+* however, this loss is **not** differentiable 
+* the gradients are zero _everywhere_
+
+""", let
+	gr()
+
+	plot(0:0.001:1, (x) -> x < .5, lw=4, xlabel="Predicted probability: "* L"\sigma^{(i)}", ylabel="loss", label=L"1/0"* " loss", title="When the class label is 1", ylim =[-0.2, 4], size=(350,350))
+
+	# plot(0:0.005:1, (x) -> -log(x), lw=2, xlabel="Predicted probability: "* L"\sigma^{(i)}", ylabel="loss", label=L"-\ln \sigma^{(i)}", title=L"y^{(i)}=1"* ": i.e. class label is 1",  size=(550,350))
+
+
+	# quiver!([1], [0.8], quiver=([1-1], [0-0.8]), c=:green, lw=3)
+	# quiver!([0.07], [5], quiver=([0.0- 0.06], [5-5]), c=:red, lw=3)
+
+	quiver!([0.25], [2], quiver=([0.75- 0.25], [2-2]), c=:green, la=0.5, lw=3)
+	quiver!([0.75], [3], quiver=([0.25- 0.75], [3-3]), c=:red, lw=3)
+	annotate!(0.5, 2.1, text("better", "Computer Modern", :green, :bottom))
+	annotate!(0.5, 3.1, text("worse", "Computer Modern", :red, :bottom))
+end)
+
+# ╔═╡ 82baa991-6df5-4561-9643-52db96c5e99b
+md"""
+
+
+## Surrogate loss
+
+"""
+
+# ╔═╡ 9a02f4f8-38d6-44a4-9118-1440bfc4d271
+TwoColumn(md"""
+
+\
+\
+\
+\
+
+**Cross-entropy**: is a **surrogate loss** for the **1/0** loss
+* it **approximates**/**traces** the desired loss
+
+""", let
+	gr()
+
+	plot(0:0.001:1, (x) -> x < .5, lw=2, xlabel="Predicted probability: "* L"\sigma^{(i)}", ylabel="loss", label=L"1/0"* " loss", title="When the class label is 1", ylim =[-0.2, 5], size=(350,350))
+
+	plot!(0:0.005:1, (x) -> -log(x), lw=2, xlabel="Predicted probability: "* L"\sigma^{(i)}", ylabel="loss", label="Cross Entropy loss")
+
+	plot!(0:0.005:1, (x) -> (x-1)^2, lw=2, lc=4, label="Squared error loss")
+
+	# plot!(0:0.005:1, (x) -> (1-x)^2+ (x-1)^2, lw=2, lc=4, ls=:dash, label="Bier loss")
+	# quiver!([1], [0.8], quiver=([1-1], [0-0.8]), c=:green, lw=3)
+	# quiver!([0.07], [5], quiver=([0.0- 0.06], [5-5]), c=:red, lw=3)
+
+	quiver!([0.25], [2], quiver=([0.75- 0.25], [2-2]), c=:green, la=0.5, lw=3)
+	quiver!([0.75], [3], quiver=([0.25- 0.75], [3-3]), c=:red, lw=3)
+	annotate!(0.5, 2.1, text("better", "Computer Modern", :green, :bottom))
+	annotate!(0.5, 3.1, text("worse", "Computer Modern", :red, :bottom))
+end)
+
+# ╔═╡ ce822f87-d2c4-434b-9b5d-b629962d2df2
+md"""
+
+# Logistic regression -- Learning
+"""
+
+# ╔═╡ 9d25c603-07b3-4758-9b28-0d2041e18569
+md"""
+
+## Learning -- gradient descent
+
+
+**Learning** is to minimise the **cross-entropy** (CE) loss
+
 
 ```math
-\sum_{i=1}^n \mathbf{y}_i\mathbf{x}_i^\top =\mathbf{Y}^\top\mathbf{X}
+\large
+\hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}} \underbrace{-\frac{1}{n}\ln p(\mathcal{D}|\mathbf{w}, \{\mathbf{x}^{(i)}\})}_{\text{CE loss}(\mathbf{w})}
+```
+
+> Optimisation: **gradient descent**
+
+##
+
+----
+
+
+**Bach gradient descent algorithm:**
+
+
+
+* random guess ``\large\mathbf{w}_0``
+
+* while **not converge**
+  * ``\large\mathbf{w}_t \leftarrow \mathbf{w}_{t-1} - \gamma \nabla L(\mathbf{w}_{t-1})``
+-----
+
+and recall the binary **C**ross **E**ntropy (CE) _loss_ is 
+
+
+```math
+\large
+L(\mathbf{w}) =\frac{1}{n} \sum_{i=1}^n L^{(i)}(\mathbf{w}) = \frac{1}{n}\sum_{i=1}^n \underbrace{-{y^{(i)}} \ln \sigma^{(i)}- (1- y^{(i)}) \ln (1-\sigma^{(i)})}_{L^{(i)}(\mathbf{w})}
+```
+
+"""
+
+# ╔═╡ 929916d2-9abf-40b2-9399-85c3ba05989b
+md"""
+
+## Learning -- gradient descent
+
+
+**Learning** is to minimise the **cross-entropy** (CE) loss
+
+
+```math
+\large
+\hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}} \underbrace{-\frac{1}{n}\sum_{i=1}^n {{y^{(i)}} \ln \sigma^{(i)}+ (1- y^{(i)}) \ln (1-\sigma^{(i)})}}_{\text{CE loss}(\mathbf{w})}
+```
+
+> Optimisation: **gradient descent**
+
+
+##
+
+The **gradient** for _logistic regression_ is
+
+
+```math
+\large
+\nabla_{\mathbf{w}}L(\mathbf{w})  = -\frac{1}{n}\sum_{i=1}^n \underbrace{(y^{(i)} - \sigma^{(i)})}_{\text{pred. error for }i} \cdot \mathbf{x}^{(i)} 
+```
+
+Recall the **gradient** for _linear regression_ is
+
+
+```math
+\large
+\nabla_{\mathbf{w}}L(\mathbf{w})  = -\frac{1}{n}\sum_{i=1}^n \underbrace{(y^{(i)} - \mathbf{w}^{\top} \mathbf{x}^{(i)})}_{\text{pred. error for }i} \cdot \mathbf{x}^{(i)} 
+```
+
+> The same idea: gradient is proportional to the prediction quality
+> * prediction is perfect: gradient is near zero
+> * otherwise, increase/decrease accordingly
+"""
+
+# ╔═╡ 8743242e-7f7f-4f54-b27c-1f08d1a110e2
+aside(tip(md"""
+
+
+Use the fact
+
+```math
+\sigma'(x) = \sigma(x) (1-\sigma(x))
+```
+
+Note that 
+
+
+```math
+
+\sigma^{(i)} = \sigma(\mathbf{w}^\top\mathbf{x}^{(i)}),
+```
+
+The gradient *w.r.t.* ``\mathbf{w}`` can be easily derived based on chain rule
+
+
+Let ``z = \mathbf{w}^\top\mathbf{x}^{(i)}``, and ``\sigma^{(i)} = \sigma(z)``,
+
+Based on the chain rule:
+
+```math
+\begin{align}
+\nabla_{\mathbf{w}} \sigma^{(i)} &= \frac{\partial \sigma^{(i)}}{\partial z} \frac{\partial z}{\partial \mathbf{w}} \\
+&= \sigma^{(i)} (1- \sigma^{(i)}) \cdot \mathbf{x}^{(i)}
+
+\end{align}
 ```
 
 """))
 
-# ╔═╡ a1144fd3-45ba-47c1-a1f1-3ca7e53574a0
+# ╔═╡ aaaadaa8-d2e9-4647-82de-5547b2d6ddb4
 md"""
 
-## Demonstration -- softmax regression
+## Gradient -- matrix notation
 
-We apply **mini-batch** stochastic gradient descent
+The gradient is
 
-* learning rate ``0.05``
-* ``1000`` epochs with mini-batch size of ``50``
+
+```math
+\large
+\nabla_{\mathbf{w}}L(\mathbf{w})  = - \frac{1}{n}\sum_{i=1}^n \underbrace{(y^{(i)} - \sigma^{(i)})}_{\text{pred. error for }i} \cdot \mathbf{x}^{(i)} 
+```
+
+In matrix notation, 
+
+```math
+\large
+\nabla L(\mathbf{w}) =\frac{1}{n} \mathbf{X}^\top (\boldsymbol{\sigma} - \mathbf{y})
+```
+
+where 
+
+```math
+\large
+\boldsymbol{\sigma} = \begin{bmatrix}
+\sigma({\mathbf{w}^\top\mathbf{x}^{(1)}})\\
+\sigma({\mathbf{w}^\top\mathbf{x}^{(2)}})\\
+\vdots\\
+
+\sigma({\mathbf{w}^\top\mathbf{x}^{(n)}})
+\end{bmatrix} = \begin{bmatrix}
+\sigma^{(1)}\\
+\sigma^{(2)}\\
+\vdots\\
+
+\sigma^{(n)}
+\end{bmatrix}
+```
 """
 
-# ╔═╡ b5585816-fd8c-45ca-9b90-4b8a5a3209ad
+# ╔═╡ 6e62b53d-68d8-45de-9a0f-8223b5d2df92
 md"""
-Add class ``c``'s decision contour: $(@bind sf_c Select(1:1:3));
-Add the total decision boundary: $(@bind add_sf CheckBox(default=false))
+
+## Gradient derivation (details)
+
+
+Consider one training sample ``(\mathbf{x}^{(i)}, y^{(i)})``'s loss ``L^{(i)} (\mathbf{w})`` and its gradient ``\nabla{L}^{(i)}(\mathbf{w})``, where
+
+```math
+\begin{align}
+L^{(i)}(\mathbf{w}) 
+&= - {y^{(i)}} \ln \sigma^{(i)}- (1- y^{(i)}) \ln (1-\sigma^{(i)})
+\end{align}
+```
+
+Note that the full batch gradient is the mean of the gradients ``\nabla{L}(\mathbf{w}) = \frac{1}{n}\sum_{i=1}^n \nabla{L}^{(i)}(\mathbf{w})``.
+
+
+
+```math
+\begin{align}
+\nabla{L}^{(i)}(\mathbf{w}) &= \nabla\left (- {y^{(i)}} \ln \sigma^{(i)}- (1- y^{(i)}) \ln (1-\sigma^{(i)})\right )\\
+&= - {y^{(i)}}  \nabla \ln \sigma^{(i)}- (1- y^{(i)}) \nabla \ln (1-\sigma^{(i)})\\
+&= - {y^{(i)}} \frac{1}{\sigma^{(i)}} \nabla \sigma^{(i)}- (1- y^{(i)})\frac{1}{1-\sigma^{(i)}} \nabla  (1-\sigma^{(i)})\\
+&= - {y^{(i)}} \frac{\sigma^{(i)} (1-\sigma^{(i)})}{\sigma^{(i)}}  \nabla \mathbf{w}^\top \mathbf{x}^{(i)} - (1- y^{(i)})\frac{-\sigma^{(i)} (1-\sigma^{(i)})}{1-\sigma^{(i)}}  \nabla \mathbf{w}^\top \mathbf{x}^{(i)}\\
+&= - {y^{(i)}} (1-\sigma^{(i)})\cdot\mathbf{x}^{(i)} - (1- y^{(i)})(-\sigma^{(i)}) \cdot\mathbf{x}^{(i)}\\
+&= (- {y^{(i)}} +  {y^{(i)}}\sigma^{(i)} + \sigma^{(i)} -  {y^{(i)}}\sigma^{(i)} ) \cdot\mathbf{x}^{(i)}\\
+&= -( {y^{(i)}}-\sigma^{(i)} ) \cdot \mathbf{x}^{(i)}
+\end{align}
+```
 """
 
-# ╔═╡ f00080ad-8066-4a02-8bdb-c8a0a797e57e
+# ╔═╡ 7ed0de94-b513-40c1-9f83-6ed75fcd4cdd
 md"""
 
-## Comparison
+## Learing algorithm -- Implementation
+
+
+----
+
+
+**Bach gradient descent algorithm:**
+
+
+
+* random guess ``\large\mathbf{w}_0``
+
+* while **not converge**
+  * ``\large\mathbf{w}_t \leftarrow \mathbf{w}_{t-1} - \gamma \nabla L(\mathbf{w}_{t-1})``
+-----
+
 """
 
-# ╔═╡ ba883d58-6723-458f-b9a8-a7ff9c1f0a71
+# ╔═╡ 188e9981-9597-483f-b1e3-689e26389b61
 md"""
 
-## Julia implementation* 
 
-##### Softmax regression
+**Implementation in Python**
+
+
+```python
+def logistic(x):    
+    return 1/ (1 + np.exp(-x))
+```
+
+
+```python
+for i in range(0, max_iters):
+	yhats = logistic(Xs@w)
+    grad =  Xs.T@(yhats - ys) / np.size(ys)
+    w = w - gamma * grad 
+```
+
+
 """
 
-# ╔═╡ b6cd5910-4cee-4ac5-81b8-a3bf75da15f0
-function soft_max(x)  # the input can be a matrix; apply softmax to each column
-	ex = exp.(x .- maximum(x, dims=1))
-	ex ./ sum(ex, dims = 1)
+# ╔═╡ 50d9a624-20d8-4feb-a565-4efcaf22fe27
+# md"""
+
+# ## Gradient implementation and check
+
+
+# Now check the gradient as a routine task
+# * checking gradient should become your habit
+# """
+
+# ╔═╡ ec78bc4f-884b-4525-8d1b-138b37274ee7
+begin
+	function logistic_loss(w, X, y; agg=sum)
+		σ = logistic.(X * w)
+		# deal with boundary cases such as σ = 0 or 1, log(0) gracefully
+		# sum(y .* log.(σ) + (1 .- y).* log.(1 .- σ))
+		# rather you should use xlogy and xlog1py
+		(-(xlogy.(y, σ) + xlog1py.(1 .-y, -σ))) |> agg
+	end
+end;
+
+# ╔═╡ e88db991-bf54-4548-80cb-7cd307300ec9
+function ∇logistic_loss(w, X, y)
+	σ = logistic.(X * w)
+	X' * (σ - y)
+end;
+
+# ╔═╡ 99c3f5ee-63d0-4f6f-90d9-2e524a7e945a
+md"""
+
+## Demonstration -- gradient descent
+
+
+"""
+
+# ╔═╡ ff397d54-42b3-40af-bf36-4716fd9a4419
+md"""
+
+## Stochastic gradient descent
+
+
+
+**_Batch_ gradient descent algorithm:**
+ 
+* *batch*: means the **whole** ``n`` training instances
+
+----
+* random guess ``\large\mathbf{w}_0``
+
+* for each *epoch*
+  * run through all observations in training data
+  * ``\large\mathbf{w}_t \leftarrow \mathbf{w}_{t-1} - \gamma \nabla L(\mathbf{w}_{t-1})``
+-----
+
+
+
+_However_, the batch gradient can be prehibitively **expensive** to compute
+
+```math
+\Large
+\nabla L(\mathbf{w})  = \boxed{\frac{1}{n}\sum_{i=1}^n \underbrace{\colorbox{pink}{${-(y^{(i)} - \sigma^{(i)})}\cdot \mathbf{x}^{(i)}$}}_{\nabla L^{(i)}(\mathbf{w})}}_{\text{too expensive!}}
+```
+
+* it requires to store all ``n`` training data ``\{\mathbf{x}^{(i)}, y^{(i)}\}`` in memory: may not be feasible!
+
+
+
+
+
+"""
+
+# ╔═╡ fcc49f3c-6219-40b8-a5d0-85fa70738a8d
+md"""
+
+
+## Solution: stochastic gradient descent (SGD)
+
+"""
+
+# ╔═╡ 6dc74312-0e3b-4ead-b369-f9c2b70ab3d3
+TwoColumn(md"""
+
+\
+\
+\
+\
+\
+
+**Idea**: instead using all ``n``, use just **one random observation**'s gradient
+\
+
+```math
+\begin{align}
+\nabla L(\mathbf{w})  &= {\frac{1}{n}\sum_{i=1}^n \underbrace{\colorbox{pink}{${-(y^{(i)} - \sigma^{(i)})}\cdot \mathbf{x}^{(i)}$}}_{\nabla L^{(i)}(\mathbf{w})}}\\
+&\approx \nabla L^{(i)}(\mathbf{w})
+\end{align}
+```
+
+* noisy gradient instead of the mean
+* might even help avoid local optimum as a by-product
+
+
+""", let
+	gr()
+	vv = [.5, .5] *2
+	plt = plot([0, vv[1]], [0, vv[2]], lc=:blue, arrow=Plots.Arrow(:closed, :head, 10, 10),  st=:path, lw=2, c=:red,  xlim=[-.2, 2], ylim=[-.2, 2], ratio=1, label="",framestyle=:none, legend=:bottomright, size=(350,450), legendfontsize=12)
+	annotate!([vv[1] + .1], [vv[2] + .05], (L"\nabla L",14, :blue))
+	Random.seed!(123)
+	v = vv + randn(2) ./ 2.5
+	annotate!([v[1] + .3], [v[2] + .1], (L"\nabla L^{(i)}", 12, :gray))
+	plot!([0, v[1]], [0, v[2]], lc=:gray, arrow=Plots.Arrow(:open, :head,1,1),  st=:path, lw=.3, label="")
+	for i in 1:15
+		v = vv + randn(2) ./ 2.5
+		plot!([0, v[1]], [0, v[2]], lc=:gray, arrow = Plots.Arrow(:open, :head,1,1),  st=:path, lw=.3, label="")
+	end
+	plt
+end)
+
+# ╔═╡ e0f3cee1-b6ee-4399-8e4f-c0d70b94723e
+md"""
+
+## SGD
+
+
+
+
+**Stochastic gradient descent algorithm:**
+
+-----
+
+* random guess ``\large\mathbf{w}_0``
+
+* for each *epoch*
+  * randomly shuffle the data
+  * for each ``i \in 1\ldots n``
+    * ``\large\mathbf{w}_t \leftarrow \mathbf{w}_{t-1} - \gamma_t \nabla L^{(i)}(\mathbf{w}_{t-1})``
+-----
+
+
+The learning rate ``\gamma_t`` usually is adaptive or delaying (but small constant works reasonably well)
+
+```math 
+\large \gamma_t = \frac{1}{{iter}}\;\; \text{or}\;\; \gamma_t = \frac{1}{1\, +\, \eta\, \cdot\, iter}
+```
+
+* as the stochastic gradient can be noisy at the end
+
+
+"""
+
+# ╔═╡ aa5b5ee6-b5fe-4245-80fd-ab3ab3963d59
+md"""
+
+## Random shuffle
+
+##### Three variants:
+
+* ###### SGD: without shuffling
+
+
+* ###### SS: single shuffle
+
+
+
+* ###### RR: repeated random shuffle
+"""
+
+# ╔═╡ 819d01e1-4b81-4210-82de-eaf838b6a337
+html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/sgdcompare_logist.png
+' width = '800' /></center>"
+
+# ╔═╡ 4d4a45b5-e221-4713-b3fa-3eb36a813385
+md"""
+
+\* Koloskova *et al* (2023) *Shuffle SGD is Always Better than SGD: Improved Analysis of SGD with Arbitrary Data Orders*
+"""
+
+# ╔═╡ ea08837f-3535-4807-92e5-8091c3911948
+md"""
+## Mini-batch SGD
+
+
+We can also use mini-batch instead of just one observation
+
+* *e.g.* with a batch size ``5``
+* a trade-off between SGD and full batch GD
+
+
+
+**Mini-batch stochastic gradient descent**
+
+-----
+
+* random guess ``\large\mathbf{w}_0``
+
+* for each *epoch*
+  * split the data into equal batches ``\{B_1, B_2,\ldots, B_m\}``
+  * for each batch `b` in ``\{B_1, B_2,\ldots, B_m\}``
+    * ``\large\mathbf{w}_t \leftarrow \mathbf{w}_{t-1} - \gamma_t \frac{1}{|\mathtt{b}|} \sum_{i\in \mathtt{b}}\nabla L^{(i)}(\mathbf{w}_{t-1})``
+-----
+
+
+
+"""
+
+# ╔═╡ dc70f9a4-9b52-490a-9a94-95fe903401ce
+md"""
+
+## GD vs Mini-batch
+"""
+
+# ╔═╡ f7499d8d-e511-4540-ab68-84454b3d9cd9
+html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/ml_stochastic.png
+' width = '800' /></center>"
+
+# ╔═╡ 0cf4d7db-5545-4b1c-ba6c-d9a6a3501e0e
+md"""
+[*Watt, Borhani, and Katsaggelos (2023), Machine Learning Refined
+Foundations, Algorithms, and Applications](https://www.cambridge.org/highereducation/books/machine-learning-refined/0A64B2370C2F7CE3ACF535835E9D7955#overview)
+"""
+
+# ╔═╡ 9522421a-1f8e-494d-a61f-f5f8dff72c83
+md"""
+
+## SGD variants summary
+"""
+
+# ╔═╡ 39082958-54ed-4120-a7a1-f40f3dc9d965
+html"<center><img src='https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/sgd_compares.png
+' width = '800' /></center>"
+
+# ╔═╡ 3d0c370e-d3e5-40ec-8e66-745e4f990e18
+md"""
+[Source](avichawla.substack.com)
+"""
+
+# ╔═╡ 3583f790-bcc3-466b-95e8-e99a080e5658
+begin
+	Random.seed!(321)
+	true_ww = [1., 1] 
+	nobs = 100
+	xxs = range(-2, 2, nobs)
+	Xs = [ones(length(xxs)) xxs]
+	Ys = rand(nobs) .< logistic.(Xs * true_ww)
+end;
+
+# ╔═╡ 06a80959-58de-4e21-bfdf-5b06caf157f1
+w00 = [-10, 20];
+
+# ╔═╡ eb5b710c-70a2-4237-8913-cd69e34b8e50
+md"""
+
+## Demonstration
+
+
+A simulated logistic regression dataset
+* true ``\mathbf{w} = [1, 1]^\top``
+* learning rate ``\lambda = 0.25``
+* ``n=100`` training observations
+* ``100`` epochs (full data passes)
+"""
+
+# ╔═╡ ba0397a7-f514-42f8-b094-2ce5bd95b081
+batch_loss, batch_wws=let
+	# a very bad starting point: completely wrong prediction function
+	ww = w00
+	γ = 0.25
+	iters = 100
+	losses = zeros(iters+1)
+	wws = Matrix(undef, length(ww), iters+1)
+	losses[1] = logistic_loss(ww, Xs, Ys)
+	wws[:, 1] = ww 
+	nobs = length(Ys)
+	for i in 1:iters
+		gw = ∇logistic_loss(ww, Xs, Ys)/nobs
+		# Flux.Optimise.update!(opt, ww, -gt)
+		ww = ww - γ * gw
+		wws[:, i+1] = ww 
+		losses[i+1] = logistic_loss(ww, Xs, Ys)
+	end
+	losses, wws
+end;
+
+# ╔═╡ e1659838-ecf2-4205-b23c-227c586f6cc3
+sgd_loss, sgd_wws=let
+	# a very bad starting point: completely wrong prediction function
+	ww = w00
+	γ = 0.25
+	iters = 100
+	losses = zeros(iters+1)
+	wws = Matrix(undef, length(ww), iters+1)
+	losses[1] = logistic_loss(ww, Xs, Ys)
+	wws[:, 1] = ww 
+	for i in 1:iters
+		ts = shuffle(1:length(Ys))
+		for t in ts
+			gw = ∇logistic_loss(ww, Xs[t, :]', Ys[t])
+			ww = ww - γ * gw
+		end
+		wws[:, i+1] = ww 
+		losses[i+1] = logistic_loss(ww, Xs, Ys)
+	end
+	losses, wws
+end;
+
+# ╔═╡ 1039a13b-6665-4bb1-82f8-11b740c3b5ba
+let
+	gr()
+	plot(-12:0.1:10, -10:0.1:25, (x,y) ->logistic_loss([x,y], Xs, Ys), st=:contour, levels=10, framestyle=:none, colorbar=false, title="SGD with constant learning rate", legend=:outerbottom, size=(500, 450))
+	step = 1
+	# plot!(batch_wws[1,1:step:end], batch_wws[2, 1:step:end];  marker=(:diamond,3), label="Batch gradient descent", ls=:dashdot)
+
+	plot!(sgd_wws[1,1:step:end], sgd_wws[2, 1:step:end];  c=3, marker=(:x, 5), la=0.5, ls=:dashdot, label="Stochastic gradient descent")
+
+	# plot!(mini_b_sgd_wws[1,1:step:end], mini_b_sgd_wws[2, 1:step:end];marker=(:circle,5), ls=:dash, label="Minibatch SGD")
+	plot!([w00[1]], [w00[2]], st=:scatter, markershape=:diamond, mc=:black, markersize=10, label="")
+	annotate!([w00[1]], [w00[2] + .9], text("Random start", 12,  :bottom, :"Computer Modern"))
 end
 
-# ╔═╡ 41b227d5-fbbc-49f2-9d79-f928a7e66a3f
-function sfmax_reg_loss(W, b, X, y)
-	n = size(y)[2]
-	#forward pass
-	ŷ = soft_max(W * X .+ b)
-	loss = -sum(y .* log.(ŷ .+ eps(eltype(ŷ)))) /n
-	# backward pass
-	error = (y - ŷ)
-	gradW = - error * X'/n
-	gradb = - sum(error, dims=2)[:]/n
-	loss, gradW, gradb
+# ╔═╡ bf7cd9d6-c7a4-4715-a57c-d0acaef1e7d8
+mini_b_sgd_loss, mini_b_sgd_wws = let
+	ww = w00
+	γ = 0.25
+	iters = 100
+	losses = zeros(iters+1)
+	wws = Matrix(undef, length(ww), iters+1)
+	losses[1] = logistic_loss(ww, Xs, Ys)
+	wws[:, 1] = ww 
+	train_loader = DataLoader((data=Xs', label=Ys), batchsize=5, shuffle=true);
+	for i in 1:iters
+		for (xs, ys) in train_loader
+			gw = ∇logistic_loss(ww, xs', ys)/length(ys)
+			ww = ww - γ * gw
+		end
+		wws[:, i+1] = ww 
+		losses[i+1] = logistic_loss(ww, Xs, Ys)
+	end
+	losses, wws
+
+end;
+
+# ╔═╡ 2aa229e0-f578-4ff6-80a3-4897e2ad187f
+let
+	gr()
+	plot(-12:0.1:10, -10:0.1:25, (x,y) ->logistic_loss([x,y], Xs, Ys), st=:contour, levels=10, framestyle=:none, colorbar=false, title="Batch GD vs SGD vs MiniBatch", legend=:outerbottom, size=(550, 600))
+
+
+	step = 4
+	plot!(batch_wws[1,1:step+2:end], batch_wws[2, 1:step+2:end];  marker=(:diamond,4, 0.5), label="Batch gradient descent", ls=:dashdot)
+
+	plot!(sgd_wws[1,1:step:end], sgd_wws[2, 1:step:end];  marker=(:cross,4), ls=:dashdot, label="Stochastic gradient descent")
+
+	plot!(mini_b_sgd_wws[1,1:step:end], mini_b_sgd_wws[2, 1:step:end];marker=(:circle,5), ls=:dash, label="Minibatch SGD")
+	plot!([w00[1]], [w00[2]], st=:scatter, markershape=:diamond, mc=:black, markersize=10, label="")
+
+	# plot!([true_ww[1]], [true_ww[1]], st=:scatter, markershape=:circle, mc=:black, markersize=2, label="")
+	annotate!([w00[1]], [w00[2] + .9], text("random start", 12,  :bottom, :"Computer Modern"))
+
+
+	annotate!([true_ww[1]], [true_ww[2] - 0.5], text("true w", 12,  :top, :"Computer Modern"))
 end
 
 # ╔═╡ 0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
@@ -1185,6 +1643,398 @@ md"""
 
 ## Appendix
 """
+
+# ╔═╡ 3a083374-afd6-4e64-95bd-d7e6385ab403
+md"""
+
+### Data generation
+"""
+
+# ╔═╡ 6cd96390-8565-499c-a788-fd0070331f25
+D₂, targets_D₂, targets_D₂_=let
+	Random.seed!(123)
+	D_class_1 = rand(MvNormal(zeros(2), Matrix([1 -0.8; -0.8 1.0])), 30)' .+2
+	D_class_2 = rand(MvNormal(zeros(2), Matrix([1 -0.8; -0.8 1.0])), 30)' .-2
+	data₂ = [D_class_1; D_class_2]
+	D₂ = [ones(size(data₂)[1]) data₂]
+	targets_D₂ = [ones(size(D_class_1)[1]); zeros(size(D_class_2)[1])]
+	targets_D₂_ = [ones(size(D_class_1)[1]); -1 *ones(size(D_class_2)[1])]
+	D₂, targets_D₂,targets_D₂_
+end
+
+# ╔═╡ 67dae6d0-aa32-4b46-9046-aa24295aa117
+plt_binary_2d = let
+	gr()
+	plot(D₂[targets_D₂ .== 1, 2], D₂[targets_D₂ .== 1, 3], st=:scatter, label=L"y^{(i)} = 1", xlabel=L"x_1", ylabel=L"x_2", title="Binary classification example", c=2, size=(400,300))
+	plot!(D₂[targets_D₂ .== 0, 2], D₂[targets_D₂ .== 0, 3], st=:scatter, c=1, framestyle=:origin, label=L"y^{(i)} = 0", xlim=[-8, 8], ylim=[-6, 6])
+end;
+
+# ╔═╡ e77f6f3b-f18d-4260-ab7a-db61e7b4131d
+TwoColumn(md"""
+\
+\
+\
+
+**input** features: ``\mathbf{x}^{(i)} \in \mathbb{R}^m``
+* *e.g.* the right is a two-dimensional, *i.e.* ``m=2``
+
+
+**output** label: ``y^{(i)} \in \{0,1\}``
+
+
+""", plt_binary_2d)
+
+# ╔═╡ b640fc38-2ada-4c35-82f0-53fd801d14e1
+TwoColumn(plot(plt_binary_2d, title="2-d view", size=(300,300)), let
+	gr()
+	plot(D₂[targets_D₂ .== 1, 2], D₂[targets_D₂ .== 1, 3], ones(sum(targets_D₂ .== 1)), st=:scatter, label=L"\tilde{y}^{(i)} = 1", zlim=[-1.1, 1.1], xlabel=L"x_1", ylabel=L"x_2", c=2, size=(400,300))
+	plot!(D₂[targets_D₂ .== 0, 2], D₂[targets_D₂ .== 0, 3], -1* ones(sum(targets_D₂ .== 0)), st=:scatter, framestyle=:origin, label=L"\tilde{y}^{(i)} = -1", xlim=[-8, 8], ylim=[-6, 6], title="3-d view", c=1)
+end)
+
+# ╔═╡ 8765a8e8-6f73-4ad4-9604-6a9eb5991241
+begin
+	plotly()
+	scatter(D₂[targets_D₂ .== 1, 2], D₂[targets_D₂ .== 1, 3], ones(sum(targets_D₂ .== 1)), zlim=[-1.1, 1.1], label="ỹ=1", c=2)
+	scatter!(D₂[targets_D₂ .== 0, 2], D₂[targets_D₂ .== 0, 3], -1 * ones(sum(targets_D₂ .== 0)), label="ỹ=-1", c=1, framestyle=:zerolines)
+	w_d₂ = linear_reg(D₂, targets_D₂_;λ=0.0)
+	plot!(-5:1:5, -5:1:5, (x,y) -> w_d₂[1] + w_d₂[2] * x + w_d₂[3] * y, alpha =0.9, st=:surface, colorbar=false, c=:jet, title="First attempt: least square regression")
+
+
+	# plot!(-5:1:5, -5:1:5, (x,y) -> 0, alpha =0.5, st=:surface, c=:gray)
+end
+
+# ╔═╡ 68a0247b-9346-42fc-b2d2-4373e70a1789
+TwoColumn(md"""
+
+
+Note that the fitted hyperplane ``h(\mathbf{x})``
+
+* ``h(\mathbf{x}^{(i)}) = 0``: the decision boundary
+* ``h(\mathbf{x}^{(i)}) > 0``: one side of the boundary
+* ``h(\mathbf{x}^{(i)}) < 0``: the other side of the boundary
+
+
+To classify ``\hat{y}^{(i)}``:
+
+```math
+\hat{y}^{(i)} = \begin{cases} \text{class 1} & h(\mathbf{x}^{(i)}) \geq 0 \\
+
+\text{class 2}& h(\mathbf{x}^{(i)}) < 0 
+\end{cases}
+```
+
+""" , let
+	plotly()
+	scatter(D₂[targets_D₂ .== 1, 2], D₂[targets_D₂ .== 1, 3], ones(sum(targets_D₂ .== 1)), zlim=[-1.1, 1.1], label="ỹ=1", c=2, titlefontsize=10, legend=:bottom)
+	scatter!(D₂[targets_D₂ .== 0, 2], D₂[targets_D₂ .== 0, 3], -1 * ones(sum(targets_D₂ .== 0)), label="ỹ=-1", framestyle=:zerolines, c=1)
+	w_d₂ = linear_reg(D₂, targets_D₂_;λ=0.0)
+	plot!(-5:1:5, -5:1:5, (x,y) -> w_d₂[1] + w_d₂[2] * x + w_d₂[3] * y, alpha =0.9, st=:surface, colorbar=false, c=:jet, title="First attempt: decision boundary h(x) =0")
+	if true
+		# the intersection
+		xs = -5:1:5
+		ys = @. (- w_d₂[1] - w_d₂[2] * xs) / w_d₂[3]
+		plot!(xs,  ys, zeros(length(xs)), lw=3, lc=:gray, ls=:solid, label="h(x)=0")
+	end
+
+	plot!(-5:1:5, -5:1:5, (x,y) -> 0, alpha =0.5, st=:surface, c=:gray)
+end)
+
+# ╔═╡ 7b4502d1-3847-4472-b706-65cb68413927
+plot_ls_class=let
+	gr()
+	plt = plot(D₂[targets_D₂ .== 1, 2], D₂[targets_D₂ .== 1, 3], st=:scatter, label="class 1", ratio=1, c=2, legend=:topleft)
+	plot!(D₂[targets_D₂ .== 0, 2], D₂[targets_D₂ .== 0, 3], st=:scatter, framestyle=:origin, label="class 2", xlim=[-8, 8], ylim=[-6, 6], c=1)
+	plot!(-6:1:6, (x) -> - w_d₂[1]/w_d₂[3] - w_d₂[2]/w_d₂[3] * x, lw=4, lc=:gray, label="Decision bounary: "*L"h(\mathbf{x}) =0", title="Least square classifier")
+
+	plot!([0, w_d₂[2]*3], [0, w_d₂[3]*3], line = (:arrow, 3), c=2, label="")
+
+	minx, maxx = minimum(D₂[:,2])-2, maximum(D₂[:,2])+2
+	miny, maxy = minimum(D₂[:,3])-2, maximum(D₂[:,3])+2
+	xs, ys = meshgrid(minx:0.2:maxx, miny:0.2:maxy)
+	colors = [dot(w_d₂ , [1, x, y]) > 0.0   for (x, y) in zip(xs, ys)] .+ 1
+	scatter!(xs, ys, color = colors,
+            markersize = 1.5, label = nothing, markerstrokewidth = 0, markeralpha=0.5, xlim= [minx, maxx], ylim =[miny, maxy], framestyle=:origin)
+	plt
+end;
+
+# ╔═╡ c78fbd4c-1e5f-4307-9ab3-9303b0744de0
+plot_ls_class
+
+# ╔═╡ cbbcf999-1d31-4f53-850e-d37a28cff849
+begin
+	plotly()
+	scatter(D₂[targets_D₂ .== 1, 2], D₂[targets_D₂ .== 1, 3], ones(sum(targets_D₂ .== 1)),  label="ỹ=1", c=2)
+	scatter!(D₂[targets_D₂ .== 0, 2], D₂[targets_D₂ .== 0, 3], -1 *ones(sum(targets_D₂ .== 0)), label="ỹ=-1", framestyle=:zerolines, c=1)
+	# w = linear_reg(D₂, targets_D₂;λ=0.0)
+	plot!(-10:1:10, -50:1:50, (x,y) -> w_d₂[1] + w_d₂[2] * x + w_d₂[3] * y, alpha =0.8, st=:surface, colorbar=false,c=:jet, title="First attempt: unbounded prediction")
+end
+
+# ╔═╡ f298ffd1-b1dd-472f-b761-c5e07a9121c0
+let
+	plotly()
+	scatter(D₂[targets_D₂ .== 1, 2], D₂[targets_D₂ .== 1, 3], ones(sum(targets_D₂ .== 1)),  label="y=1", c=2)
+	scatter!(D₂[targets_D₂ .== 0, 2], D₂[targets_D₂ .== 0, 3], 0 *ones(sum(targets_D₂ .== 0)), label="y=0", framestyle=:zerolines, c=1)
+	# w = linear_reg(D₂, targets_D₂;λ=0.0)
+	plot!(-10:.1:10, -10:0.1:10, (x,y) -> logistic(0 + 2.5 * x + 2.5 * y), alpha =0.8, st=:surface, colorbar=false,c=:jet, title="First attempt: unbounded prediction")
+end
+
+# ╔═╡ 79a75f04-3aa9-4a8b-9f88-1fe8c123680b
+let
+	plotly()
+	# gr()
+	bias = 0.0;
+
+	p0 = plot(-8:0.1:10, -10:0.1:10, (w1, w2) -> zeroone_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:surface, c=:jet,camera = (45, 35), colorbar=false, title="1/0 error loss")
+
+	p1 = plot(-8:0.1:10, -10:0.1:10, (w1, w2) -> logistic_mse_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:surface, c=:jet,camera = (45, 35), colorbar=false, title="Squared error loss")
+
+
+	plot(p0, p1, layout=(1,2))
+
+end
+
+# ╔═╡ ae5324a5-0cf6-4485-aead-86c3d8f3041a
+let
+	gr()
+	bias = 0.0;
+
+	p0 = plot(-8:0.1:10, -5:0.1:10, (w1, w2) -> zeroone_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:contourf, c=:jet, colorbar=false, title="1/0 error loss", ratio=1, xlabel=L"w_1", ylabel=L"w_2")
+
+	p1 = plot(-8:0.1:10, -5:0.1:10, (w1, w2) -> logistic_mse_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:contourf, c=:jet, colorbar=false, title="Squared error loss",  ratio=1,  xlabel=L"w_1", ylabel=L"w_2")
+
+
+	
+	# p2 = plot(-8:0.1:10, -5:0.1:10, (w1, w2) -> logistic_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:contourf, c=:jet, colorbar=false, title="Cross entropy loss",  ratio=1)
+
+	plot(p0, p1, layout=(1,2), size=(750,360), ylim =(-5,10))
+
+end
+
+# ╔═╡ a0fa5474-3cb7-4829-9e2e-2bf53ca00d94
+logistic_mse_loss_grad(x; bias= 0.0) = Zygote.withgradient((w) -> logistic_mse_loss([bias, w...], D₂, targets_D₂), x);
+
+# ╔═╡ 7d830f79-e361-4de1-b3fd-dee08fd1cc06
+begin
+
+	function produce_anim(w0; bias= 0, X= D₂, y =targets_D₂,  grad= logistic_mse_loss_grad, lossf = logistic_mse_loss, γ = 0.5, maxiters = 1000, xrange =-8:0.5:10, yrange=-5:0.5:10 )
+		gr()
+		ws = [w0]
+		loss = []
+		for i in 1:maxiters
+			li, gradw = grad(w0)
+			w0 -= γ * gradw[1]
+			push!(ws, w0)
+			push!(loss, li)
+		end
+		ws = hcat(ws...)
+		traces = ws
+		plt = plot(xrange, yrange, (w1, w2) -> lossf([bias, w1, w2], X, y; agg=sum), st=:contourf, c=:jet, colorbar=false,  ratio=1, alpha=0.8, xlim =(xrange |> extrema), ylim = (yrange |> extrema))
+		wt = traces[:, 1]
+		scatter!([wt[1]], [wt[2]], markershape=:xcross, label="start", markerstrokewidth=4, mc=3, markersize=6)
+		anim = @animate for t in 2:20:maxiters
+			plot!([traces[1, t]], [traces[2, t]], st=:scatter, color=1, label="", markersize=3)
+			plot!([wt[1], traces[1, t]], [wt[2], traces[2, t]], line = (:arrow, 0.8, :gray), label="", title="Iteration $(t); loss = $(round(loss[t];digits=2))")
+			wt = traces[1:2, t]
+		end 
+		return anim
+	end
+	# gif(anim, fps=5)
+end
+
+# ╔═╡ dfe4234a-d2a3-4b59-9578-64bd6e8a5c33
+gif(produce_anim([-4.5, -4.5]); fps=10)
+
+# ╔═╡ a24b03a3-b2a0-4b12-b2a8-25c8cf7f843c
+TwoColumn(gif(produce_anim([0, -4.5]); fps=10), gif(produce_anim([-4.5, 0]); fps=10))
+
+# ╔═╡ fed8b7b2-34c4-445c-bf11-21b5161c8d28
+let
+	gr()
+	bias = 0.0;
+
+	p0 = plot(-8:0.1:10, -10:0.1:10, (w1, w2) -> zeroone_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:surface, c=:jet,camera = (75, 35), colorbar=false, title="1/0 error loss")
+
+	p1 = plot(-8:0.1:10, -10:0.1:10, (w1, w2) -> logistic_mse_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:surface, c=:jet,camera = (75, 35), colorbar=false, title="Squared error loss")
+
+
+	
+	p2 = plot(-8:0.1:10, -10:0.1:10, (w1, w2) -> logistic_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:surface, c=:jet, camera = (75, 35),colorbar=false, title="Cross entropy loss")
+
+	plot(p0, p1, p2, layout=(1,3), titlefontsize=10,zticks=false)
+
+end
+
+# ╔═╡ cb9cc32f-a12b-43ec-83c8-3ed26a96992f
+let
+	gr()
+	bias = 0.0;
+
+	p0 = plot(-8:0.1:10, -5:0.1:10, (w1, w2) -> zeroone_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:contourf, c=:jet, colorbar=false, title="1/0 error loss", ratio=1)
+
+	p1 = plot(-8:0.1:10, -5:0.1:10, (w1, w2) -> logistic_mse_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:contourf, c=:jet, colorbar=false, title="Squared error loss",  ratio=1)
+
+
+	
+	p2 = plot(-8:0.1:10, -5:0.1:10, (w1, w2) -> logistic_loss([bias, w1, w2], D₂, targets_D₂; agg=sum), st=:contourf, c=:jet, colorbar=false, title="Cross entropy loss",  ratio=1)
+
+	plot(p0, p1, p2, layout=(1,3), size=(750,270), ylim =(-5,10))
+
+end
+
+# ╔═╡ 8fe5631a-1f10-4af4-990d-5a23c96fb73b
+begin
+	D1 = [
+	    7 4;
+	    5 6;
+	    8 6;
+	    9.5 5;
+	    9 7
+	]
+
+	# D1 = randn(5, 2) .+ 2
+	
+	D2 = [
+	    2 3;
+	    3 2;
+	    3 6;
+	    5.5 4.5;
+	    5 3;
+	]
+
+	# D2 = randn(5,2) .- 2
+
+	D = [D1; D2]
+	D = [ones(10) D]
+	targets = [ones(5); zeros(5)]
+	AB = [1.5 8; 10 1.9]
+end;
+
+# ╔═╡ 619df17d-9f75-463f-afe5-6cbffb0762d5
+begin
+	n3_ = 30
+	extraD = randn(n3_, 2)/2 .+ [2 -6]
+	D₃ = [copy(D₂); [ones(n3_) extraD]]
+	targets_D₃ = [targets_D₂; zeros(n3_)]
+	targets_D₃_ = [targets_D₂; -ones(n3_)]
+end
+
+# ╔═╡ ffb7f8f1-739c-43a5-b13e-4045b50c9e05
+let
+
+	gr()
+	p2 = plot(D₃[targets_D₃ .== 1, 2], D₃[targets_D₃ .== 1, 3], st=:scatter, label="class 1", ratio = 1, c = 2)
+	plot!(D₃[targets_D₃ .== 0, 2], D₃[targets_D₃ .== 0, 3], st=:scatter, framestyle=:origin, label="class 2", xlim=[-8, 8], legend=:topleft,  title="More data", c=1)
+	tmin = 0
+	tmax = 2π
+	tvec = range(tmin, tmax, length = 100)
+
+	plot!(2.2 .+ sin.(tvec) *1.6, -6 .+ cos.(tvec) * 2, lc=1, lw=3, label="", alpha=1.0 , fill=true, fillalpha=0.2, fillcolor=1)
+	plot(plot(plot_ls_class, legend=:outerbottom), p2)
+end
+
+# ╔═╡ 86420ad6-3995-424c-9bdd-21214bf544df
+let
+	gr()
+	plt = plot(D₃[targets_D₃ .== 1, 2], D₃[targets_D₃ .== 1, 3], st=:scatter, c= 2, label="class 1", ratio=1, legend=:bottomright)
+	plot!(D₃[targets_D₃ .== 0, 2], D₃[targets_D₃ .== 0, 3], st=:scatter, c=1, framestyle=:origin, label="class 2", xlim=[-10, 8])
+	w_d₃ = linear_reg(D₃, targets_D₃_;λ=0.0)
+	# w_d₂
+	plot!(-7.5:1:7, (x) -> - w_d₂[1]/w_d₂[3] - w_d₂[2]/w_d₂[3] * x, lw=2.5, lc=:gray,ls=:solid,  label="", title="")
+	plot!(-6:1:6, (x) -> - w_d₃[1]/w_d₃[3] - w_d₃[2]/w_d₃[3] * x, lw=4, lc=2, label="New decision boundary: "*L"h(\mathbf{x}) =0", title="Least square classifier with new data")
+
+	minx, maxx = minimum(D₃[:,2])-2, maximum(D₃[:,2])+2
+	miny, maxy = minimum(D₃[:,3])-2, maximum(D₃[:,3])+2
+	xs, ys = meshgrid(minx:0.25:maxx, miny:0.25:maxy)
+	colors = [dot(w_d₃ , [1, x, y]) > 0.0   for (x, y) in zip(xs, ys)] .+ 1
+	scatter!(xs, ys, color = colors,
+            markersize = 1.5, label = nothing, markerstrokewidth = 0,
+		markeralpha=0.5, xlim= [minx, maxx], ylim =[miny, maxy], framestyle=:origin)
+
+
+	plot(plot_ls_class, plt, legendfontsize=6, titlefontsize=8, legend=:outerbottom)
+end
+
+# ╔═╡ 4d474d9f-50dc-4c9f-9505-65e024c83f38
+let
+	plotly()
+	scatter(D₃[targets_D₃ .== 1, 2], D₃[targets_D₃ .== 1, 3], ones(sum(targets_D₂ .== 1)), zlim=[-2,2], label="y=1", c=2)
+	scatter!(D₃[targets_D₃ .== 0, 2], D₃[targets_D₃ .== 0, 3], -1 * ones(sum(targets_D₃ .== 0)), label="y=-1", framestyle=:zerolines, c=1)
+	w_d₃ = linear_reg(D₃, targets_D₃_;λ=0.0)
+	plot!(-10:1:10, -10:1:10, (x,y) -> w_d₃[1] + w_d₃[2] * x + w_d₃[3] * y, alpha =0.8, st=:surface, color=:jet, colorbar=false, title="Why least square classifier fails")
+end
+
+# ╔═╡ a270b1b3-7bb4-4612-9e57-3ea9b7daedc0
+losses, wws=let
+	# a very bad starting point: completely wrong prediction function
+	ww = [0, -5, -5]
+	γ = 0.008
+	iters = 2000
+	losses = zeros(iters+1)
+	wws = Matrix(undef, 3, iters+1)
+	losses[1] = logistic_loss(ww, D₃, targets_D₃)
+	wws[:, 1] = ww 
+	for i in 1:iters
+		gw = ∇logistic_loss(ww, D₃, targets_D₃)
+		# Flux.Optimise.update!(opt, ww, -gt)
+		ww = ww - γ * gw
+		wws[:, i+1] = ww 
+		losses[i+1] = logistic_loss(ww, D₃, targets_D₃)
+	end
+	losses, wws
+end;
+
+# ╔═╡ 872aa766-2ed8-4cb3-a029-4a2bb42c90a8
+let
+	gr()
+	plot(losses[1:50], label="loss", xlabel="Epoch",ylabel="loss", title="Batch gradient descent's loss vs epoch")
+end
+
+# ╔═╡ daf19517-4123-49a8-affb-5d869e08480a
+anim_logis=let
+	gr()
+	# xs_, ys_ = meshgrid(range(-5, 5, length=20), range(-5, 5, length=20))
+
+	anim = @animate for t in [1:25;26:10:200;]
+		plot(D₃[targets_D₃ .== 1, 2], D₃[targets_D₃ .== 1, 3], st=:scatter, label="class 1", c=2)
+		plot!(D₃[targets_D₃ .== 0, 2], D₃[targets_D₃ .== 0, 3], st=:scatter, framestyle=:origin, label="class 2", xlim=[-8, 8], legend=:topleft, c=1)
+		w₀, w₁, w₂ = (wws[:, t])
+		plot!(-5:0.1:5, -5:0.1:5, (x, y) -> logistic(w₀+ w₁* x + w₂ * y), st=:contour, levels=6, c=:jet, colorbar=false, alpha=0.5, xlim=[-5, 5], ylim=[-5, 5],  xlabel=L"x_1", ylabel=L"x_2", title="Epoch: "*L"%$(t);"*" loss: " *L"%$(round(losses[t]; digits=1))", ratio=1)
+		quiver!([0.0], [0.0], quiver=([w₁- 0.0], [w₂-0.0]), c=2, lw=2)
+	end
+
+	anim
+	# ∇f_d(x, y) = ∇σ([1, x, y], [w₀, w₁, w₂])[2:end] * 1
+	# quiver!(xs_, ys_, quiver = ∇f_d, c=:black)
+	# w_d₃ = linear_reg(D₃, targets_D₃_;λ=0.0)
+	# w_d₂
+	# plot!(-6:1:6, (x) -> - w_d₃[1]/w_d₃[3] - w_d₃[2]/w_d₃[3] * x, lw=4, lc=:gray, label="Decision boundary: "*L"h(\mathbf{x}) =0", title="Least square classifier fails")
+end;
+
+# ╔═╡ 03840aa7-4258-47f7-b802-92ab93c92911
+gif(anim_logis, fps=5)
+
+# ╔═╡ 8398cb20-b9f4-427c-8b10-2a572f8a5632
+anim_logis2=let
+
+	gr()
+
+	anim = @animate for t in [1:25...]
+		plot(D₃[targets_D₃ .== 1, 2], D₃[targets_D₃ .== 1, 3], ones(sum(targets_D₃ .== 1)), st=:scatter, label="class 1", c=2)
+		plot!(D₃[targets_D₃ .== 0, 2], D₃[targets_D₃ .== 0, 3], zeros(sum(targets_D₃ .== 0)), st=:scatter, framestyle=:origin, label="class 2", xlim=[-8, 8], legend=:topleft, c=1)
+		w₀, w₁, w₂ = (wws[:, t])
+		plot!(-5:0.1:5, -5:0.1:5, (x, y) -> logistic(w₀+ w₁* x + w₂ * y), st=:surface, c=:jet, colorbar=false, alpha=0.5, xlim=[-5, 5], ylim=[-5, 5],  xlabel=L"x_1", ylabel=L"x_2", title="Epoch: "*L"%$(t);"*" loss: " *L"%$(round(losses[t]; digits=1))", ratio=1)
+	end
+
+	anim
+	# ∇f_d(x, y) = ∇σ([1, x, y], [w₀, w₁, w₂])[2:end] * 1
+	# quiver!(xs_, ys_, quiver = ∇f_d, c=:black)
+	# w_d₃ = linear_reg(D₃, targets_D₃_;λ=0.0)
+	# w_d₂
+	# plot!(-6:1:6, (x) -> - w_d₃[1]/w_d₃[3] - w_d₃[2]/w_d₃[3] * x, lw=4, lc=:gray, label="Decision boundary: "*L"h(\mathbf{x}) =0", title="Least square classifier fails")
+end;
+
+# ╔═╡ 12991c72-6b19-47ed-9ebe-90e3d615f985
+gif(anim_logis2, fps=2)
 
 # ╔═╡ 8687dbd1-4857-40e4-b9cb-af469b8563e2
 function perp_square(origin, vx, vy; δ=0.1) 
@@ -1214,283 +2064,30 @@ function arrow3d!(x, y, z,  u, v, w; as=0.1, lc=:black, la=1, lw=0.4, scale=:ide
     end
 end
 
-# ╔═╡ 491f5439-d984-4446-b473-8e6a0214bded
-begin
-	Xs = dropmissing(df)[:, 3:6] |> Matrix
-	Ys = dropmissing(df)[:, 1]
-	Ys_onehot  = Flux.onehotbatch(Ys, unique(Ys))
-end;
-
-# ╔═╡ ec704221-a9ab-4e98-9a17-b0843591a2e7
-begin
-	train, test = splitobs((Xs', Ys), at=0.7, shuffle=true)
-	Xtrain, Ytrain= train
-	Xtest, Ytest = test
-	dt = fit(ZScoreTransform, Xtrain, dims=2)
-	X_train_stand = StatsBase.transform(dt, Xtrain)
-	X_test_stand = StatsBase.transform(dt, Xtest)
-end;
-
-# ╔═╡ 9f88f71b-f339-4fbe-8368-bd1d9daefe2b
-begin
-	labels = unique(Ys)
-	target = Flux.onehotbatch(Ytrain, labels)
-	X_input = X_train_stand[1:2, :]
-	train_loader = DataLoader((data=X_input, label=target), batchsize=50, shuffle=true);
-	imput_dim = size(X_input)[1]
-	output_class = 3
-	# Define our model, a multi-layer perceptron with one hidden layer of size 3:
-	model = Chain(
-	    Dense(imput_dim => output_class),   # activation function inside layer
-	    softmax) |> f64       # move model to GPU, if available
-	
-	# The model encapsulates parameters, randomly initialised. Its initial output is:
-	out1 = model(X_input)                                 # 2×1000 Matrix{Float32}
-
-	optim = Flux.setup(Flux.Descent(0.05), model)  # will store optimiser momentum, etc.
-
-	losses = []
-	for epoch in 1:1_000
-	    for (x, y) in train_loader
-	        loss, grads = Flux.withgradient(model) do m
-	            # Evaluate model and loss inside gradient context:
-	            y_hat = m(x)
-	            Flux.crossentropy(y_hat, y)
-	        end
-			# l, gW, gb = sf_reg_loss(, b, X, y)
-			
-	        Flux.update!(optim, model, grads[1])
-	        push!(losses, loss)  # logging, outside gradient context
-	    end
-	end
-end;
-
-# ╔═╡ 42ad4c47-d9b6-4f64-b1ee-caa5592adfab
-begin
-	model2 = Chain(
-	    Dense(imput_dim => output_class),   # activation function inside layer
-	) |> f64       # move model to GPU, if available
-	
-
-	optim2 = Flux.setup(Flux.Descent(0.05), model2) 
-
-	losses2 = []
-	for epoch in 1:1_000
-	    for (x, y) in train_loader
-	        loss, grads = Flux.withgradient(model2) do m
-	            # Evaluate model and loss inside gradient context:
-	            y_hat = m(x)
-	            # Flux.crossentropy(y_hat, y)
-				Flux.logitbinarycrossentropy(y_hat, y; agg=sum)/size(y)[2]
-	        end
-	        Flux.update!(optim2, model2, grads[1])
-	        push!(losses2, loss)  # logging, outside gradient context
-	    end
-	end
-end
-
-# ╔═╡ c05f30ea-83d1-4753-a5f4-e84ab8594f82
+# ╔═╡ 7424b8a4-355e-408b-9b39-8af53a717134
 let
-	plot(losses2, title="Learning curve", xlabel="Mini-batch iterations", ylabel="losses", label="per batch")
-	n = length(train_loader)
-	plot!(n:n:length(losses), mean.(Iterators.partition(losses2, n)),
-		    label="epoch mean", lw=1.5, dpi=200)
+	plotly()
+	w₀ = 0
+	w₁, w₂ = wv_[1], wv_[2]
+	p1 = plot(-5:0.5:5, -5:0.5:5, (x, y) -> w₀+ w₁* x + w₂ * y, st=:surface, c=:jet, colorbar=false, alpha=0.8, framestyle=:zerolines, xlabel="x₁", ylabel="x₂", title="h(x) = wᵀ x")
+	arrow3d!([0], [0], [0], [w₁], [w₂], [0]; as=0.5, lc=2, la=1, lw=2, scale=:identity)
+	p2 = plot(-5:0.5:5, -5:0.5:5, (x, y) -> logistic(w₀+ w₁* x + w₂ * y), st=:surface, c=:jet, colorbar=false, alpha=0.8, zlim=[-0.1, 1.1],  xlabel="x₁", ylabel="x₂", title="σ(wᵀx)")
+
+	arrow3d!([0], [0], [0], [w₁], [w₂], [0]; as=0.5, lc=2, la=1, lw=2, scale=:identity)
+	plot(p1, p2)
 end
-
-# ╔═╡ 3be8bb30-a8a9-4cbd-af8a-eca42045d86c
-let
-	plot(losses; xaxis=(:identity, "Epoch"),
-	    yaxis="loss", label="per batch", lw=0.5)
-	n = length(train_loader)
-	plot!(n:n:length(losses), mean.(Iterators.partition(losses, n)),
-	    label="epoch mean", lw=1.5, title="Softmax regression loss curve")
-end
-
-# ╔═╡ db795dfc-e791-49bb-805a-35b6af3e1eb4
-let
-## gradient check for softmax
-	W = randn(3, 2)
-	b = zeros(3)
-
-	function sf_loss(W,  b, X, y)
-		ŷ = W * X .+ b
-		Flux.logitcrossentropy(ŷ, y; agg=mean)
-	end
-
-	gW, gb = Zygote.gradient((ww, bb) -> sf_loss(ww, bb, X_input, target), W, b)
-	_, gW_,	gb_ = sfmax_reg_loss(W, b, X_input, target)
-	# ŷ = softmax(W * X_input .+ b, dims=1)
-
-	# - (target - ŷ) * X_input'/size(target)[2] ≈ gW
-
-	# - mean(target - ŷ, dims=2)[:] ≈ gb
-	gW ≈ gW_, gb ≈ gb_
-end;
-
-# ╔═╡ 375a4529-c4d0-406c-b483-64efbdd56f39
-let
-	# Stochastic gradient descent
-	imput_dim = size(X_input)[1]
-	output_class = 3
-	W = randn(output_class, imput_dim)
-	b = zeros(output_class)
-	λ = 0.05
-	losses = []
-	for epoch in 1:1_000
-	    for (x, y) in train_loader
-			loss, gW, gb = sfmax_reg_loss(W, b, x, y)
-			W .-= λ * gW
-			b .-= λ * gb
-	        push!(losses, loss)  # logging, outside gradient context
-	    end
-	end
-end
-
-# ╔═╡ 0826acba-18ca-441d-a802-7482b2c17faf
-begin
-	pred_sf_test = model(X_test_stand[1:2,:]) 
-	pred_ova_test = model2(X_test_stand[1:2,:]) 
-
-	pred_sf_train = model(X_train_stand[1:2,:]) 
-	pred_ova_train = model2(X_train_stand[1:2,:]) 
-
-	test_acc_sf = mean(Flux.onecold(pred_sf_test, labels) .==Ytest)
-	
-	test_acc_ova = mean(Flux.onecold(pred_ova_test, labels) .==Ytest)
-	train_acc_sf = mean(Flux.onecold(pred_sf_train, labels) .==Ytrain)
-	train_acc_ova = mean(Flux.onecold(pred_ova_train, labels) .==Ytrain)
-end;
-
-# ╔═╡ afe288e2-cd11-4f6a-bcae-28f8b2f8d15b
-TwoColumn(md"""
-#### Softmax regression
-
-###### Training accuracy  is $(round(train_acc_sf; digits=3))
-###### Test accuracy  is $(round(test_acc_sf; digits=3))
-
-
-""", md"""
-
-#### One vs all regression
-
-###### Training accuracy one-v-all is $(round(train_acc_ova; digits=3))
-
-###### Test accuracy one-v-all is $(round(test_acc_ova; digits=3))
-
-""")
-
-# ╔═╡ 3d90e684-f6e3-466c-bd44-479597277edb
-# using ProgressMeter
-
-# ╔═╡ 073798be-22ee-4280-9155-44831227e195
-feature_names = names(df)[3:6];
-
-# ╔═╡ eea8ac82-9210-4734-bb07-8bf0e912434a
-begin
-	df_stand = DataFrame(X_train_stand', feature_names)
-	insertcols!(df_stand, "species" => Ytrain)
-	pred_species_sfm = Flux.onecold(model(X_input) , unique(Ys))
-	pred_species_ova = Flux.onecold(model2(X_input) .|> σ, unique(Ys))
-	insertcols!(df_stand, "pred_species_softmax" => pred_species_sfm)
-	insertcols!(df_stand, "pred_species_ova" => pred_species_ova)
-end;
-
-# ╔═╡ f666217c-804e-43cd-ba8c-ec5975f23c1e
-let
-	plt_predicted = @df df_stand scatter(:bill_length_mm, :bill_depth_mm, group =:species, framestyle=:origins,  xlabel="bill length (mm)", ylabel="bill depth (g)", ratio=1)
-
-	if add_ovall
-		# plot(plt_true, plt_predicted)
-		plot!(-2.5:0.02:2.5, -2.5:0.02:2.5, (x,y) -> model2([x, y]) |> argmax, st=:heatmap, alpha=0.3, xlim = (-2.5, 2.5), ylim=(-2.5, 2.5), c=:jet, colorbar=false)
-
-	else
-	
-		plot!(-2.5:0.02:2.5, -2.5:0.02:2.5, (x,y) -> model2([x, y])[ovall_c] |> σ, st=:contour, alpha=1, levels=6, lw=1.5, color=:jet, colorbar=false)
-		
-	end
-	plt_predicted
-
-end
-
-# ╔═╡ e6b8a809-3c61-48b6-9215-6df865038316
-begin
-
-	plt_predicted = @df df_stand scatter(:bill_length_mm, :bill_depth_mm, group =:species, framestyle=:origins,  xlabel="bill length (mm)", ylabel="bill depth (g)", ratio=1)
-
-
-	# plot(plt_true, plt_predicted)
-	if add_sf
-		plot!(-2.5:0.02:2.9, -2.5:0.02:2.7, (x,y) -> model([x, y]) |> argmax, st=:heatmap, alpha=0.3, xlim = (-2.5, 2.5), c=:jet, ylim=(-2.5, 2.5), colorbar=false)
-	else
-		plot!(-2.5:0.02:2.9, -2.5:0.02:2.7, (x,y) -> model([x, y])[sf_c], st=:contour, alpha=1, levels=8, color=:jet, colorbar=false)
-	end
-end
-
-# ╔═╡ e838d2d1-46e5-4039-ba66-6ce9c228fc69
-let
-
-	plt_predicted_sf = @df df_stand scatter(:bill_length_mm, :bill_depth_mm, group =:species, framestyle=:origins,  xlabel="bill length (mm)", ylabel="bill depth (g)", ratio=1)
-
-
-	# # plot(plt_true, plt_predicted)
-	# if add_sf
-	plot!(plt_predicted_sf, -2.5:0.02:2.5, -2.5:0.02:2.5, (x,y) -> model([x, y]) |> argmax, st=:heatmap, alpha=0.3, xlim = (-2.5, 2.5), c=:jet, ylim=(-2.5, 2.5), colorbar=false, title="softmax regression")
-	# else
-	# 	plot!(-2.5:0.02:2.5, -2.5:0.02:2.5, (x,y) -> model([x, y])[sf_c], st=:contour, alpha=1, levels=8, color=:jet, colorbar=false)
-	# end
-
-
-	plt_predicted_ova = @df df_stand scatter(:bill_length_mm, :bill_depth_mm, group =:species, framestyle=:origins,  xlabel="bill length (mm)", ylabel="bill depth (g)", ratio=1)
-
-
-	# # plot(plt_true, plt_predicted)
-	# if add_sf
-	plot!(plt_predicted_ova, -2.5:0.02:2.5, -2.5:0.02:2.5, (x,y) -> model2([x, y])  |> argmax, st=:heatmap, alpha=0.3, xlim = (-2.5, 2.5), c=:jet, ylim=(-2.5, 2.5), colorbar=false, title="one vs all")
-
-	plot(plt_predicted_sf, plt_predicted_ova, titlefontsize=12)
-end
-
-# ╔═╡ 23196682-02ae-4caf-9d75-3aba91df5b86
-begin
-	function loss_one_v_all(W, X, ts)
-		# K = size(target)[1]
-		# d = size(X)[1]
-		# W = rand(K, d)
-		Flux.logitbinarycrossentropy(W * X, ts; agg = sum)
-	# target[:, 1]
-	end
-
-	gradW(W) = Zygote.gradient((ww) -> loss_one_v_all(ww, X_input, target), W)[1]
-end;
-
-# ╔═╡ 572dd293-a343-43d2-aa53-4775db9ec56a
-let
-	W = rand(3,2)
-	# gW = similar(W)
-	# for k in 1:3
-	# 	gW[k, :] = - X_input * (target[k, :] - σ.(W[k, :]' * X_input)[:]) 
-	# end
-
-	# gW
-	(- (target - σ.(W * X_input)) * X_input') - gradW(W)
-
-	
-	# W[1, :]' * X_input
-end;
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+LogExpFunctions = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 MLUtils = "f1d291b0-491e-4a28-83b9-f70985020b54"
-PalmerPenguins = "8b842266-38fa-440a-9b57-31493939ab85"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
@@ -1501,16 +2098,14 @@ StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-DataFrames = "~1.6.0"
-Distributions = "~0.25.100"
-Flux = "~0.14.4"
+Distributions = "~0.25.98"
 HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.16.1"
+LogExpFunctions = "~0.3.24"
 MLUtils = "~0.4.3"
-PalmerPenguins = "~0.1.4"
-Plots = "~1.38.17"
-PlutoTeachingTools = "~0.2.13"
+Plots = "~1.38.16"
+PlutoTeachingTools = "~0.2.12"
 PlutoUI = "~0.7.51"
 StatsBase = "~0.34.0"
 StatsPlots = "~0.15.5"
@@ -1523,7 +2118,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "1aa6f63f48323f92fb83fa3f5070b182536fab93"
+project_hash = "6133a270968339fbc6a95e559ef094fa4d76ef1e"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1631,12 +2226,6 @@ version = "1.0.8+0"
 git-tree-sha1 = "eb4cb44a499229b3b8426dcfb5dd85333951ff90"
 uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
 version = "0.4.2"
-
-[[deps.CSV]]
-deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "PrecompileTools", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings", "WorkerUtilities"]
-git-tree-sha1 = "44dbf560808d49041989b8a96cae4cffbeb7966a"
-uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-version = "0.10.11"
 
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
@@ -1771,27 +2360,10 @@ git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.6.2"
 
-[[deps.Crayons]]
-git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
-uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
-version = "4.1.1"
-
 [[deps.DataAPI]]
 git-tree-sha1 = "8da84edb865b0b5b0100c0666a9bc9a0b71c553c"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
 version = "1.15.0"
-
-[[deps.DataDeps]]
-deps = ["HTTP", "Libdl", "Reexport", "SHA", "p7zip_jll"]
-git-tree-sha1 = "6e8d74545d34528c30ccd3fa0f3c00f8ed49584c"
-uuid = "124859b0-ceae-595e-8997-d05f6a7a8dfe"
-version = "0.7.11"
-
-[[deps.DataFrames]]
-deps = ["Compat", "DataAPI", "DataStructures", "Future", "InlineStrings", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrecompileTools", "PrettyTables", "Printf", "REPL", "Random", "Reexport", "SentinelArrays", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
-git-tree-sha1 = "04c738083f29f86e62c8afc341f0967d8717bdb8"
-uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-version = "1.6.1"
 
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -1924,12 +2496,6 @@ git-tree-sha1 = "656f7a6859be8673bf1f35da5670246b923964f7"
 uuid = "b9860ae5-e623-471e-878b-f6a53c775ea6"
 version = "0.1.1"
 
-[[deps.FilePathsBase]]
-deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
-git-tree-sha1 = "e27c4ebe80e8699540f2d6c805cc12203b614f12"
-uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
-version = "0.9.20"
-
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
@@ -1949,24 +2515,6 @@ deps = ["Statistics"]
 git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
 uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.8.4"
-
-[[deps.Flux]]
-deps = ["Adapt", "ChainRulesCore", "Functors", "LinearAlgebra", "MLUtils", "MacroTools", "NNlib", "OneHotArrays", "Optimisers", "Preferences", "ProgressLogging", "Random", "Reexport", "SparseArrays", "SpecialFunctions", "Statistics", "Zygote"]
-git-tree-sha1 = "723a8ec75b26fe278256c89c363e370ba733c12e"
-uuid = "587475ba-b771-5e3f-ad9e-33799f191a9c"
-version = "0.14.4"
-
-    [deps.Flux.extensions]
-    FluxAMDGPUExt = "AMDGPU"
-    FluxCUDAExt = "CUDA"
-    FluxCUDAcuDNNExt = ["CUDA", "cuDNN"]
-    FluxMetalExt = "Metal"
-
-    [deps.Flux.weakdeps]
-    AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
-    CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
-    Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
-    cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [[deps.Fontconfig_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Expat_jll", "FreeType2_jll", "JLLWrappers", "Libdl", "Libuuid_jll", "Pkg", "Zlib_jll"]
@@ -2001,12 +2549,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "aa31987c2ba8704e23c6c8ba8a4f769d5d7e4f91"
 uuid = "559328eb-81f9-559d-9380-de523a88c83c"
 version = "1.0.10+0"
-
-[[deps.Functors]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "9a68d75d466ccc1218d0552a8e1631151c569545"
-uuid = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
-version = "0.4.5"
 
 [[deps.Future]]
 deps = ["Random"]
@@ -2112,12 +2654,6 @@ git-tree-sha1 = "4da0f88e9a39111c2fa3add390ab15f3a44f3ca3"
 uuid = "22cec73e-a1b8-11e9-2c92-598750a2cf9c"
 version = "0.3.1"
 
-[[deps.InlineStrings]]
-deps = ["Parsers"]
-git-tree-sha1 = "9cc2baf75c6d09f9da536ddf58eb2f29dedaf461"
-uuid = "842dd82b-1e85-43dc-bf29-5d0ee9dffc48"
-version = "1.4.0"
-
 [[deps.IntelOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "ad37c091f7d7daf900963171600d7c1c5c3ede32"
@@ -2133,11 +2669,6 @@ deps = ["Adapt", "AxisAlgorithms", "ChainRulesCore", "LinearAlgebra", "OffsetArr
 git-tree-sha1 = "721ec2cf720536ad005cb38f50dbba7b02419a15"
 uuid = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 version = "0.14.7"
-
-[[deps.InvertedIndices]]
-git-tree-sha1 = "0dc7b50b8d436461be01300fd8cd45aa0274b038"
-uuid = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
-version = "1.3.0"
 
 [[deps.IrrationalConstants]]
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
@@ -2357,9 +2888,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.LoggingExtras]]
 deps = ["Dates", "Logging"]
-git-tree-sha1 = "a03c77519ab45eb9a34d3cfe2ca223d79c064323"
+git-tree-sha1 = "0d097476b6c381ab7906460ef1ef1638fbce1d91"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
-version = "1.0.1"
+version = "1.0.2"
 
 [[deps.LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
@@ -2495,12 +3026,6 @@ git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+1"
 
-[[deps.OneHotArrays]]
-deps = ["Adapt", "ChainRulesCore", "Compat", "GPUArraysCore", "LinearAlgebra", "NNlib"]
-git-tree-sha1 = "5e4029759e8699ec12ebdf8721e51a659443403c"
-uuid = "0b1bfda6-eb8a-41d2-88d8-f5af5cad476f"
-version = "0.2.4"
-
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
@@ -2529,12 +3054,6 @@ git-tree-sha1 = "13652491f6856acfd2db29360e1bbcd4565d04f1"
 uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
 version = "0.5.5+0"
 
-[[deps.Optimisers]]
-deps = ["ChainRulesCore", "Functors", "LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "af65afa916284e6c7e89f0ab974500cc9235618e"
-uuid = "3bd65402-5787-11e9-1adc-39752487f4e2"
-version = "0.3.0"
-
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "51a08fb14ec28da2ec7a927c4337e4332c2a4720"
@@ -2556,12 +3075,6 @@ deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
 git-tree-sha1 = "67eae2738d63117a196f497d7db789821bce61d1"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
 version = "0.11.17"
-
-[[deps.PalmerPenguins]]
-deps = ["CSV", "DataDeps"]
-git-tree-sha1 = "e7c581b0e29f7d35f47927d65d4965b413c10d90"
-uuid = "8b842266-38fa-440a-9b57-31493939ab85"
-version = "0.1.4"
 
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools", "UUIDs"]
@@ -2641,12 +3154,6 @@ git-tree-sha1 = "e47cd150dbe0443c3a3651bc5b9cbd5576ab75b7"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 version = "0.7.52"
 
-[[deps.PooledArrays]]
-deps = ["DataAPI", "Future"]
-git-tree-sha1 = "a6062fe4063cdafe78f4a0a81cfffb89721b30e7"
-uuid = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
-version = "1.4.2"
-
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
 git-tree-sha1 = "03b4c25b43cb84cee5c90aa9b5ea0a78fd848d2f"
@@ -2664,21 +3171,9 @@ git-tree-sha1 = "632eb4abab3449ab30c5e1afaa874f0b98b586e4"
 uuid = "8162dcfd-2161-5ef2-ae6c-7681170c5f98"
 version = "0.2.0"
 
-[[deps.PrettyTables]]
-deps = ["Crayons", "LaTeXStrings", "Markdown", "Printf", "Reexport", "StringManipulation", "Tables"]
-git-tree-sha1 = "ee094908d720185ddbdc58dbe0c1cbe35453ec7a"
-uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
-version = "2.2.7"
-
 [[deps.Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-
-[[deps.ProgressLogging]]
-deps = ["Logging", "SHA", "UUIDs"]
-git-tree-sha1 = "80d919dee55b9c50e8d9e2da5eeafff3fe58b539"
-uuid = "33c8b6b6-d38a-422a-b730-caa89a2f386c"
-version = "0.1.4"
 
 [[deps.Qt6Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
@@ -2895,11 +3390,6 @@ git-tree-sha1 = "9115a29e6c2cf66cf213ccc17ffd61e27e743b24"
 uuid = "f3b207a7-027a-5e70-b257-86293d7955fd"
 version = "0.15.6"
 
-[[deps.StringManipulation]]
-git-tree-sha1 = "46da2434b41f41ac3594ee9816ce5541c6096123"
-uuid = "892a3eda-7b42-436c-8928-eab12a02cf0e"
-version = "0.3.0"
-
 [[deps.StructArrays]]
 deps = ["Adapt", "DataAPI", "GPUArraysCore", "StaticArraysCore", "Tables"]
 git-tree-sha1 = "521a0e828e98bb69042fec1809c1b5a680eb7389"
@@ -3050,12 +3540,6 @@ git-tree-sha1 = "4528479aa01ee1b3b4cd0e6faef0e04cf16466da"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
 version = "1.25.0+0"
 
-[[deps.WeakRefStrings]]
-deps = ["DataAPI", "InlineStrings", "Parsers"]
-git-tree-sha1 = "b1be2855ed9ed8eac54e5caff2afcdb442d52c23"
-uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
-version = "1.4.2"
-
 [[deps.Widgets]]
 deps = ["Colors", "Dates", "Observables", "OrderedCollections"]
 git-tree-sha1 = "fcdae142c1cfc7d89de2d11e08721d0f2f86c98a"
@@ -3068,16 +3552,11 @@ git-tree-sha1 = "de67fa59e33ad156a590055375a30b23c40299d3"
 uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
 version = "0.5.5"
 
-[[deps.WorkerUtilities]]
-git-tree-sha1 = "cd1659ba0d57b71a464a29e64dbc67cfe83d54e7"
-uuid = "76eceee3-57b5-4d4a-8e66-0e911cebbf60"
-version = "1.6.1"
-
 [[deps.XML2_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "93c41695bc1c08c46c5899f4fe06d6ead504bb73"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Zlib_jll"]
+git-tree-sha1 = "04a51d15436a572301b5abbb9d099713327e9fc4"
 uuid = "02c8fc9c-b97f-50b9-bbe4-9be30ff0a78a"
-version = "2.10.3+0"
+version = "2.10.4+0"
 
 [[deps.XSLT_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libgcrypt_jll", "Libgpg_error_jll", "Libiconv_jll", "Pkg", "XML2_jll", "Zlib_jll"]
@@ -3322,119 +3801,142 @@ version = "1.4.1+0"
 
 # ╔═╡ Cell order:
 # ╟─9f90a18b-114f-4039-9aaf-f52c77205a49
-# ╟─e1d678d8-5a54-4f11-8fc6-5938c732c971
+# ╟─86ac8000-a595-4162-863d-8720ff9dd3bd
+# ╟─ece21354-0718-4afb-a905-c7899f41883b
 # ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
-# ╟─53fece27-0cf8-42ac-a2d1-a60dafde5820
-# ╟─587b7208-2559-4e4d-958c-09b0eec20caf
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
-# ╟─a0c70958-56fc-4536-ac9a-c5feea3e025b
-# ╟─603fdd1f-4505-4d57-965f-2d273c3c9979
-# ╟─55f51fdf-50a5-4afa-9fcd-06802b5373da
-# ╟─8c7c35d2-f310-4cb9-88ff-ed384cf237a7
-# ╟─4a4e93af-aab7-4c1a-a7cb-d603b5a735a1
-# ╟─86ba1a8f-8458-498a-83a5-b8d00a251cca
-# ╟─98401938-f855-403f-bfd5-d7d01393facb
-# ╟─3b5d83b5-b284-4c9e-b0bf-23be52f511bd
-# ╟─cf744c13-74c7-4c94-946b-7fb36b69f3da
-# ╟─c91f899c-18a3-46f8-b0a2-af122b06007c
-# ╟─02fdb54a-01e5-4af7-8261-893c745fa5cf
-# ╟─ee3384c7-b7d1-4b2c-80ca-bc60a33ce398
-# ╟─118eed06-b3a4-4549-8eb9-135338aeefc1
-# ╟─6ea0a24a-3c79-46dd-a257-208c7a6805d0
-# ╟─c6d947e6-f4e0-47ac-9cce-9c281972acca
-# ╟─c6db445b-85f2-491b-b2bb-aa7984a90152
-# ╟─4096a11d-2a58-4647-801a-c61e26219e13
-# ╟─b1005326-2a78-4ed4-9dee-6f4ea629f24f
-# ╟─c7544900-9d54-4d9e-b32e-051d547ac5f1
-# ╟─b367f7ba-89df-4c09-8402-cdffe9155153
-# ╟─2dfec88b-380d-49ad-80f5-cdcd01e21cea
-# ╟─9e2d337a-0e26-4718-85ea-66b54349ec5d
-# ╟─44bc4e5b-28f8-4e2b-a5f2-b62ecc059ac4
-# ╟─e5d97403-420a-4588-ba3b-99842da5927f
-# ╟─23fbea1f-b083-46a1-924c-5485478345e3
-# ╟─a1e0cfec-d1ad-4692-8125-c109819e3c75
-# ╟─71183436-0231-4e89-af31-9fb6ae9996f2
-# ╟─ade61f89-509e-4068-8fba-e5f95cdc13a2
-# ╟─44c19857-0051-4f27-b9f0-5ad7d81d9760
-# ╟─825161ce-ebc0-4b3a-a6db-c0e3fd8d0bb7
-# ╟─12871097-913a-489c-a5f8-9ed73be2dda2
-# ╟─a6318c24-91cb-4a6f-809c-bec648569f7c
-# ╟─05f4be36-fd3e-4ffe-8049-eeeee4af03b5
-# ╟─e769fb23-7852-473f-bcd6-ae971f0ae66c
-# ╟─514b9328-6987-4436-b460-bfe9438c3ec6
-# ╟─b20dd0fb-ebae-4276-8f0b-401bc40c16ee
-# ╟─0c4008d0-b457-41b4-a578-b5a63c72a5b7
-# ╟─652bfbc5-769a-4f25-af45-b3337a32b368
-# ╟─a365490e-a4d9-4af0-835d-25b60327308e
-# ╟─2799fba9-8500-432f-9b2e-c164476dcb33
-# ╟─8bbdc4e2-5433-4e71-8922-c8fc435ce420
-# ╟─f1f9ceeb-601e-4311-ad1b-7347efa5893b
-# ╟─42ad4c47-d9b6-4f64-b1ee-caa5592adfab
-# ╟─c05f30ea-83d1-4753-a5f4-e84ab8594f82
-# ╟─95f0779a-776e-4589-9be4-0f60a83050d0
-# ╟─3b1c6e5d-8179-4f3b-b37a-c533668beb2c
-# ╟─f666217c-804e-43cd-ba8c-ec5975f23c1e
-# ╟─96864302-2257-43a4-801b-150423e64047
-# ╟─5015bc1d-3b84-43be-b1c8-76953f362eab
-# ╟─48255e3f-307a-49cc-ad5e-cb3557cbff11
-# ╟─8fb15c2c-d2ed-4da7-b570-3a4f6580f53e
-# ╟─ffa724f4-8bfd-4d8c-bc6b-83ffc83c8cfa
-# ╟─3de4bc6d-a616-4125-8e18-ce54f8cdd4e8
-# ╟─520de0ba-11f9-42a9-9d29-fac3caf6cbe4
-# ╟─4730c3dc-c6c5-4151-ad21-8e4335d846a7
-# ╟─df9fd096-56a4-4610-b1fc-f7cce4e19e83
-# ╟─e73864ff-7106-4523-a049-805ca009796b
-# ╟─0d9885b7-71aa-40ad-affa-3f8555226d36
-# ╟─85da9bbd-ec12-48f0-9e96-0260cf68f04c
-# ╟─e2b11e5b-616c-45e8-8e96-670c2487f8d3
-# ╟─9cf41a12-d0a3-48af-ad6c-862b8cbaad89
-# ╟─361c61d7-f4c3-48f7-83c0-54eb5d329ba6
-# ╟─81e57214-62f5-4fe1-9a01-948c3175e43f
-# ╟─791330da-48ae-4ee0-a402-58764ce7e1bb
-# ╟─c31321f5-08a4-4a0e-af27-56bfc789c0a5
-# ╟─a307d1dd-7257-472f-bdc0-58e0a712fda7
-# ╟─78c2263a-1800-416b-bc27-8a743a1e76b0
-# ╟─9e279970-7752-4148-9092-09820f176d94
-# ╟─bc571979-9458-4bfa-b74f-9c8105b79545
-# ╟─a49bcf15-a3bd-482b-a2a1-186a20aa9e1f
-# ╟─977112ba-29f5-4413-a7f8-4af33ce7fc44
-# ╟─a3809050-7e2a-4ceb-a08a-4708247a761e
-# ╟─81aa6f2c-a1ca-43f4-a550-a3ec45d2faaa
-# ╟─0b5237ce-d9a5-4ca2-b616-4c59c6b1dd12
-# ╟─68d6c0bd-0d71-48ba-97c2-53681fdc6e61
-# ╟─00fb253a-ad48-4d28-af17-5cdbc2cb81cb
-# ╟─3bf0cab8-de5d-4a58-b92e-c530aeca7547
-# ╟─8986d0dc-fb2e-43dc-b61a-f38ce1f94d1a
-# ╟─0d38feef-ea74-4f99-8064-8fa7a6d4d6ae
-# ╟─67dbd8c3-3200-4a6c-b8ca-bf17aff233e4
-# ╟─80cdc39a-86be-45c1-8cde-5389c99ad354
-# ╟─a1144fd3-45ba-47c1-a1f1-3ca7e53574a0
-# ╟─3be8bb30-a8a9-4cbd-af8a-eca42045d86c
-# ╟─9f88f71b-f339-4fbe-8368-bd1d9daefe2b
-# ╟─db795dfc-e791-49bb-805a-35b6af3e1eb4
-# ╟─b5585816-fd8c-45ca-9b90-4b8a5a3209ad
-# ╟─e6b8a809-3c61-48b6-9215-6df865038316
-# ╟─f00080ad-8066-4a02-8bdb-c8a0a797e57e
-# ╟─afe288e2-cd11-4f6a-bcae-28f8b2f8d15b
-# ╟─e838d2d1-46e5-4039-ba66-6ce9c228fc69
-# ╟─0826acba-18ca-441d-a802-7482b2c17faf
-# ╟─ba883d58-6723-458f-b9a8-a7ff9c1f0a71
-# ╠═41b227d5-fbbc-49f2-9d79-f928a7e66a3f
-# ╠═b6cd5910-4cee-4ac5-81b8-a3bf75da15f0
-# ╠═375a4529-c4d0-406c-b483-64efbdd56f39
+# ╟─7091d2cf-9237-45b2-b609-f442cd1cdba5
+# ╟─0a7f37e1-51bc-427d-a947-31a6be5b765e
+# ╟─a696c014-2070-4041-ada3-da79f50c9140
+# ╟─595a5ef3-4f54-4502-a943-ace4146efa31
+# ╟─bc1ee08d-9376-44d7-968c-5e114b09a5e0
+# ╟─bcc3cea5-0564-481b-883a-a45a1b870ba3
+# ╟─e77f6f3b-f18d-4260-ab7a-db61e7b4131d
+# ╟─67dae6d0-aa32-4b46-9046-aa24295aa117
+# ╟─2d70884d-c922-45e6-853e-5608affdd860
+# ╟─b640fc38-2ada-4c35-82f0-53fd801d14e1
+# ╟─a7cbd3b5-494a-45ef-9bed-1aa1ba2d7924
+# ╟─8765a8e8-6f73-4ad4-9604-6a9eb5991241
+# ╟─8c69c448-c104-4cae-9352-10d4cec512a9
+# ╟─68a0247b-9346-42fc-b2d2-4373e70a1789
+# ╟─bf83caa9-d9f9-48a2-9563-152fcbb8afdc
+# ╟─c78fbd4c-1e5f-4307-9ab3-9303b0744de0
+# ╟─7b4502d1-3847-4472-b706-65cb68413927
+# ╟─ea55660a-090b-453c-a141-b6867670ba48
+# ╟─ffb7f8f1-739c-43a5-b13e-4045b50c9e05
+# ╟─3315ef07-17df-4fe1-a7a5-3e8f039c0cc1
+# ╟─c936fe77-827b-4245-93e5-d239d467bffd
+# ╟─86420ad6-3995-424c-9bdd-21214bf544df
+# ╟─cdccf955-19f3-45bb-8dfe-2e15addcdd32
+# ╟─4d474d9f-50dc-4c9f-9505-65e024c83f38
+# ╟─331571e5-f314-42db-ae56-66e64e485b85
+# ╟─cbbcf999-1d31-4f53-850e-d37a28cff849
+# ╟─324ea2b8-c350-438d-8c8f-6404045fc19f
+# ╟─3a50c68d-5cb1-45f5-a6af-c07ab280b1ad
+# ╟─c8e55a60-0829-4cc7-bc9b-065809ac791c
+# ╟─9d9c91b3-ed65-4929-8cfe-4de7a0d6f807
+# ╟─8da5d36d-7fe0-45ee-bbcc-abb9eb2831f6
+# ╟─6444df20-363c-4db3-acb0-efb3b17d7368
+# ╟─5ffef289-18e0-40c8-be74-de9871a45687
+# ╟─caef3a1c-c85d-4083-b8e3-4389d81ad6c1
+# ╟─e5853cf2-657c-473d-8617-db74e8f59ea2
+# ╟─7424b8a4-355e-408b-9b39-8af53a717134
+# ╟─85cf441b-8b42-4dba-9bef-e54855cf0ce1
+# ╟─206c82ee-389e-4c92-adbf-9578f7125418
+# ╟─c03ab032-13b1-41a4-9477-6c79bb4fecd6
+# ╟─1a062043-8cfe-4946-8eb0-688d3896229e
+# ╟─88093782-d180-4422-bd92-357c716bfc89
+# ╟─2459a2d9-4f48-46ab-82e5-3968e713f15f
+# ╟─91a6f3de-01c6-4215-9928-1ecce113adc1
+# ╟─f298ffd1-b1dd-472f-b761-c5e07a9121c0
+# ╟─32eb5c4f-8fde-44c1-a748-905de6aaf364
+# ╟─79a75f04-3aa9-4a8b-9f88-1fe8c123680b
+# ╟─ae5324a5-0cf6-4485-aead-86c3d8f3041a
+# ╟─16d84881-d40a-4694-9812-6896b336accc
+# ╟─dd0a4446-65ed-4b3d-87a6-ba950457aa72
+# ╟─27385a11-e8de-4d88-898a-8b9bd0a73ee2
+# ╟─72697e34-6f63-4d6b-a9ff-ae23a00d4ce2
+# ╟─dfe4234a-d2a3-4b59-9578-64bd6e8a5c33
+# ╟─593eb726-47a5-4783-8872-03a75c6cfb89
+# ╟─a24b03a3-b2a0-4b12-b2a8-25c8cf7f843c
+# ╟─e7dac1a5-dc63-4364-a7d6-13ab9808c9c6
+# ╟─7d830f79-e361-4de1-b3fd-dee08fd1cc06
+# ╟─2588893b-7978-45af-ac71-20cb2af34b10
+# ╟─a0fa5474-3cb7-4829-9e2e-2bf53ca00d94
+# ╟─52ff5315-002c-480b-9a4b-c04124498277
+# ╟─8fd7703b-db80-4aa4-977f-c7e3ad1f9fb6
+# ╟─0469b52f-ce98-4cfa-abf3-be53630b30dd
+# ╟─4f884fee-4934-46c3-8352-0105652f8537
+# ╟─9dbf5502-fa44-404f-88ae-be3488e3e41c
+# ╟─6e92fa09-cf58-4d3c-9864-c6617f1e54d7
+# ╟─6173a35d-1e28-45ac-93b8-d2fb1117bf02
+# ╟─866e6bfe-748b-424c-b0af-b6f51c15be21
+# ╟─1ae4fa36-0faa-438b-8be3-292ec7b617a0
+# ╟─3e980014-daf7-4d8b-b9e6-14a5d078e3b6
+# ╟─5d2f56e8-21b2-4aa9-b450-40f7881489e0
+# ╟─6cbddc5d-ae3f-43ac-9b7a-bbc779739353
+# ╟─64a5e292-14b4-4df0-871d-65d9fec6201d
+# ╟─96b18c60-87c6-4c09-9882-fbbc5a53f046
+# ╟─35d5f991-5194-4174-badc-324ad7d15ac3
+# ╟─f693814d-9639-4abb-a5b4-e83fe7a28a77
+# ╟─67f7449f-19b8-4607-9e32-0f8a16a806c0
+# ╟─fb0361a6-c967-4dcd-9002-55ae25e225a5
+# ╟─5c0eaab3-de6d-457f-a0c3-8ea6b5da2c88
+# ╟─de93ac5e-bec6-4764-ac6d-f84076ff20ee
+# ╟─a50cc950-45ca-4745-9f47-a3fbb28db782
+# ╟─1421c748-083b-4977-8a88-6a39c9b9906d
+# ╟─82baa991-6df5-4561-9643-52db96c5e99b
+# ╟─9a02f4f8-38d6-44a4-9118-1440bfc4d271
+# ╟─fed8b7b2-34c4-445c-bf11-21b5161c8d28
+# ╟─cb9cc32f-a12b-43ec-83c8-3ed26a96992f
+# ╟─ce822f87-d2c4-434b-9b5d-b629962d2df2
+# ╟─9d25c603-07b3-4758-9b28-0d2041e18569
+# ╟─929916d2-9abf-40b2-9399-85c3ba05989b
+# ╟─8743242e-7f7f-4f54-b27c-1f08d1a110e2
+# ╟─aaaadaa8-d2e9-4647-82de-5547b2d6ddb4
+# ╟─6e62b53d-68d8-45de-9a0f-8223b5d2df92
+# ╟─7ed0de94-b513-40c1-9f83-6ed75fcd4cdd
+# ╟─188e9981-9597-483f-b1e3-689e26389b61
+# ╟─50d9a624-20d8-4feb-a565-4efcaf22fe27
+# ╟─ec78bc4f-884b-4525-8d1b-138b37274ee7
+# ╟─e88db991-bf54-4548-80cb-7cd307300ec9
+# ╟─99c3f5ee-63d0-4f6f-90d9-2e524a7e945a
+# ╟─a270b1b3-7bb4-4612-9e57-3ea9b7daedc0
+# ╟─872aa766-2ed8-4cb3-a029-4a2bb42c90a8
+# ╟─12991c72-6b19-47ed-9ebe-90e3d615f985
+# ╟─03840aa7-4258-47f7-b802-92ab93c92911
+# ╟─daf19517-4123-49a8-affb-5d869e08480a
+# ╟─8398cb20-b9f4-427c-8b10-2a572f8a5632
+# ╟─ff397d54-42b3-40af-bf36-4716fd9a4419
+# ╟─fcc49f3c-6219-40b8-a5d0-85fa70738a8d
+# ╟─6dc74312-0e3b-4ead-b369-f9c2b70ab3d3
+# ╟─e0f3cee1-b6ee-4399-8e4f-c0d70b94723e
+# ╟─1039a13b-6665-4bb1-82f8-11b740c3b5ba
+# ╟─aa5b5ee6-b5fe-4245-80fd-ab3ab3963d59
+# ╟─819d01e1-4b81-4210-82de-eaf838b6a337
+# ╟─4d4a45b5-e221-4713-b3fa-3eb36a813385
+# ╟─ea08837f-3535-4807-92e5-8091c3911948
+# ╟─dc70f9a4-9b52-490a-9a94-95fe903401ce
+# ╟─f7499d8d-e511-4540-ab68-84454b3d9cd9
+# ╟─0cf4d7db-5545-4b1c-ba6c-d9a6a3501e0e
+# ╟─9522421a-1f8e-494d-a61f-f5f8dff72c83
+# ╟─39082958-54ed-4120-a7a1-f40f3dc9d965
+# ╟─3d0c370e-d3e5-40ec-8e66-745e4f990e18
+# ╟─3583f790-bcc3-466b-95e8-e99a080e5658
+# ╟─06a80959-58de-4e21-bfdf-5b06caf157f1
+# ╟─eb5b710c-70a2-4237-8913-cd69e34b8e50
+# ╟─2aa229e0-f578-4ff6-80a3-4897e2ad187f
+# ╟─ba0397a7-f514-42f8-b094-2ce5bd95b081
+# ╟─e1659838-ecf2-4205-b23c-227c586f6cc3
+# ╟─1aa0cc79-e9ca-44bc-b9ab-711eed853f00
+# ╟─bf7cd9d6-c7a4-4715-a57c-d0acaef1e7d8
 # ╟─0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
+# ╟─3a083374-afd6-4e64-95bd-d7e6385ab403
+# ╟─6cd96390-8565-499c-a788-fd0070331f25
+# ╟─8fe5631a-1f10-4af4-990d-5a23c96fb73b
+# ╟─619df17d-9f75-463f-afe5-6cbffb0762d5
 # ╟─8687dbd1-4857-40e4-b9cb-af469b8563e2
 # ╟─fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
-# ╠═491f5439-d984-4446-b473-8e6a0214bded
-# ╠═d0867ff4-da8a-45ce-adbc-8af12af89779
-# ╠═bc1c6156-5b95-4f22-949a-f2ae81d5b94d
-# ╠═ec704221-a9ab-4e98-9a17-b0843591a2e7
-# ╠═3d90e684-f6e3-466c-bd44-479597277edb
-# ╠═073798be-22ee-4280-9155-44831227e195
-# ╟─eea8ac82-9210-4734-bb07-8bf0e912434a
-# ╠═c9939ed7-1f77-448f-b593-3da7d6c1a901
-# ╠═23196682-02ae-4caf-9d75-3aba91df5b86
-# ╟─572dd293-a343-43d2-aa53-4775db9ec56a
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

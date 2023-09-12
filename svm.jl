@@ -36,11 +36,14 @@ begin
 	
 end
 
-# ╔═╡ ece21354-0718-4afb-a905-c7899f41883b
+# ╔═╡ 30db2e86-cd52-4600-9fd2-227ec61cdefd
 begin
 	using Logging
 	Logging.disable_logging(Logging.Info); # or e.g. Logging.Info
 end;
+
+# ╔═╡ 4c725287-1388-49a9-890d-3d448c47e8b9
+using Flux
 
 # ╔═╡ 1aa0cc79-e9ca-44bc-b9ab-711eed853f00
 using MLUtils
@@ -57,7 +60,7 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Logistic regression 
+#### Support vector machines
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -91,7 +94,7 @@ end;
 # ╔═╡ a696c014-2070-4041-ada3-da79f50c9140
 begin
 	next1
-	topics = ["Binary linear classifier: logistic regression", "Probabilistic model and Cross entropy loss", "Regularisation", "Evaluation", "Case study: MNIST dataset"]
+	topics = ["SVM", "Hinge loss", "Kernel trick"]
 	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
 end
 
@@ -143,11 +146,47 @@ md"""
 
 """
 
+# ╔═╡ 68a0247b-9346-42fc-b2d2-4373e70a1789
+TwoColumn(md"""
+
+
+Note that the fitted hyperplane ``h(\mathbf{x})``
+
+* ``h(\mathbf{x}^{(i)}) = 0``: the decision boundary
+* ``h(\mathbf{x}^{(i)}) > 0``: one side of the boundary
+* ``h(\mathbf{x}^{(i)}) < 0``: the other side of the boundary
+
+
+""" , md"""
+
+To classify ``\hat{y}^{(i)}``:
+
+```math
+\hat{y}^{(i)} = \begin{cases} \text{class 1} & h(\mathbf{x}^{(i)}) \geq 0 \\
+
+\text{class 2}& h(\mathbf{x}^{(i)}) < 0 
+\end{cases}
+```
+
+"""
+)
+
 # ╔═╡ bf83caa9-d9f9-48a2-9563-152fcbb8afdc
 md"""
 
 ##
 """
+
+# ╔═╡ 27cd8b9f-aacd-48d4-8288-14f4531bd7de
+ww = randn(3)
+
+# ╔═╡ ae25fd68-ee9b-40fa-81fa-a756075da27c
+let
+
+	w_svm = zeros(2)
+
+		
+end
 
 # ╔═╡ ea55660a-090b-453c-a141-b6867670ba48
 md"""
@@ -157,7 +196,7 @@ md"""
 
 ##### What if we *add some more data* ?
 
-* **_ideally_**, the old decision boundary **shouldn't** change much
+* **_ideally_**, the original decision boundary **shouldn't** change much
 """
 
 # ╔═╡ 3315ef07-17df-4fe1-a7a5-3e8f039c0cc1
@@ -186,7 +225,7 @@ md"""
 \text{SSE Loss}(\mathbf{w}) = \frac{1}{2} \sum_{i=1}^{n} (y^{(i)} - \mathbf{w}^\top \mathbf{x}^{(i)})^2
 ```
 
-* least square tries to please every data point (equally) in squared loss sense
+* least square tries to **please** every data point (equally) in squared loss sense
 
 
 """
@@ -211,6 +250,119 @@ The target ``y`` is **binary**, but the hyperplane ``\large h(\cdot)\in (-\infty
 
 
 """
+
+# ╔═╡ f88defa5-d5e9-4979-9b43-ccf836f60bf2
+md"""
+
+
+## Hinge loss
+
+
+
+```math
+\texttt{hinge\_loss}(z^{(i)}, y^{(i)}) = \text{max}\left (0, 1 - y^{(i)}\cdot  \underbrace{\mathbf{w}^\top \mathbf{x}^{(i)}}_{z^{(i)}}\right)
+
+```
+"""
+
+# ╔═╡ 8f408b8a-b8e3-4ea8-b711-0119d2d8d419
+hinge_loss(z, y; agg = mean) = max.(0, 1 .- z .* y) |> agg
+
+# ╔═╡ d9a7acae-918c-49a0-ae5d-fd9dff59245b
+let
+	y = 1
+	plot(-4:0.1:3, (x) -> hinge_loss(x, y), xlabel=L"z= \langle \mathbf{x}\,, \mathbf{w} \rangle =\mathbf{x}_{^{\top}}\mathbf{w}", lw=2, ylabel="Loss", label="Hinge loss", ylim = [-0.25, 4.5], framestyle=:zerolines, legend=:outerbottom, title="Loss functions for "* L"y = %$(y)", ratio=1, xticks = -4:1:4)
+
+	plot!(-4:0.1:4, (x) -> (x-y)^2, lw=2, label="Least square loss", ls=:dash)
+	
+
+	plot!(-4:0.01:4, (x) -> (x*y) > 0  ? 0 : 1, lw=5, label="0/1 loss", ls=:dot)
+	# vline!([0], lw=2, lc=:gray)
+
+	plot!(-4:0.01:4, (x) -> Flux.Losses.logitbinarycrossentropy(x, (y + 1) /2), lw=2, ls=:dashdotdot, label="Logistic: cross entropy loss")
+	vline!([0], lw=2, lc=:gray, label="")
+end
+
+# ╔═╡ 2eac434a-60c8-42f6-a80e-6f90ee64d3e3
+let
+	y = -1
+	plot(-4:0.1:3, (x) -> hinge_loss(x, y), xlabel=L"z= \langle \mathbf{x}\,, \mathbf{w} \rangle =\mathbf{x}_{^{\top}}\mathbf{w}", lw=2, ylabel="Loss", label="Hinge loss", ylim = [-0.25, 4.5], framestyle=:zerolines, legend=:outerbottom, title="Loss functions for "* L"y = %$(y)", ratio=1, xticks = -4:1:4)
+
+	plot!(-4:0.1:4, (x) -> (x-y)^2, lw=2, label="Least square loss", ls=:dash)
+	
+
+	plot!(-4:0.01:4, (x) -> (x*y) > 0  ? 0 : 1, lw=5, label="0/1 loss", ls=:dot)
+	# vline!([0], lw=2, lc=:gray)
+
+	plot!(-4:0.01:4, (x) -> Flux.Losses.logitbinarycrossentropy(x, (y + 1) /2 ), lw=2, ls=:dashdotdot, label="Logistic: cross entropy loss")
+	vline!([0], lw=2, lc=:gray, label="")
+end
+
+# ╔═╡ de9296ed-f198-4a1e-ad5a-e9e1df1f81a2
+begin
+	function svm_hinge_loss(w, Xs, ys)
+		# forward pass
+		zs = Xs  * w
+		margins = 1 .- zs .* ys
+		loss = hinge_loss(zs, ys)
+		#backward pass
+		dw = - Xs' * (ys .* (margins .> 0)) / length(ys)
+		loss, dw
+	end
+end
+
+# ╔═╡ 64769582-6d4f-4b98-ab51-440f9fc5dee7
+begin
+	function svm_l2_loss(w, Xs, ys)
+		zs = Xs * w
+		l = (.5 * (max.(0, 1 .- ys .* zs)).^2) |> mean
+	end
+
+end
+
+# ╔═╡ f09688b3-6fb0-459a-b662-2558a804a951
+# losses_flux, hinge_class_flux=let
+# 	# Random.seed!(444)
+# 	XX = D₃
+# 	yy = targets_D₃_
+# 	hinge_classifier = Dense(2, 1) |> f64
+# 	loader = Flux.DataLoader((XX[:, 2:end]', yy'), batchsize=160, shuffle=true)
+# 	optim = Flux.setup(OptimiserChain(WeightDecay(0.0001), Descent(0.1)), hinge_classifier)
+# 	loss = Flux.Losses.hinge_loss
+# 	losses = []
+# 	for epoch in 1:1_000
+# 		for (xx, yy) in loader
+# 			li, grads = Flux.withgradient(hinge_classifier) do m
+# 				y_pred = m(xx)
+# 				loss(y_pred, yy)
+# 			end
+# 			Flux.Optimise.update!(optim, hinge_classifier, grads[1])
+# 			push!(losses, li)
+# 		end
+# 	end
+
+# 	losses, hinge_classifier
+# end
+
+# ╔═╡ 5062988c-1f61-4596-a5bb-f480d8ff98ec
+# plot(losses_flux)
+
+# ╔═╡ 343cc2a4-9795-4f75-b437-9b7ad522ced2
+# [hinge_class_flux.bias..., hinge_class_flux.weight...]
+
+# ╔═╡ b9075996-19e5-42b3-b882-2531720c0f4d
+# let
+# 	gr()
+# 	anim = @animate for t in [1:10:500;]
+# 		plot(D₃[targets_D₃_ .== 1, 2], D₃[targets_D₃_ .== 1, 3], st=:scatter, label="class 1", c=2)
+# 		plot!(D₃[targets_D₃_ .== -1, 2], D₃[targets_D₃_ .== -1, 3], st=:scatter, framestyle=:origin, label="class 2",  legend=:topleft, c=1)
+# 		w₀, w₁, w₂ = (ws_svm2_history[t])
+# 		plot!(range((extrema(D₃[:, 2]) .+ (-1., 1.))..., 100), range((extrema(D₃[:, 3]) .+ (-1., 1.))..., 100), (x, y) -> (w₀+ w₁* x + w₂ * y)>0, st=:heatmap,  c=:jet, colorbar=false, alpha=0.4,   xlabel=L"x_1", ylabel=L"x_2", title="Epoch: "*L"%$(t);"*" loss: " *L"%$(round(losses_svm[t]; digits=1))", ratio=1)
+# 		quiver!([0.0], [0.0], quiver=([w₁- 0.0], [w₂-0.0]), c=2, lw=2)
+# 	end
+
+# 	gif(anim, fps=5)
+# end
 
 # ╔═╡ 324ea2b8-c350-438d-8c8f-6404045fc19f
 md"""
@@ -260,7 +412,9 @@ Recall **logistic function** (also known as **sigmoid**)
 
 * it squeezes a line to 0 and 1
   * ``x\rightarrow \infty``, ``\sigma(x) \rightarrow 1``
-   * ``x\rightarrow -\infty``, ``\sigma(x) \rightarrow 0``""", begin
+   * ``x\rightarrow -\infty``, ``\sigma(x) \rightarrow 0``""", 
+	
+begin
 gr()
 plot(-10:0.2:10, logistic, c=7, xlabel=L"x",  label=L"\texttt{logistic}(x)", legend=:topleft, lw=3, size=(350,300), ylabel=L"P(y=1)")
 end
@@ -1535,10 +1689,22 @@ md"""
 """
 
 # ╔═╡ 6cd96390-8565-499c-a788-fd0070331f25
+# D₂, targets_D₂, targets_D₂_=let
+# 	Random.seed!(123)
+# 	D_class_1 = rand(MvNormal(zeros(2), Matrix([1 -0.8; -0.8 1.0])), 30)' .+2
+# 	D_class_2 = rand(MvNormal(zeros(2), Matrix([1 -0.8; -0.8 1.0])), 30)' .-2
+# 	data₂ = [D_class_1; D_class_2]
+# 	D₂ = [ones(size(data₂)[1]) data₂]
+# 	targets_D₂ = [ones(size(D_class_1)[1]); zeros(size(D_class_2)[1])]
+# 	targets_D₂_ = [ones(size(D_class_1)[1]); -1 *ones(size(D_class_2)[1])]
+# 	D₂, targets_D₂,targets_D₂_
+# end
+
+# ╔═╡ 6f3c34f4-aee9-49a1-a92d-7c473ff05ca0
 D₂, targets_D₂, targets_D₂_=let
-	Random.seed!(123)
-	D_class_1 = rand(MvNormal(zeros(2), Matrix([1 -0.8; -0.8 1.0])), 30)' .+2
-	D_class_2 = rand(MvNormal(zeros(2), Matrix([1 -0.8; -0.8 1.0])), 30)' .-2
+	Random.seed!(345)
+	D_class_1 = rand(MvNormal(zeros(2), Matrix([1 0; 0 1.0])), 30)' .+2
+	D_class_2 = rand(MvNormal(zeros(2), Matrix([1 0; 0 1.0])), 30)' .-2
 	data₂ = [D_class_1; D_class_2]
 	D₂ = [ones(size(data₂)[1]) data₂]
 	targets_D₂ = [ones(size(D_class_1)[1]); zeros(size(D_class_2)[1])]
@@ -1587,41 +1753,23 @@ begin
 	# plot!(-5:1:5, -5:1:5, (x,y) -> 0, alpha =0.5, st=:surface, c=:gray)
 end
 
-# ╔═╡ 68a0247b-9346-42fc-b2d2-4373e70a1789
-TwoColumn(md"""
-
-
-Note that the fitted hyperplane ``h(\mathbf{x})``
-
-* ``h(\mathbf{x}^{(i)}) = 0``: the decision boundary
-* ``h(\mathbf{x}^{(i)}) > 0``: one side of the boundary
-* ``h(\mathbf{x}^{(i)}) < 0``: the other side of the boundary
-
-
-To classify ``\hat{y}^{(i)}``:
-
-```math
-\hat{y}^{(i)} = \begin{cases} \text{class 1} & h(\mathbf{x}^{(i)}) \geq 0 \\
-
-\text{class 2}& h(\mathbf{x}^{(i)}) < 0 
-\end{cases}
-```
-
-""" , let
+# ╔═╡ e4696124-4b4d-42d9-8349-fd29d88957c9
+let
 	plotly()
-	scatter(D₂[targets_D₂ .== 1, 2], D₂[targets_D₂ .== 1, 3], ones(sum(targets_D₂ .== 1)), zlim=[-1.1, 1.1], label="ỹ=1", c=2, titlefontsize=10, legend=:bottom)
+	scatter(D₂[targets_D₂ .== 1, 2], D₂[targets_D₂ .== 1, 3], ones(sum(targets_D₂ .== 1)), zlim=[-1.1, 1.1], label="ỹ=1", c=2, titlefontsize=10)
 	scatter!(D₂[targets_D₂ .== 0, 2], D₂[targets_D₂ .== 0, 3], -1 * ones(sum(targets_D₂ .== 0)), label="ỹ=-1", framestyle=:zerolines, c=1)
 	w_d₂ = linear_reg(D₂, targets_D₂_;λ=0.0)
 	plot!(-5:1:5, -5:1:5, (x,y) -> w_d₂[1] + w_d₂[2] * x + w_d₂[3] * y, alpha =0.9, st=:surface, colorbar=false, c=:jet, title="First attempt: decision boundary h(x) =0")
+
+
+	plot!(-5:1:5, -5:1:5, (x,y) -> 0, alpha =0.5, st=:surface, c=:gray)
 	if true
 		# the intersection
 		xs = -5:1:5
 		ys = @. (- w_d₂[1] - w_d₂[2] * xs) / w_d₂[3]
 		plot!(xs,  ys, zeros(length(xs)), lw=3, lc=:gray, ls=:solid, label="h(x)=0")
 	end
-
-	plot!(-5:1:5, -5:1:5, (x,y) -> 0, alpha =0.5, st=:surface, c=:gray)
-end)
+end
 
 # ╔═╡ 7b4502d1-3847-4472-b706-65cb68413927
 plot_ls_class=let
@@ -1645,12 +1793,61 @@ end;
 plot_ls_class
 
 # ╔═╡ cbbcf999-1d31-4f53-850e-d37a28cff849
-begin
+let
 	plotly()
 	scatter(D₂[targets_D₂ .== 1, 2], D₂[targets_D₂ .== 1, 3], ones(sum(targets_D₂ .== 1)),  label="ỹ=1", c=2)
 	scatter!(D₂[targets_D₂ .== 0, 2], D₂[targets_D₂ .== 0, 3], -1 *ones(sum(targets_D₂ .== 0)), label="ỹ=-1", framestyle=:zerolines, c=1)
 	# w = linear_reg(D₂, targets_D₂;λ=0.0)
 	plot!(-10:1:10, -50:1:50, (x,y) -> w_d₂[1] + w_d₂[2] * x + w_d₂[3] * y, alpha =0.8, st=:surface, colorbar=false,c=:jet, title="First attempt: unbounded prediction")
+end
+
+# ╔═╡ 6b445910-dd44-4967-a1e2-fdf1dd74bede
+ws_history_D2=let
+	Random.seed!(123)
+	## Train svm
+	XX = D₂
+	yy = targets_D₂_
+	w_svm = randn(size(XX)[2])
+	# w_svm = -1 * linear_reg(D₃, targets_D₃_;λ=0.0) * 10
+	ws_history = []
+	losses_svm = []
+	γ = 0.01
+	# α = 0.0001
+	for i in 1:5_000
+		# li, dw = svm_hinge_loss(w_svm, XX, yy)
+		li, dw = Flux.withgradient((w) ->  Flux.Losses.hinge_loss(XX * w, yy), w_svm)
+		push!(losses_svm, li)
+		push!(ws_history, w_svm)
+		# w_svm -= γ * (dw + α * w_svm)
+		w_svm -= γ * dw[1]
+	end
+	ws_history
+end;
+
+# ╔═╡ d48dea43-629b-47b5-900b-c92d4ecadd64
+let
+	gr()
+	XX = D₂
+	yy = targets_D₂_
+	ww = ws_history_D2[end]
+	# ww = [hinge_class_flux.bias..., hinge_class_flux.weight...]
+	ξ = 0.05
+	svs = abs.((1 .- (XX * ww) .* yy) .- 0) .< ξ
+	losses = Flux.Losses.hinge_loss(XX * ww, yy; agg=identity)
+	# minx, maxx = extrema(XX[:, 2]) .+ (-1., 1.)
+	# miny, maxy = extrema(XX[:, 3]) .+ (-1., 1.)
+	# xs, ys = meshgrid(minx:0.3:maxx, miny:0.3:maxy)
+	plot(XX[yy .== 1, 2], XX[yy .== 1, 3], st=:scatter, label="class 1", c=2, alpha=0.2)
+	plot!(XX[yy .== -1, 2], XX[yy .== -1, 3], st=:scatter, framestyle=:origin, label="class 2",  legend=:topleft, c=1, alpha=0.2)
+	plot!(-6:1:6, (x) -> - ww[1]/ww[3] - ww[2]/ww[3] * x, lw=2, lc=:red,ls=:solid,  label=L"h(x)=0", title="Support vector classifier (hinge loss)")
+	plot!(-6:1:6, (x) ->  (1-ww[1])/ww[3] - ww[2]/ww[3] * x, lw=2, lc=:gray,ls=:dash,  label=L"h(x) =1")
+	plot!(-6:1:6, (x) ->  (-1-ww[1])/ww[3] - ww[2]/ww[3] * x, lw=2, lc=:gray, ls=:dash,  label=L"h(x)=-1")
+
+	# for i in 1:2:size(XX)[1]
+		
+	# 	annotate!([XX[i, 2]], [XX[i, 3]+0.1], text(L"%$(round(losses[i]; digits=1))", 8, :bottom, :purple))
+	# end
+	plot!(XX[svs , 2], XX[svs, 3], st=:scatter, markershape=:utriangle, c=3, ms=4, label="support vectors")
 end
 
 # ╔═╡ 8fe5631a-1f10-4af4-990d-5a23c96fb73b
@@ -1683,28 +1880,35 @@ end;
 
 # ╔═╡ 619df17d-9f75-463f-afe5-6cbffb0762d5
 begin
-	n3_ = 30
-	extraD = randn(n3_, 2)/2 .+ [2 -6]
+	n3_ = 100
+	extraD = randn(n3_, 2) * cholesky(Matrix([0.8 0; 0 1.])).L' .- 7.
 	D₃ = [copy(D₂); [ones(n3_) extraD]]
 	targets_D₃ = [targets_D₂; zeros(n3_)]
-	targets_D₃_ = [targets_D₂; -ones(n3_)]
+	targets_D₃_ = [targets_D₂_; -ones(n3_)]
 end
+
+# ╔═╡ 9eca2cdf-040c-443c-bb0f-5a446069b630
+Flux.withgradient((w) -> hinge_loss(D₃ * w, targets_D₃_), ww)
+
+# ╔═╡ 53fbcf35-c7ba-48df-a614-c7198051b01a
+svm_hinge_loss(ww, D₃, targets_D₃_)
 
 # ╔═╡ ffb7f8f1-739c-43a5-b13e-4045b50c9e05
 let
 
 	gr()
 	p2 = plot(D₃[targets_D₃ .== 1, 2], D₃[targets_D₃ .== 1, 3], st=:scatter, label="class 1", ratio = 1, c = 2)
-	plot!(D₃[targets_D₃ .== 0, 2], D₃[targets_D₃ .== 0, 3], st=:scatter, framestyle=:origin, label="class 2", xlim=[-8, 8], legend=:topleft,  title="How about adding more data?", c=1)
+	plot!(D₃[targets_D₃ .== 0, 2], D₃[targets_D₃ .== 0, 3], st=:scatter, framestyle=:origin, label="class 2", xlim=[-12.5, 5.5], legend=:topleft,  title="How about adding more data?", c=1)
 	tmin = 0
 	tmax = 2π
+	d3mean = mean(extraD; dims=1)[:]
 	tvec = range(tmin, tmax, length = 100)
 
-	plot!(2.2 .+ sin.(tvec) *1.6, -6 .+ cos.(tvec) * 2, lc=1, lw=3, label="", alpha=1.0 , fill=true, fillalpha=0.2, fillcolor=1)
+	plot!(d3mean[1] .+ sin.(tvec) *2, d3mean[2] .+ cos.(tvec) * 2, lc=1, lw=3, label="", alpha=1.0 , fill=true, fillalpha=0.2, fillcolor=1)
 	plot(plot(plot_ls_class, legend=:outerbottom), p2, titlefontsize=10)
 end
 
-# ╔═╡ 69d2fe20-4e8d-4982-8f22-c4a6bfb39b4e
+# ╔═╡ 86420ad6-3995-424c-9bdd-21214bf544df
 let
 	gr()
 	plt = plot(D₃[targets_D₃ .== 1, 2], D₃[targets_D₃ .== 1, 3], st=:scatter, c= 2, label="class 1", ratio=1, legend=:bottomright)
@@ -1716,7 +1920,7 @@ let
 
 	minx, maxx = minimum(D₃[:,2])-2, maximum(D₃[:,2])+2
 	miny, maxy = minimum(D₃[:,3])-2, maximum(D₃[:,3])+2
-	xs, ys = meshgrid(minx:0.25:maxx, miny:0.25:maxy)
+	xs, ys = meshgrid(minx:0.3:maxx, miny:0.3:maxy)
 	colors = [dot(w_d₃ , [1, x, y]) > 0.0   for (x, y) in zip(xs, ys)] .+ 1
 	scatter!(xs, ys, color = colors,
             markersize = 1.5, label = nothing, markerstrokewidth = 0,
@@ -1733,6 +1937,116 @@ let
 	scatter!(D₃[targets_D₃ .== 0, 2], D₃[targets_D₃ .== 0, 3], -1 * ones(sum(targets_D₃ .== 0)), label="y=-1", framestyle=:zerolines, c=1)
 	w_d₃ = linear_reg(D₃, targets_D₃_;λ=0.0)
 	plot!(-10:1:10, -10:1:10, (x,y) -> w_d₃[1] + w_d₃[2] * x + w_d₃[3] * y, alpha =0.8, st=:surface, color=:jet, colorbar=false, title="Why least square classifier fails")
+end
+
+# ╔═╡ 1b643378-080a-4d1b-bba0-8eb251d3c810
+ws_svm2_history, losses_svm2 = let
+	Random.seed!(123)
+	## Train svm
+	XX = D₃
+	yy = targets_D₃_
+	w_svm = randn(size(XX)[2])
+	ws_history = []
+	losses_svm = []
+	γ = 0.01
+	
+	for i in 1:5_000
+		# li, dw = svm_hinge_loss(w_svm, XX, yy)
+		li, dw =  Flux.withgradient(w -> svm_l2_loss(w, XX, yy), w_svm) 
+		push!(losses_svm, li)
+		push!(ws_history, w_svm)
+		w_svm -= γ * dw[1]
+	end
+	ws_history, losses_svm
+end;
+
+# ╔═╡ b8044c65-c800-492f-8a67-a8a6435557f5
+begin
+	Random.seed!(123)
+	## Train svm
+	XX = D₃
+	yy = targets_D₃_
+	w_svm = randn(size(XX)[2])
+	# w_svm = -1 * linear_reg(D₃, targets_D₃_;λ=0.0) * 10
+	ws_history = []
+	losses_svm = []
+	γ = 0.005
+	# α = 0.0001
+	α = 0.0
+	for i in 1:5_000
+		# li, dw = svm_hinge_loss(w_svm, XX, yy)
+
+		li, dw = Flux.withgradient((w) ->  Flux.Losses.hinge_loss(XX * w, yy), w_svm)
+		push!(losses_svm, li)
+		push!(ws_history, w_svm)
+		w_svm -= γ * (dw[1] + α * w_svm)
+		# w_svm -= γ * dw[1]
+	end
+	ws_history
+end;
+
+# ╔═╡ 439c75a2-24bc-4c81-a8c3-c0d338de3b40
+begin
+	gr()
+	plot(losses_svm, label="Loss", xlabel="Epoch")
+end
+
+# ╔═╡ 515247b7-0fa3-43e7-a4e1-cd827b668d94
+let
+	gr()
+
+	minx, maxx = extrema(D₃[:, 2]) .+ (-1., 1.)
+	miny, maxy = extrema(D₃[:, 3]) .+ (-1., 1.)
+	xs, ys = meshgrid(minx:0.3:maxx, miny:0.3:maxy)
+	ξ = 0.01
+	anim = @animate for t in [1:15:600; 601:50:length(ws_history)]
+		plot(D₃[targets_D₃_ .== 1, 2], D₃[targets_D₃_ .== 1, 3], st=:scatter, label="class 1", c=2, alpha=0.2)
+		plot!(D₃[targets_D₃_ .== -1, 2], D₃[targets_D₃_ .== -1, 3], st=:scatter, framestyle=:origin, label="class 2",  legend=:topleft, c=1, ylim =[-10,10], ratio=1, alpha=0.2)
+		w₀, w₁, w₂ = ww = ws_history[t]
+
+		svs = (abs.((1 .- (XX * ww) .* yy) .- 0) .< ξ) .| ((1 .- (XX * ww) .* yy).>0)
+		# minx, maxx = minimum(D₃[:,2])-1, maximum(D₃[:,2])+1
+		# miny, maxy = minimum(D₃[:,3])-1, maximum(D₃[:,3])+1
+		# plot!(range((extrema(D₃[:, 2]) .+ (-1., 1.))..., 100), range((extrema(D₃[:, 3]) .+ (-1., 1.))..., 100), (x, y) -> (w₀+ w₁* x + w₂ * y) > 0, st=:heatmap, alpha=0.4, levels=10, c=:jet, colorbar=false,   xlabel=L"x_1", ylabel=L"x_2", title="Epoch: "*L"%$(t);"*" loss: " *L"%$(round(losses_svm[t]; digits=1))", ratio=1)
+		db(x) = - ww[1]/ww[3] - ww[2]/ww[3] * x
+		plot!(-6:1:6, db, lw=2, lc=:red,ls=:solid,  label=L"h(x)=0", title="Epoch: "*L"%$(t);"*" loss: " *L"%$(round(losses_svm[t]; digits=3))")
+		plot!(-6:1:6, (x) ->  (1-ww[1])/ww[3] - ww[2]/ww[3] * x, lw=2, lc=:gray,ls=:dash,  label=L"h(x) =1")
+		plot!(-6:1:6, (x) ->  (-1-ww[1])/ww[3] - ww[2]/ww[3] * x, lw=2, lc=:gray, ls=:dash,  label=L"h(x)=-1")
+		x0 = 0.5 * (0 + (-w₀/w₁))
+		quiver!([x0], [db(x0)], quiver=([w₁], [w₂]), c=2, lw=2)
+		plot!(XX[svs , 2], XX[svs, 3], st=:scatter, markershape=:utriangle, c=3, ms=4, label="non-zero loss vectors")
+		# colors = [dot(ws_history[t] , [1, x, y]) > 0.0   for (x, y) in zip(xs, ys)] .+ 1
+		# scatter!(xs, ys, color = colors,
+  #           markersize = 1.5, label = nothing, markerstrokewidth = 0,
+		# markeralpha=0.5)
+	end
+
+	gif(anim, fps=5)
+end
+
+# ╔═╡ 33f00957-e930-48d8-a5f0-d4b4c3d0aa87
+let
+	XX = D₃
+	yy = targets_D₃_
+	ww = ws_svm2_history[end]
+	# ww = [hinge_class_flux.bias..., hinge_class_flux.weight...]
+	ξ = 0.15
+	svs = abs.((1 .- (XX * ww) .* yy) .- 0) .< ξ
+	losses = Flux.Losses.hinge_loss(XX * ww, yy; agg=identity)
+	minx, maxx = extrema(XX[:, 2]) .+ (-1., 1.)
+	miny, maxy = extrema(XX[:, 3]) .+ (-1., 1.)
+	xs, ys = meshgrid(minx:0.3:maxx, miny:0.3:maxy)
+	plot(XX[yy .== 1, 2], XX[yy .== 1, 3], st=:scatter, label="class 1", c=2, alpha=0.2)
+	plot!(XX[yy .== -1, 2], XX[yy .== -1, 3], st=:scatter, framestyle=:origin, label="class 2",  legend=:topleft, c=1, alpha=0.2)
+	plot!(-6:1:6, (x) -> - ww[1]/ww[3] - ww[2]/ww[3] * x, lw=2, lc=:red,ls=:solid,  label=L"h(x)=0", title="Support vector classifier (squared hinge loss)")
+	plot!(-6:1:6, (x) ->  (1-ww[1])/ww[3] - ww[2]/ww[3] * x, lw=2, lc=:gray,ls=:dash,  label=L"h(x) =1")
+	plot!(-6:1:6, (x) ->  (-1-ww[1])/ww[3] - ww[2]/ww[3] * x, lw=2, lc=:gray, ls=:dash,  label=L"h(x)=-1")
+
+	# for i in 1:2:size(XX)[1]
+		
+	# 	annotate!([XX[i, 2]], [XX[i, 3]+0.1], text(L"%$(round(losses[i]; digits=1))", 8, :bottom, :purple))
+	# end
+	plot!(XX[svs , 2], XX[svs, 3], st=:scatter, markershape=:utriangle, c=3, ms=4, label="support vectors")
 end
 
 # ╔═╡ a270b1b3-7bb4-4612-9e57-3ea9b7daedc0
@@ -1853,6 +2167,7 @@ end
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
@@ -1870,6 +2185,7 @@ StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
 Distributions = "~0.25.98"
+Flux = "~0.14.4"
 HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.16.1"
@@ -1888,7 +2204,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "43079daeec3b9c57f773016699a98546325333d3"
+project_hash = "69a8e0fc374e33c530d42a495afb9e42fde29c54"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -2009,6 +2325,12 @@ git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
 uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 version = "0.5.1"
 
+[[deps.ChainRules]]
+deps = ["Adapt", "ChainRulesCore", "Compat", "Distributed", "GPUArraysCore", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "Statistics", "StructArrays"]
+git-tree-sha1 = "f98ae934cd677d51d2941088849f0bf2f59e6f6e"
+uuid = "082447d4-558c-5d27-93f4-14fc19e9eca2"
+version = "1.53.0"
+
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
@@ -2060,6 +2382,12 @@ deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
 git-tree-sha1 = "fc08e5930ee9a4e03f84bfb5211cb54e7769758a"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.10"
+
+[[deps.CommonSubexpressions]]
+deps = ["MacroTools", "Test"]
+git-tree-sha1 = "7b8a93dba8af7e3b42fecabf646260105ac373f7"
+uuid = "bbf7d656-a473-5ed7-a52c-81e309532950"
+version = "0.3.0"
 
 [[deps.Compat]]
 deps = ["UUIDs"]
@@ -2148,6 +2476,18 @@ deps = ["Mmap"]
 git-tree-sha1 = "9e2f36d3c96a820c678f2f1f1782582fcf685bae"
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 version = "1.9.1"
+
+[[deps.DiffResults]]
+deps = ["StaticArraysCore"]
+git-tree-sha1 = "782dd5f4561f5d267313f23853baaaa4c52ea621"
+uuid = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
+version = "1.1.0"
+
+[[deps.DiffRules]]
+deps = ["IrrationalConstants", "LogExpFunctions", "NaNMath", "Random", "SpecialFunctions"]
+git-tree-sha1 = "23163d55f885173722d1e4cf0f6110cdbaf7e272"
+uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
+version = "1.15.1"
 
 [[deps.Distances]]
 deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
@@ -2262,6 +2602,24 @@ git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
 uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.8.4"
 
+[[deps.Flux]]
+deps = ["Adapt", "ChainRulesCore", "Functors", "LinearAlgebra", "MLUtils", "MacroTools", "NNlib", "OneHotArrays", "Optimisers", "Preferences", "ProgressLogging", "Random", "Reexport", "SparseArrays", "SpecialFunctions", "Statistics", "Zygote"]
+git-tree-sha1 = "723a8ec75b26fe278256c89c363e370ba733c12e"
+uuid = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+version = "0.14.4"
+
+    [deps.Flux.extensions]
+    FluxAMDGPUExt = "AMDGPU"
+    FluxCUDAExt = "CUDA"
+    FluxCUDAcuDNNExt = ["CUDA", "cuDNN"]
+    FluxMetalExt = "Metal"
+
+    [deps.Flux.weakdeps]
+    AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+    CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+    Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
+    cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
+
 [[deps.Fontconfig_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Expat_jll", "FreeType2_jll", "JLLWrappers", "Libdl", "Libuuid_jll", "Pkg", "Zlib_jll"]
 git-tree-sha1 = "21efd19106a55620a188615da6d3d06cd7f6ee03"
@@ -2273,6 +2631,16 @@ deps = ["Printf"]
 git-tree-sha1 = "8339d61043228fdd3eb658d86c926cb282ae72a8"
 uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
 version = "0.4.2"
+
+[[deps.ForwardDiff]]
+deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions"]
+git-tree-sha1 = "cf0fe81336da9fb90944683b8c41984b08793dad"
+uuid = "f6369f11-7733-5829-9624-2563aa707210"
+version = "0.10.36"
+weakdeps = ["StaticArrays"]
+
+    [deps.ForwardDiff.extensions]
+    ForwardDiffStaticArraysExt = "StaticArrays"
 
 [[deps.FreeType2_jll]]
 deps = ["Artifacts", "Bzip2_jll", "JLLWrappers", "Libdl", "Zlib_jll"]
@@ -2286,6 +2654,12 @@ git-tree-sha1 = "aa31987c2ba8704e23c6c8ba8a4f769d5d7e4f91"
 uuid = "559328eb-81f9-559d-9380-de523a88c83c"
 version = "1.0.10+0"
 
+[[deps.Functors]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "9a68d75d466ccc1218d0552a8e1631151c569545"
+uuid = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
+version = "0.4.5"
+
 [[deps.Future]]
 deps = ["Random"]
 uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
@@ -2295,6 +2669,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcu
 git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.3.8+0"
+
+[[deps.GPUArrays]]
+deps = ["Adapt", "GPUArraysCore", "LLVM", "LinearAlgebra", "Printf", "Random", "Reexport", "Serialization", "Statistics"]
+git-tree-sha1 = "2e57b4a4f9cc15e85a24d603256fe08e527f48d1"
+uuid = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
+version = "8.8.1"
 
 [[deps.GPUArraysCore]]
 deps = ["Adapt"]
@@ -2372,6 +2752,12 @@ deps = ["Logging", "Random"]
 git-tree-sha1 = "d75853a0bdbfb1ac815478bacd89cd27b550ace6"
 uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
 version = "0.2.3"
+
+[[deps.IRTools]]
+deps = ["InteractiveUtils", "MacroTools", "Test"]
+git-tree-sha1 = "eac00994ce3229a464c2847e956d77a2c64ad3a5"
+uuid = "7869d1d1-7146-5819-86e3-90919afe41df"
+version = "0.4.10"
 
 [[deps.InitialValues]]
 git-tree-sha1 = "4da0f88e9a39111c2fa3add390ab15f3a44f3ca3"
@@ -2612,9 +2998,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.LoggingExtras]]
 deps = ["Dates", "Logging"]
-git-tree-sha1 = "0d097476b6c381ab7906460ef1ef1638fbce1d91"
+git-tree-sha1 = "a03c77519ab45eb9a34d3cfe2ca223d79c064323"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
-version = "1.0.2"
+version = "1.0.1"
 
 [[deps.LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
@@ -2750,6 +3136,12 @@ git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+1"
 
+[[deps.OneHotArrays]]
+deps = ["Adapt", "ChainRulesCore", "Compat", "GPUArraysCore", "LinearAlgebra", "NNlib"]
+git-tree-sha1 = "5e4029759e8699ec12ebdf8721e51a659443403c"
+uuid = "0b1bfda6-eb8a-41d2-88d8-f5af5cad476f"
+version = "0.2.4"
+
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
@@ -2777,6 +3169,12 @@ deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pk
 git-tree-sha1 = "13652491f6856acfd2db29360e1bbcd4565d04f1"
 uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
 version = "0.5.5+0"
+
+[[deps.Optimisers]]
+deps = ["ChainRulesCore", "Functors", "LinearAlgebra", "Random", "Statistics"]
+git-tree-sha1 = "af65afa916284e6c7e89f0ab974500cc9235618e"
+uuid = "3bd65402-5787-11e9-1adc-39752487f4e2"
+version = "0.3.0"
 
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -2899,6 +3297,12 @@ version = "0.2.0"
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
+[[deps.ProgressLogging]]
+deps = ["Logging", "SHA", "UUIDs"]
+git-tree-sha1 = "80d919dee55b9c50e8d9e2da5eeafff3fe58b539"
+uuid = "33c8b6b6-d38a-422a-b730-caa89a2f386c"
+version = "0.1.4"
+
 [[deps.Qt6Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
 git-tree-sha1 = "364898e8f13f7eaaceec55fd3d08680498c0aa6e"
@@ -2928,6 +3332,12 @@ weakdeps = ["FixedPointNumbers"]
 
     [deps.Ratios.extensions]
     RatiosFixedPointNumbersExt = "FixedPointNumbers"
+
+[[deps.RealDot]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "9f0a1b71baaf7650f4fa8a1d168c7fb6ee41f0c9"
+uuid = "c1ae055f-0cd5-4b69-90a6-9a35b1a98df9"
+version = "0.1.0"
 
 [[deps.RecipesBase]]
 deps = ["PrecompileTools"]
@@ -3108,6 +3518,12 @@ git-tree-sha1 = "9115a29e6c2cf66cf213ccc17ffd61e27e743b24"
 uuid = "f3b207a7-027a-5e70-b257-86293d7955fd"
 version = "0.15.6"
 
+[[deps.StructArrays]]
+deps = ["Adapt", "DataAPI", "GPUArraysCore", "StaticArraysCore", "Tables"]
+git-tree-sha1 = "521a0e828e98bb69042fec1809c1b5a680eb7389"
+uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
+version = "0.6.15"
+
 [[deps.SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
@@ -3265,10 +3681,10 @@ uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
 version = "0.5.5"
 
 [[deps.XML2_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Zlib_jll"]
-git-tree-sha1 = "04a51d15436a572301b5abbb9d099713327e9fc4"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
+git-tree-sha1 = "93c41695bc1c08c46c5899f4fe06d6ead504bb73"
 uuid = "02c8fc9c-b97f-50b9-bbe4-9be30ff0a78a"
-version = "2.10.4+0"
+version = "2.10.3+0"
 
 [[deps.XSLT_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libgcrypt_jll", "Libgpg_error_jll", "Libiconv_jll", "Pkg", "XML2_jll", "Zlib_jll"]
@@ -3419,6 +3835,28 @@ git-tree-sha1 = "49ce682769cd5de6c72dcf1b94ed7790cd08974c"
 uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
 version = "1.5.5+0"
 
+[[deps.Zygote]]
+deps = ["AbstractFFTs", "ChainRules", "ChainRulesCore", "DiffRules", "Distributed", "FillArrays", "ForwardDiff", "GPUArrays", "GPUArraysCore", "IRTools", "InteractiveUtils", "LinearAlgebra", "LogExpFunctions", "MacroTools", "NaNMath", "PrecompileTools", "Random", "Requires", "SparseArrays", "SpecialFunctions", "Statistics", "ZygoteRules"]
+git-tree-sha1 = "e2fe78907130b521619bc88408c859a472c4172b"
+uuid = "e88e6eb3-aa80-5325-afca-941959d7151f"
+version = "0.6.63"
+
+    [deps.Zygote.extensions]
+    ZygoteColorsExt = "Colors"
+    ZygoteDistancesExt = "Distances"
+    ZygoteTrackerExt = "Tracker"
+
+    [deps.Zygote.weakdeps]
+    Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
+    Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
+    Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
+
+[[deps.ZygoteRules]]
+deps = ["ChainRulesCore", "MacroTools"]
+git-tree-sha1 = "977aed5d006b840e2e40c0b48984f7463109046d"
+uuid = "700de1a5-db45-46bc-99cf-38207098b444"
+version = "0.2.3"
+
 [[deps.fzf_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "868e669ccb12ba16eaf50cb2957ee2ff61261c56"
@@ -3492,7 +3930,7 @@ version = "1.4.1+0"
 # ╔═╡ Cell order:
 # ╟─9f90a18b-114f-4039-9aaf-f52c77205a49
 # ╟─86ac8000-a595-4162-863d-8720ff9dd3bd
-# ╟─ece21354-0718-4afb-a905-c7899f41883b
+# ╟─30db2e86-cd52-4600-9fd2-227ec61cdefd
 # ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
@@ -3510,18 +3948,41 @@ version = "1.4.1+0"
 # ╟─8765a8e8-6f73-4ad4-9604-6a9eb5991241
 # ╟─8c69c448-c104-4cae-9352-10d4cec512a9
 # ╟─68a0247b-9346-42fc-b2d2-4373e70a1789
+# ╟─e4696124-4b4d-42d9-8349-fd29d88957c9
 # ╟─bf83caa9-d9f9-48a2-9563-152fcbb8afdc
 # ╟─c78fbd4c-1e5f-4307-9ab3-9303b0744de0
 # ╟─7b4502d1-3847-4472-b706-65cb68413927
+# ╠═27cd8b9f-aacd-48d4-8288-14f4531bd7de
+# ╠═9eca2cdf-040c-443c-bb0f-5a446069b630
+# ╠═53fbcf35-c7ba-48df-a614-c7198051b01a
+# ╠═ae25fd68-ee9b-40fa-81fa-a756075da27c
 # ╟─ea55660a-090b-453c-a141-b6867670ba48
 # ╟─ffb7f8f1-739c-43a5-b13e-4045b50c9e05
 # ╟─3315ef07-17df-4fe1-a7a5-3e8f039c0cc1
 # ╟─c936fe77-827b-4245-93e5-d239d467bffd
-# ╟─69d2fe20-4e8d-4982-8f22-c4a6bfb39b4e
+# ╟─86420ad6-3995-424c-9bdd-21214bf544df
 # ╟─cdccf955-19f3-45bb-8dfe-2e15addcdd32
 # ╟─4d474d9f-50dc-4c9f-9505-65e024c83f38
 # ╟─331571e5-f314-42db-ae56-66e64e485b85
 # ╟─cbbcf999-1d31-4f53-850e-d37a28cff849
+# ╟─f88defa5-d5e9-4979-9b43-ccf836f60bf2
+# ╟─8f408b8a-b8e3-4ea8-b711-0119d2d8d419
+# ╟─4c725287-1388-49a9-890d-3d448c47e8b9
+# ╟─d9a7acae-918c-49a0-ae5d-fd9dff59245b
+# ╟─2eac434a-60c8-42f6-a80e-6f90ee64d3e3
+# ╠═de9296ed-f198-4a1e-ad5a-e9e1df1f81a2
+# ╠═64769582-6d4f-4b98-ab51-440f9fc5dee7
+# ╟─f09688b3-6fb0-459a-b662-2558a804a951
+# ╟─5062988c-1f61-4596-a5bb-f480d8ff98ec
+# ╟─343cc2a4-9795-4f75-b437-9b7ad522ced2
+# ╠═1b643378-080a-4d1b-bba0-8eb251d3c810
+# ╠═b8044c65-c800-492f-8a67-a8a6435557f5
+# ╟─6b445910-dd44-4967-a1e2-fdf1dd74bede
+# ╟─439c75a2-24bc-4c81-a8c3-c0d338de3b40
+# ╟─515247b7-0fa3-43e7-a4e1-cd827b668d94
+# ╟─d48dea43-629b-47b5-900b-c92d4ecadd64
+# ╟─33f00957-e930-48d8-a5f0-d4b4c3d0aa87
+# ╟─b9075996-19e5-42b3-b882-2531720c0f4d
 # ╟─324ea2b8-c350-438d-8c8f-6404045fc19f
 # ╟─3a50c68d-5cb1-45f5-a6af-c07ab280b1ad
 # ╟─c8e55a60-0829-4cc7-bc9b-065809ac791c
@@ -3605,9 +4066,10 @@ version = "1.4.1+0"
 # ╟─bf7cd9d6-c7a4-4715-a57c-d0acaef1e7d8
 # ╟─0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 # ╟─3a083374-afd6-4e64-95bd-d7e6385ab403
-# ╟─6cd96390-8565-499c-a788-fd0070331f25
-# ╟─8fe5631a-1f10-4af4-990d-5a23c96fb73b
-# ╟─619df17d-9f75-463f-afe5-6cbffb0762d5
+# ╠═6cd96390-8565-499c-a788-fd0070331f25
+# ╠═6f3c34f4-aee9-49a1-a92d-7c473ff05ca0
+# ╠═8fe5631a-1f10-4af4-990d-5a23c96fb73b
+# ╠═619df17d-9f75-463f-afe5-6cbffb0762d5
 # ╟─8687dbd1-4857-40e4-b9cb-af469b8563e2
 # ╟─fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
 # ╟─00000000-0000-0000-0000-000000000001

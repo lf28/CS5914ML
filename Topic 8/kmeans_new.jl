@@ -14,50 +14,49 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ 17a3ac47-56dd-4901-bb77-90171eebc8c4
+# ╔═╡ 120a282a-91c1-11ec-346f-25d56e50d38c
 begin
-	using PlutoTeachingTools
+	using Distributions,Random, StatsBase, Clustering, LinearAlgebra
 	using PlutoUI
-	# using Plots
-	using LinearAlgebra
 	using StatsPlots
-	using LogExpFunctions
-	using StatsBase
+	# using PlutoTeachingTools
+end
+
+# ╔═╡ 06d45497-b465-4370-8411-9651e33e70e6
+begin
+	# using LinearAlgebra
+	# using PlutoUI
+	using PlutoTeachingTools
 	using LaTeXStrings
 	using Latexify
-	using Random
+	# using Random
 	using Statistics
+	using LogExpFunctions
 	using HypertextLiteral
 	using Plots; default(fontfamily="Computer Modern", framestyle=:box) # LaTex-style
+	
 end
 
-# ╔═╡ 29998665-0c8d-4ba4-8232-19bd0de71477
+# ╔═╡ 48bf8355-1bfe-41a1-97fc-5e2d0470a6c3
 begin
-	using DataFrames, CSV
-	using MLDatasets
-	# using Images
-end
+	using Logging
+	Logging.disable_logging(Logging.Info); # or e.g. Logging.Info
+end;
 
-# ╔═╡ 9e9e8249-4db5-4b12-87ed-d609c31166ad
-using GLMNet
-
-# ╔═╡ f79bd8ab-894e-4e7b-84eb-cf840baa08e4
-using Logging
-
-# ╔═╡ cb72ebe2-cea8-4467-a211-5c3ac7af74a4
-TableOfContents()
-
-# ╔═╡ 358dc59c-8d06-4272-9a13-6886cdaf3dd9
+# ╔═╡ 646dd3d8-6092-4435-aee9-01fa6a281bdc
 ChooseDisplayMode()
 
-# ╔═╡ 9bd2e7d6-c9fb-4a67-96ef-049f713f4d53
+# ╔═╡ 6f051fad-2c4b-4a9e-9361-e9b62ba189c5
+TableOfContents()
+
+# ╔═╡ be9bcfcb-7ec7-4851-bd3f-24d4c29462fe
 md"""
 
 # CS5914 Machine Learning Algorithms
 
 
-#### Regularisation
-###### `Lasso` regression
+#### Unsupervised learning 
+###### Clustering 1
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -70,611 +69,1211 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 
 """
 
-# ╔═╡ 8bdb72cc-2e91-4df4-b913-6ab48672ac25
+# ╔═╡ e61193e8-3f91-455b-9e33-101de4cfd4a3
 md"""
 
-
-# `Lasso` regression
-"""
-
-# ╔═╡ 88d98d87-f3cf-42f4-9282-1e6f383934cd
-md"""
-
-## Recap: `Ridge` regression
-
-```math
-\large
-L(\mathbf{w}) = \underbrace{\frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2}_{\text{previous loss}} + \boxed{\frac{\lambda}{2} \sum_{j=1}^{m} w_j^2}_{\text{penalty term}}
-```
-
-* ``\lambda > 0``: hyperparameter that controls the complexity of the model
-"""
-
-# ╔═╡ 5af83fc2-9196-428e-8ca0-5542914b64b3
-md"""
-
-## Recap: `Ridge` regression
-
-Firstly, *recall*
-
-```math
-\large
-\mathbf{w}_{ridge} \leftarrow \arg\min_{\mathbf{w}} \frac{1}{2}  (\mathbf{y}-\mathbf{Xw})^\top (\mathbf{y}-\mathbf{Xw}) + \frac{\lambda}{2} \mathbf{w}^\top \mathbf{w}
-```
-
-and it has a closed-form solution
-
-!!! note "Ridge regression solution"
-	```math
-	\large
-		\mathbf{w}_{ridge} = (\mathbf{X}^\top\mathbf{X} +\lambda \mathbf{I})^{-1} \mathbf{X}^\top\mathbf{y}
-	```
-
-"""
-
-# ╔═╡ 0a403d9f-357f-402c-9e91-0141675c64b9
-md"""
-
-
-## Let's decipher `Ridge` regression
-
-!!! note "Ridge regression solution"
-	```math
-	\large
-		\mathbf{w}_{ridge} = (\mathbf{X}^\top\mathbf{X} +\lambda \mathbf{I})^{-1} \mathbf{X}^\top\mathbf{y}
-	```
-
-* *obviously,* when ``\lambda \rightarrow 0``, ``\mathbf{w}_{ridge}\rightarrow\mathbf{w}_{\text{MLE}}`` which is just ``(\mathbf{X}^\top\mathbf{X})^{-1} \mathbf{X}^\top\mathbf{y}``
-"""
-
-# ╔═╡ 7a9267b5-09a2-4bd6-97ed-4fb4aa1f6bb9
-md"""
-
-
-## Let's decipher `Ridge` regression
-
-
-
-!!! note "Ridge regression solution"
-	```math
-	\large
-		\mathbf{w}_{ridge} = (\mathbf{X}^\top\mathbf{X} +\lambda \mathbf{I})^{-1} \mathbf{X}^\top\mathbf{y}
-	```
-
-* *obviously,* when ``\lambda \rightarrow 0``, ``\mathbf{w}_{ridge}\rightarrow\mathbf{w}_{\text{MLE}}`` which is just ``(\mathbf{X}^\top\mathbf{X})^{-1} \mathbf{X}^\top\mathbf{y}``
-
-When ``\lambda \rightarrow \infty``, to make the discussion easier, let's assume ``\mathbf{X}`` are formed by _orthogonormal column vectors_, *i.e.* ``\mathbf{X}^\top\mathbf{X} =\mathbf{I}``, then
-
-```math
-\large
-\mathbf{w}_{ridge} = (\mathbf{I} +\lambda \mathbf{I})^{-1} \mathbf{X}^\top\mathbf{y} = \frac{1}{1+\lambda} \mathbf{X}^\top\mathbf{y}
-```
-*  therefore, when ``\lambda \rightarrow \infty``, ``\mathbf{w}_{ridge} \rightarrow \mathbf{0}`` 
-
-"""
-
-# ╔═╡ fbbb04a0-242e-4a95-984f-dac82df7a03d
-md"""
-
-
-## Let's decipher `Ridge` regression
-
-
-
-!!! note "Ridge regression solution"
-	```math
-	\large
-		\mathbf{w}_{ridge} = (\mathbf{X}^\top\mathbf{X} +\lambda \mathbf{I})^{-1} \mathbf{X}^\top\mathbf{y}
-	```
-
-* *obviously,* when ``\lambda \rightarrow 0``, ``\mathbf{w}_{ridge}\rightarrow\mathbf{w}_{\text{MLE}}`` which is just ``(\mathbf{X}^\top\mathbf{X})^{-1} \mathbf{X}^\top\mathbf{y}``
-
-When ``\lambda \rightarrow \infty``, to make the discussion easier, let's assume ``\mathbf{X}`` are formed by _orthogonormal column vectors_, *i.e.* ``\mathbf{X}^\top\mathbf{X} =\mathbf{I}``, then
-
-```math
-\large
-\mathbf{w}_{ridge} = (\mathbf{I} +\lambda \mathbf{I})^{-1} \mathbf{X}^\top\mathbf{y} = \frac{1}{1+\lambda} \mathbf{X}^\top\mathbf{y}
-```
-*  therefore, when ``\lambda \rightarrow \infty``, ``\mathbf{w}_{ridge} \rightarrow \mathbf{0}`` 
-
-
-* lastly, when ``0< \lambda < \infty``, 
-  
-  $\large\mathbf{w}_{ridge} = \frac{1}{1+\lambda} \mathbf{X}^\top\mathbf{y} = \frac{1}{1+\lambda}\underbrace{(\mathbf{X}^\top\mathbf{X})^{-1}}_{\mathbf{I}^{-1}=\mathbf{I}}\mathbf{X}^\top\mathbf{y} = \underbrace{\frac{1}{1 + \lambda}}_{\in (0, 1)}\mathbf{w}_{\text{MLE}}$
-
-  * it **shrinks** the MLE by some **percentage** 
-"""
-
-# ╔═╡ 6863918e-444c-4641-8524-67b7f82cc32c
-md"""
-
-
-## Example -- Polynomial regression ``p=12``
-
-
-Note that solutions are **NOT** **sparse** in between
-
-"""
-
-# ╔═╡ 083346bc-62a1-4c86-9b8d-af00daea1e91
-md"""
-
-## `Lasso`
-
-
-An alternative form **regularisation** is ``L_1`` norm penalty: `Lasso` regression
-
-
-
-```math
-\large
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2 + \boxed{\frac{\lambda}{2} \sum_{j=1}^{m} |w_j|}_{L_1 \text{ norm}}
-```
-* where ``\lambda \geq 0`` is a hyperparameter
-
-* ``L_1`` norm: ``\|\mathbf{w}\|_1 = \sum_j |w_j|``
-
-* (squared) ``L_2`` norm: ``\|\mathbf{w}\|_2^2 = \sum_j w_j^2=\mathbf{w}^\top\mathbf{w}``
-"""
-
-# ╔═╡ 63505587-3b2f-4a1d-ada9-f436c0506f60
-md"""
-
-## `Lasso`
-
-
-An alternative form **regularisation** is ``L_1`` norm penalty: `Lasso` regression
-
-
-
-```math
-\large
-L(\mathbf{w}) = \frac{1}{2}\sum_{i=1}^n (y^{(i)} - h(\mathbf{x}^{(i)}; \mathbf{w}))^2 + \boxed{\frac{\lambda}{2} \sum_{j=1}^{m} |w_j|}_{L_1 \text{ norm}}
-```
-* where ``\lambda \geq 0`` is a hyperparameter
-
-* ``L_1`` norm: ``\|\mathbf{w}\|_1 = \sum_j |w_j|``
-
-* (squared) ``L_2`` norm: ``\|\mathbf{w}\|_2^2 = \sum_j w_j^2=\mathbf{w}^\top\mathbf{w}``
-
-
-"""
-
-# ╔═╡ b69a0590-0718-439a-9ed5-c7f956a83260
-md"""
-
-## Aside: ``L_p`` norm
-
-
-Given a vector ``\mathbf{w}``, we often want to measure its `scale`, or its `norm`
-
-
-For example, the squared Eucidean length
-
-```math
-\large
-\| \mathbf{w} \|_2 = \left (\sum_{j=1}^m w_j^2 \right)^{1/2} =\sqrt{\mathbf{w}^\top\mathbf{w}}
-```
-
-
-"""
-
-# ╔═╡ 86322eeb-2e91-4d86-8931-0333cbae383a
-md"""
-
-## Aside: ``L_p`` norm
-
-
-Given a vector ``\mathbf{w}``, we often want to measure its `scale`, or its `norm`
-
-
-For example, the Eucidean length
-
-```math
-\large
-\| \mathbf{w} \|_2 = \left (\sum_{j=1}^m w_j^2 \right)^{1/2} =\sqrt{\mathbf{w}^\top\mathbf{w}}
-```
-
-It is a specific case of the more general concept, called "norm":
-
-```math
-\large
-\boxed{
-\| \mathbf{w} \|_p = \left (\sum_{j=1}^m |w_j|^p \right)^{1/p}}
-```
-
-* the Euclidean length is just ``L_2`` norm: *i.e.* ``p=2``
-
-Similary, when ``p=1``, the ``L_1`` norm is
-
-```math
-\large
-\| \mathbf{w} \|_1 = \sum_{j=1}^m |w_j| 
-```
-
-"""
-
-# ╔═╡ eed620a6-b5f2-4a53-9ec8-6e1df3699a84
-md"""
-## Aside: ``L_p`` norm
-
-"""
-
-# ╔═╡ 1e523517-4e1f-4bc5-b8b7-1c17b5f58377
-TwoColumn(md"""
-\
-\
-\
-\
-
-```math
-\large
-\boxed{
-\| \mathbf{w} \|_p = \left (\sum_{j=1}^m |w_j|^p \right)^{1/p}}
-```
-""", md"""$(Resource("https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Vector-p-Norms_qtl1.svg/2560px-Vector-p-Norms_qtl1.svg.png", :width=>500))""")
-
-# ╔═╡ 1371f5f5-acf7-43ba-bd74-4a5c65e761a2
-md"""
-
-
-
-## `Lasso` *vs* `Ridge`
-
-
-##### `Ridge` regression
-* shrinks the MLE estimator towards zeros
-
-##### `Lasso` regression 
-* directly shut them off to zeros
-
-
-**But why though**?
-"""
-
-# ╔═╡ 7946415e-6e7c-4058-a17a-ac93fb995dd4
-md"""
-
-## `Lasso` *vs* `Ridge`
-
-
-##### `Ridge` regression
-* shrinks the MLE estimator towards zeros
-
-##### `Lasso` regression 
-* directly shut them off to zeros
-
-
-"""
-
-# ╔═╡ 19966fe8-f3f8-4051-9251-19a359745650
-TwoColumn(md""" 
-**But why though ?**
-
-
-Assume *gradient descent* is used, and some ``{w}_j`` is close to ``0``
-
-
-```math
-\nabla |w_j| = \begin{cases}1 & w_j >0 \\ -1 & w_j <0 \end{cases}; \;\;\;\;\;\;\nabla \left(\frac{1}{2}w_j^2\right ) = w_j 
-```
-
-* ``L_1`` penalty is constant and more **persistent**
-* ``L_2`` penalty diminishes when ``w_j \rightarrow 0``
-""", 
-let
-	plot(-1:0.02:1, (x) -> x^2, lw=2, label=L"l_2"*" penalty", framestyle=:origin, size=(300,250))
-	plot!(-1:0.5:1, (x) ->abs(x), lw=2, label=L"l_1"*" penalty", ylim=[0, 1.0], xlim=[-1, 1], legend=:top)
-end
-)
-
-# ╔═╡ bfa98fa5-1a6a-400d-8b16-0268e0c79bac
-md"""
-
-
-## Example -- Polynomial regression ``p=12``
-
-
-*Lasso* is more **sparse** 
-
-"""
-
-# ╔═╡ 7f4584e4-8b16-4c6e-80cd-dfab8054d529
-md"``\mathbf{w}_{ridge}``:"
-
-# ╔═╡ 01a5b9e7-76e2-401f-9b83-c01274473d6b
-md"``\mathbf{w}_{lasso}``:"
-
-# ╔═╡ 2af7ca97-25c5-4f1e-b504-5303b3694ee0
-md"""
-
-## Another example
-
-
-Consider a toy data set, where the input predictor is 
-
-
-```math
-\large
-\mathbf{x}^{(i)}:  \mathbf{x}^{(i)}_j \sim \mathcal{N}(0, 1) \;\; \text{for }j = 1,\ldots,100
-```
-* ``i=1:100``; *i.e.* 100 observations
-* ``j=1:100``: *i.e.* 100 features 
-
-The targets ``y^{(i)}`` only depends on the _first_ feature
-```math
-\large
-y^{(i)} = x^{(i)}_1 + \varepsilon;
-\;\;\varepsilon \sim \mathcal{N}(0, \;\sigma^2=0.2^2)
-```
-* therefore, the true regression parameter is ``\mathbf{w} = [1, 0,\ldots, 0]^\top``
-"""
-
-# ╔═╡ d9df1dd8-0190-48ad-9016-27d273cbcfb4
-md"""
-
-## Another example (conti.)
-
-"""
-
-# ╔═╡ dec59e77-8545-46fc-bb4c-dbb9c7c958b9
-md"""$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/lassoridge1.png", :width=>900))
-"""
-
-# ╔═╡ 5e704189-c3fb-4ba0-b7f1-607b351a0341
-md"""$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/lassoridge2.png", :width=>900))"""
-
-# ╔═╡ 4c0b0be1-94d8-47ea-a804-aa9f20b5fb62
-md"""
-
-## An extra regularisation: `Elastic Net`
-
-
-
-"""
-
-# ╔═╡ f2bdf68d-3c36-4dd0-8f3e-02597f2f56f6
-TwoColumn(md"""
-
-An alternative form **regularisation** is `Elastic Net`
-
-```math
-\large
-\begin{align}
-L(\mathbf{w}) &= \text{SSE}\; +  \\
-&\boxed{{\lambda \alpha} \sum_{j=1}^{m} |w_j|}_{L_1}+ \boxed{\lambda (1-\alpha)\sum_{j=1}^{m} w_j^2}_{L_2}
-\end{align}
-```
-* where ``\lambda \geq 0`` is a hyperparameter
-* and ``0 \leq \alpha \leq 1`` is a mixing parameter
-* a convex combination of both penalty forms """, 
+## Topics to cover
 	
-md"""$(Resource("https://scikit-learn.org/0.15/_images/plot_sgd_penalties_001.png", :align=> :right, :width=>500))""")
-
-# ╔═╡ 0c1e5a46-4abc-421f-9851-596696381c81
-md"""
-
-## An illustration
 """
 
-# ╔═╡ 1abf629d-fd7f-4309-942d-a396b84b8356
-md"""$(Resource("https://leo.host.cs.st-andrews.ac.uk/figs/CS5914/norm_balls.png", :align=> :left, :width=>900))"""
+# ╔═╡ 234a8b66-d84a-4f6f-aad2-60db238c1850
+aside((md"""$(@bind next1 Button("next")) 
+$(@bind init1 Button("init"))
+	"""))
 
-# ╔═╡ 974f1b58-3ec6-447a-95f2-6bbeda43f12f
+# ╔═╡ edf96a48-1e6d-4866-85ba-7e1afd19ca61
+begin
+	init1
+	next_idx = [0];
+end;
+
+# ╔═╡ 203b859f-f6ea-4ff8-be1b-dc68a44c10d1
+begin
+	next1
+	topics = ["Un-supervised learning - clustering problem", "Algorithm: K means algorithm", "Algorithm: Gaussian mixture models"]
+	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
+end
+
+# ╔═╡ 76d4b64b-471f-4688-9da2-f896d9d0d05c
+let
+	next1
+	next_idx[1] += 1
+end;
+
+# ╔═╡ e136edb5-3e98-4355-83e2-55761eb8b15c
 md"""
+## Why probabilistic approach
 
-# Appendix
+A key message I hope to convey here
+!!! correct ""
+	**Probabilistic models** unify most *interesting* machine learning models 
+    * supervised learning
+	* and also **unsupervised learning**
+
+In other words: **from probabilistic models' eyes, they are the same**
+
+
+**Machine learning** are just **probabilistic inferences**:
+
+$$P(y|x)$$
+
+* assume different $P(\cdot)$ and plug in different $x$ and $y$ for different problems/situations
+  * e.g. regression: $P$ is Gaussian;
+  * and classification: $P$ is Bernoulli or Multinoulli 
+* we will come back to this key message at the end of next lecture
+
+""";
+
+# ╔═╡ f8b54f24-c144-4ac5-8083-706436a368e9
+md"""
+# Clustering problem
 """
 
-# ╔═╡ 6fa3941b-5975-463c-9427-2ebad15f78eb
+# ╔═╡ abd46485-03c9-4077-8ace-34f9b897bb04
+md"""
+
+## Supervised learning: classification
+
+> **Classification**: input data ${X}=\{\mathbf{x}^{(1)}, \mathbf{x}^{(2)}, \ldots, \mathbf{x}^{(n)}\}$ and their targets $Y=\{y^{(1)}, y^{(2)}, \ldots, y^{(n)}\}$
+
+  - ``\mathbf{x}^{(i)} \in \mathbb{R}^d``: ``d`` is the dimension of ``\mathbf{x}``
+  - ``y^{(i)} \in \{1,2,\ldots,K\}`` are also known
+
+"""
+
+# ╔═╡ 3ea57a8e-8d15-4f41-acfb-e3bd1d65e585
 begin
-	rbf(s=1) = (z) -> exp(-.5 * z^2/s)
-	relu(s=1) = (z) -> max(z, 0)
-	sigmoid(s=1) = (z) -> logistic(z/s)
-end;
-
-# ╔═╡ 7c6520b2-0446-44c0-a0b5-5aacff87cf84
-function basis_expansion(xs, μs, σ::Function; intercept=true)
-	n = length(xs)
-	p = length(μs) 
-	Φ = zeros(n, p)
-	for (j, μ) in enumerate(μs)
-		Φ[:, j] = σ.(xs .- μ)
+	Random.seed!(123)
+	K₁ =3
+	n_each = 100
+	# D₁ = zeros(n₁, 2)
+	# 200 per cluster
+	truezs₁ = repeat(1:K₁; inner=n_each)
+	trueμs₁ = zeros(2, K₁)
+	trueμs₁[:,1] = [-3.0, 2.0]
+	trueμs₁[:,2] = [3.0, 2.0]
+	trueμs₁[:,3] = [0., -2]
+	data₁ = trueμs₁[:,1]' .+ randn(n_each, 2)
+	data₁ = vcat(data₁, trueμs₁[:,2]' .+ randn(n_each, 2))
+	data₁ = vcat(data₁, trueμs₁[:,3]' .+ randn(n_each, 2))
+	plt₁ = plot(ratio=1, framestyle=:origin)
+	for k in 1:K₁
+		scatter!(data₁[truezs₁ .== k,1], data₁[truezs₁ .==k,2], label="Class"*string(k)) 
 	end
-	if intercept 
-		return [ones(n) Φ]
-	else
-		Φ
-	end
-end;
+	title!(plt₁, "Supervised learning: classification")
+end
 
-# ╔═╡ 5965c389-2d9e-4d0a-8ae0-9868b360e12e
-linear_reg(Φ, y; λ = 1e-10) =  Φ \ y;
+# ╔═╡ 08c17e06-b9f4-40de-acb1-5481fa53e5e8
+md"""
+## Unsupervised learning: clustering
+"""
 
-# ╔═╡ 8493d307-9158-4821-bf3b-c368d9cd5fc5
-ridge_reg(X, y; λ = 1) = (X' * X + λ *I) \ (X' * y);
+# ╔═╡ cc38bdc2-4c1b-4a08-b8e6-1504a11924a5
+md"""
 
-# ╔═╡ 4aee3eff-61ae-4feb-b16b-3c60a45cad8e
-md"Simulated Polynormial data"
+> **Clustering**: input features ${X}=\{\mathbf{x}^{(1)}, \mathbf{x}^{(2)}, \ldots, \mathbf{x}^{(n)}\}$ only; **without** targets
 
-# ╔═╡ 238e7b56-fb3a-4e9b-9c31-09c1f4a1df2a
+
+
+* intuitively: **clustering** is to **color**/**group** ``\mathbf{x}^{(i)}`` into $K$ groups
+
+* *unsupervised*:  un--labelled data
+"""
+
+# ╔═╡ 77f0d45a-c658-4143-ad14-3a3a20ce2b4b
+let
+	plt = plot(ratio=1, framestyle=:origin, title="Clustering data")
+	# for k in 1:K₁
+	scatter!(data₁[:,1], data₁[:,2], label="data") 
+	# end
+
+end
+
+# ╔═╡ eb1c7d49-fffc-44ab-9d1b-026d7a39fc15
+md"""
+## Unsupervised learning: clustering
+"""
+
+# ╔═╡ 0ee59618-d28c-4929-bb7c-cd590068c7b7
+md"""
+
+> **Clustering**: input features ${X}=\{\mathbf{x}^{(1)}, \mathbf{x}^{(2)}, \ldots, \mathbf{x}^{(n)}\}$ only; **without** targets
+
+
+
+* intuitively: **clustering** is to **color**/**group** ``\mathbf{x}^{(i)}`` into $K$ groups
+
+* *unsupervised*:  un--labelled data
+"""
+
+# ╔═╡ 4c2cf2db-0042-4074-a740-c6458c552ebe
+html"<center><img src='https://miro.medium.com/v2/resize:fit:1400/format:webp/1*rw8IUza1dbffBhiA4i0GNQ.png' width = '500' /></center>"	
+
+# ╔═╡ c63b4e0d-9f64-4248-ac7b-75ceeedddf0c
+md"""
+
+# K-means clustering
+"""
+
+# ╔═╡ 38e89872-c1ff-4d50-ab99-1ed063f5118b
+md"""
+
+## K-means 
+
+
+**K-means** is a very simple and intuitive clustering algorithm
+
+
+\
+
+
+---
+
+**Initialisation**: random guess $K$ centroids $\{\boldsymbol{\mu}_k\}$
+
+**Repeat** the following two steps until converge:
+
+* **assignment step**: assign each $\mathbf{x}^{(i)}$ to the closest centroid $\boldsymbol{\mu}_k$
+
+
+* **update step**: update $\boldsymbol{\mu}_k$ by averaging the assigned samples
+---
+
+"""
+
+# ╔═╡ 2831de52-9f49-494e-8b2b-4cee810cee06
+md"""
+
+## K-means (more details)
+
+
+A very simple and intuitive clustering algorithm
+
+**Initialisation**: random guess $K$ centroids $\{\boldsymbol{\mu}_k\}$
+
+**Repeat** the following two steps until converge:
+
+* **assignment step**: assign each $\mathbf{x}^{(i)}$ to the closest centroid $\boldsymbol{\mu}_k$; for $i= 1\ldots n,\; k= 1\ldots K$:
+
+  $$\large {z}^{(i)} \leftarrow \arg\min_{k} \boxed{d(\mathbf{x}^{(i)}, \boldsymbol{\mu}_k)}_{\text{Euclidean distance}}$$ 
+  * where $$d(\mathbf{x}^{(i)}, \boldsymbol{\mu}_k)=\|\mathbf{x}^{(i)} - \boldsymbol{\mu}_k\|^2 = \sum_{j=1}^d (x^i_j - \mu_{kj})^2$$
+\
+
+* **update step**: update $\boldsymbol{\mu}_k$ by taking the average
+
+  $$\boldsymbol{\mu}_{k} \leftarrow  \frac{\sum_{i=1}^n I({z}^{(i)}=k)\cdot \mathbf{x}^{(i)}}{\sum_{i=1}^n I({z}^{(i)}=k)}\;$$
+  - where ``I`` is the indicator function: return ``1`` if true; ``0`` otherwise  
+
+
+
+## Convergence check
+
+We need to do **convergence check** to decide when to stop
+
+$$\text{loss} = \sum_{i=1}^n \|\mathbf{x}^{(i)} - \boldsymbol{\mu}_{z_i}\|^2 = \sum_{i=1}^n\sum_{k=1}^K I(z^{(i)}=k) \cdot \|\mathbf{x}^{(i)} - \boldsymbol\mu_{k}\|^2$$
+
+* the total distances between $\mathbf{x}^{(i)}$ and its assigned cluster centre
+* the loss will only decrease over the iterations
+  * can be used to test/debug your implementation
+"""
+
+# ╔═╡ 7c9b404e-ef6c-4ed1-910e-2f409e579309
+md"""
+
+## K-means demon (initialisation)
+"""
+
+# ╔═╡ 434f1bf9-b6d2-4029-9ffa-36241c6ce23f
+md"""
+Initialisation: randomly guess ``K=3`` centres
+"""
+
+# ╔═╡ b81503f3-1caf-498a-8dc9-639ea5a5d569
 begin
-	Random.seed!(111)
-	num_features = 2
-	num_data = 25
-	true_w = rand(num_features+1) * 10
-	# simulate the design matrix or input features
-	X_train = [ones(num_data) rand(num_data, num_features)]
-	# generate the noisy observations
-	y_train = X_train * true_w + randn(num_data)
+	gr()
+	# random initialisation step: randn: zero mean Gaussian
+	Random.seed!(123)
+	ms = randn(2,K₁)
+	plt_demo = plot(data₁[:,1], data₁[:,2], ratio=1, st=:scatter, label= "data",title="K means initialisation; Iteration=0", ms =3, alpha=0.5, framestyle=:origin)
+	for k in 1:K₁
+		scatter!([ms[1,k]], [ms[2,k]], label="μ"*string(k), markerstrokewidth =3, markershape = :star4, color=k, markersize = 10)
+	end
+	plt_demo
+end
+
+# ╔═╡ 63ce270b-c5ed-45c2-ae96-2146d0487b87
+md"""
+
+## K-means demon (step through)
+"""
+
+# ╔═╡ 99a717ee-1b29-42c3-9ef7-80201e715e79
+aside((md"""$(@bind next2 Button("next")) 
+$(@bind init2 Button("init"))
+	"""))
+
+# ╔═╡ f6bb31fd-d30c-4e59-86bb-ebac1163609f
+begin
+	init2
+	next_idx2 = [0];
 end;
 
-# ╔═╡ cb02aee5-d082-40a5-b799-db6b4af557f7
+# ╔═╡ 29b0734a-41d4-43e0-938a-3ced8e70b85b
+let
+	next2
+	next_idx2[1] += 1
+end;
+
+# ╔═╡ 61fb0322-07f6-4e59-a5d3-dfdd7399d558
+md"""
+##
+
+The animation:
+"""
+
+# ╔═╡ e1ccac4e-1cba-43d2-b0e0-e8c650a79d9a
+md"""
+## A demonstration of K-means (cont.)
+
+"""
+
+# ╔═╡ 8efbba52-7a34-4c17-bca9-52a417f69d56
+md"""
+
+## An alternative K-means formula
+
+We can swap the order of **assignment** and **update** steps
+
+* initialise by randomly guessing on the assignments $z^{(i)}$
+* will usually converge to the same results
+
+
+## An alternative K-means formula
+
+We can swap the order of **assignment** and **update** steps
+
+* initialise by randomly guessing on the assignments $z^{(i)}$
+* will usually converge to the same results
+
+Specifically, the algorithm is 
+
+---
+**Initialisation**: random guess of $z^{(i)}$ for $i=1,\ldots,n$
+
+$$z^{(i)} \leftarrow \text{rand}(1,\ldots,K)$$
+**Repeat** until convergence:
+
+  - **update step**: update ${\mu}_k$ by averaging the assigned samples
+$$\boldsymbol{\mu}_{k} \leftarrow  \frac{\sum_{i=1}^n I({z}^{(i)}=k)\cdot \mathbf{x}^{(i)}}{\sum_{i=1}^n I({z}^{(i)}=k)}\;$$
+  * **assignment step**: assign each $\mathbf{x}^{(i)}$ to the closest centroid $\boldsymbol{\mu}_k$: for $i= 1\ldots n,\; k= 1\ldots K$:
+    
+
+$${z}^{(i)} \leftarrow \arg\min_{k} \|\mathbf{x}^{(i)} - \boldsymbol{\mu}_k\|^2$$
+---
+"""
+
+# ╔═╡ 3873ef48-34c1-479a-b6f8-2cd05bcdc8bb
+md"""
+
+## A quick demon of alternative K-means
+
+"""
+
+# ╔═╡ 5276ff0e-bc4f-4b24-b98c-8f9e7c0d018d
+# begin
+# 	gr()
+# 	pltsₖₘ2 = []
+# 	zs0 = rand(1:K₁, size(data₁)[1])
+# 	l_ = Inf
+# 	anim = @animate for iter in 1:6
+# 		p = plot_clusters(data₁, zs0, K₁, l_, iter)
+# 		ms0 = update_step(data₁, zs0, K₁)
+# 		for k in 1:K₁
+# 			scatter!([ms0[1,k]], [ms0[2,k]], markershape = :star4, markersize = 10, c=k, markerstrokewidth =3, color=k, labels= "μ"*string(k))
+# 			plot!(-6:0.1:6, -5:0.1:5, (x,y) -> sum(([x, y] - ms0[:, k]).^2), st=:contour, c=k, colorbar = false, levels=[5], lw=2)
+# 		end
+# 		ls, zs0 = assignment_step(data₁, ms0)
+# 		l_ = sum(ls)
+# 		push!(pltsₖₘ2, p)
+# 	end
+# end;
+
+# ╔═╡ dd461997-cf3c-4124-8503-11f5b5a9e530
+aside((md"""$(@bind next3 Button("next")) 
+$(@bind init3 Button("init"))
+	"""))
+
+# ╔═╡ d2365f95-9b61-41fa-83d8-9bf4a8b5ee92
+begin
+	init3
+	next_idx3 = [1];
+end;
+
+# ╔═╡ b5dc223b-c5b5-4eda-889e-c39171c44499
+let
+	next3
+	next_idx3[1] += 1
+end;
+
+# ╔═╡ a391d4a3-9fe3-4ccf-9a62-c2cb19ea8813
 # md"""
-# ## More datasets
+# ##
 
+# For convenience, I have created a method `kmeansDemoGif` to produce gifs for us
+# (check the code in Appendix)
 
-# It turns out linear correlations are more common than we expect!
+# `kmeansDemoGif(data, K, iterations; init_step="a" or "u", add_contour=true or false)`
 
-# * *e.g.* the flipper size and body mass of Penguins 
+# * 2-d input only
+# * produces three types of gifs (more example next)
 # """
 
-# ╔═╡ 8deb1b8c-b67f-4d07-8986-2333dbadcccc
-# md"""
-# ![](https://allisonhorst.github.io/palmerpenguins/reference/figures/lter_penguins.png)"""
+# ╔═╡ d8e832e1-bc53-400d-a5a9-7cda2c5b8799
+md"""
 
-# ╔═╡ af622189-e504-4633-9d9e-ab16c7293f82
-df_penguin = let
-	Logging.disable_logging(Logging.Warn)
-	df_penguin = DataFrame(CSV.File(download("https://gist.githubusercontent.com/slopp/ce3b90b9168f2f921784de84fa445651/raw/4ecf3041f0ed4913e7c230758733948bc561f434/penguins.csv"), types=[Int, String, String, [Float64 for _ in 1:4]..., String, Int]))
-	df_penguin[completecases(df_penguin), :]
-end;
+## *Implementation 
+"""
 
-# ╔═╡ 9267c4a4-74d1-4515-95d6-acc3b12e5ed6
-# first(df_penguin, 5)
-
-# ╔═╡ 76cc8ca7-d17e-4cd7-a6de-4d606e0a0985
-# @df df_penguin scatter(:flipper_length_mm, :body_mass_g, group = (:species), legend=:topleft, xlabel="Flipper length", ylabel="Body mass");
-
-# ╔═╡ c4e497fc-cfbf-4d0b-9a0c-1071f2f43a98
-linear_reg_normal_eq(X, y) = X \y;
-
-# ╔═╡ 0e2dc755-57df-4d9a-b4f3-d01569c3fcde
+# ╔═╡ a414e554-3a8c-472d-af82-07c2f0843627
 begin
-	X_housing = MLDatasets.BostonHousing().features |> Matrix |> transpose
-	df_house = DataFrame(X_housing', MLDatasets.BostonHousing().metadata["feature_names"] .|> lowercase)
-	df_house[!, :target] = (MLDatasets.BostonHousing().targets |> Matrix )[:]
+	function assignment_step(D, μs)
+		_, K = size(μs)
+		distances = hcat([sum((D .- μs[:,k]').^2, dims=2) for k in 1:K]...)
+		min_dis, zs_ = findmin(distances, dims=2)
+		# zs_ is a cartesian tuple; retrieve the min k for each obs.
+		zs = [c[2] for c in zs_][:]
+		return min_dis[:], zs
+	end
+
+	function update_step(D, zs, K)
+		_, d = size(D)
+		μs = zeros(d,K)
+		# update
+		for k in 1:K
+			μₖ = mean(D[zs.==k,:], dims=1)[:]
+			μs[:,k] = μₖ
+		end
+		return μs
+	end
 end;
 
-# ╔═╡ c4f42980-0e68-4943-abbe-b28f05dd3ee5
-function loss(w, X, y) # in matrix notation
-	error = y - X * w
-	0.5 * dot(error, error)
+# ╔═╡ 33cc44b4-bd32-4112-bf33-6807ae53818c
+function kmeans(D, K=3; tol= 1e-6, maxIters= 100, seed= 123)
+	Random.seed!(seed)
+	# initialise
+	n, d = size(D)
+	zs = rand(1:K, n)
+	μs = D[rand(1:n, K),:]'
+	loss = zeros(maxIters)
+	i = 1
+	while i <= maxIters
+		# assigment
+		min_dis, zs = assignment_step(D, μs)
+		# update
+		μs = update_step(D, zs, K)
+		
+		loss[i] = sum(min_dis)
+
+		if i > 1 && abs(loss[i]-loss[i-1]) < tol
+			i = i + 1
+			break;
+		end
+		i = i + 1
+	end
+	return loss[1:i-1], zs, μs
 end;
 
-# ╔═╡ 8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
-function least_square_est(X, y) # implement the method here!
-	X \ y
-end;
+# ╔═╡ 00d85bc5-c320-41dc-8a85-4ad409b058a8
+loss_km₁, zs_km₁, μs_km₁ = kmeans(data₁, K₁);
 
-# ╔═╡ ce35ddcb-5018-4cb9-b0c9-01fb4b14be40
+# ╔═╡ ceaedbd8-6c88-407b-84f6-aedc0a59a22d
+plot(loss_km₁, label="loss", xlab="Iterations", ylab="Loss", title="Loss trajectory of K-means", framestyle=:box)
+
+# ╔═╡ 8c803aa8-de06-4194-bb55-67af083cfd74
+md"""
+
+## Recap: distance metrics
+"""
+
+# ╔═╡ bba94ae7-a6a8-4958-bcf5-9380864a9147
+md"""
+
+**Distance metric**: a distance between $\mathbf{x}$ and $\boldsymbol\mu$ is:
+
+$\Large d_{\boldsymbol{\Sigma}}^2 = {(\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol\Sigma^{-1}(\mathbf{x}-\boldsymbol{\mu})}$
+
+"""
+
+# ╔═╡ 4dc678ce-8f35-44c7-b58c-628345350b49
+md"""
+
+**Euclidean distance** is an example
+\
+\
+
+
+$$\large\begin{align}d^2(\mathbf{x}, \boldsymbol{\mu}) =\sum_{j=1}^d (x_j - \mu_{j})^2
+&= \underbrace{(\mathbf{x} - \boldsymbol\mu)^\top}_{\text{row vector}} \underbrace{(\mathbf{x} - \boldsymbol\mu)}_{\text{column vector}}\\ 
+&= \boxed{(\mathbf{x} - \boldsymbol\mu)^\top  \mathbf{I}^{-1}  (\mathbf{x} - \boldsymbol\mu)}\end{align}$$
+
+* *i.e.* ``\boldsymbol{\Sigma} =\mathbf{I}``
+
+"""
+
+# ╔═╡ 9f18a392-8edb-4f4e-a468-6d1d735d05bf
+md"""
+
+## Examples of distance metrics
+"""
+
+# ╔═╡ 40d1d8ec-3875-49c8-9425-f5cb6765603b
+md"""
+
+**Distance metric**: a distance between $\mathbf{x}$ and $\boldsymbol\mu$ is:
+
+$\Large d_{\boldsymbol{\Sigma}}^2 = {(\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol\Sigma^{-1}(\mathbf{x}-\boldsymbol{\mu})}$
+
+"""
+
+# ╔═╡ 542b0f6f-befa-4dfe-acb7-b7aa6ab9f56c
+md"""
+
+## Decision boundary of K-means
+
+K-means imposes linear **decision boundaries**
+
+$$\large\mathbf{x} \in \mathbb{R}^d \;\; \text{s.t.}\; \|\mathbf{x} - \boldsymbol{\mu}_i\|^2 = \|\mathbf{x} - \boldsymbol{\mu}_j\|^2$$
+
+* the boundary: $\mathbf{x}\in \mathbb{R}^d$ with equal distances to $\boldsymbol\mu_i$ and $\boldsymbol\mu_j$
+
+"""
+
+# ╔═╡ 05de404f-d2d7-4feb-ba70-a25d8eba71d4
+md"""
+
+## Limitations of K-means
+
+
+K-means is very similar LDA
+* *i.e.* ``\boldsymbol\Sigma_k =\mathbf{I}``
+* they share the same limitations
+
+## Limitations of K-means
+
+
+K-means is very similar LDA
+* *i.e.* ``\boldsymbol\Sigma_k =\mathbf{I}``
+* they share the same limitations
+
+How do you think K-means would fare on **this dataset** ?
+
+* Euclidean distance (circular distance contour) do not make sense for cluster 3
+* ellipse seems better
+"""
+
+# ╔═╡ b44fce15-1056-4f42-9ec7-7a70092c355b
+md"""
+
+## K-means result
+"""
+
+# ╔═╡ adb47976-1d3c-42d9-941c-8a791866eb97
+md"""
+
+## K-means result
+
+
+
+**K-means** fails miserably
+
+
+* it fails at discovering the hidden data structure 
+"""
+
+# ╔═╡ 5f9ad998-c410-4358-925b-66e5d3b2f9e9
 begin
-	x_room = df_house[:, :rm]
-	x_room_sq = x_room.^2 # squared x_room^2
-	X_room_expanded = [ones(length(x_room)) x_room x_room_sq]
-end;
-
-# ╔═╡ edc245bc-6571-4e65-a50c-0bd4b8d63b74
-function poly_expand(x; order = 2) # expand the design matrix to the pth order
-	n = length(x)
-	return hcat([x.^p for p in 0:order]...)
-end;
-
-# ╔═╡ 4154585d-4eff-4ee9-8f33-dad0dfdd143c
-function poly_reg(x, y; order = 2) # fit a polynomial regression to the input x; x is assumed a vector
-	X = poly_expand(x; order=order)
-	w = linear_reg_normal_eq(X, y)
-	l = loss(w, X, y)
-	return w, l
-end;
-
-# ╔═╡ 46180264-bddc-47d8-90a7-a16d0ea87cfe
-poly_fun(x, w) = sum([x^p for p in 0:length(w)-1] .* w);
-
-# ╔═╡ 37e2dd2d-a190-4cf4-ba1f-5347d8e9fbb3
-begin
-	# gr()
 	Random.seed!(123)
-	x_poly = [range(-1.8, -0.5, length=8)... range(.5, 1.8, length=8)...][:]
-	x_poly_test = -2 : 0.1: 2
-	w_poly = [0.0, -5, 5, 2, -2]
-	y_poly = [poly_fun(x, w_poly) for x in x_poly] + randn(length(x_poly))
-	y_poly_test = [poly_fun(x, w_poly) for x in x_poly_test] + randn(length(x_poly_test))
+	K₂ = 3
+	trueμs₂ = zeros(2,K₂)
+	trueΣs₂ = zeros(2,2,K₂)
+	trueμs₂[:,1], trueΣs₂[:,:,1] = [-2.0, 0.0], 0.5 * Matrix(1.0I, 2,2)
+	trueμs₂[:,2], trueΣs₂[:,:,2] = [2.0, 0.0], 0.5 * Matrix(1.0I, 2,2)
+	trueμs₂[:,3], trueΣs₂[:,:,3] = [0., 0],  Matrix([0.5 0; 0 2])
+	trueπs₂ = [0.2, 0.2, 0.6]
+	truemvns₂ = [MvNormal(trueμs₂[:,k], trueΣs₂[:,:,k]) for k in 1:K₂]
+	n₂= 500
+	truezs₂ = rand(Categorical(trueπs₂), n₂)
+	data₂= vcat([rand(truemvns₂[z])' for z in truezs₂]...)
+	# data₂, truezs₂ = sampleMixGaussian(n₂, truemvns₂, trueπs₂)
 end;
 
-# ╔═╡ 0e60180d-c4eb-4c83-9301-e3151ab828d5
-let
+# ╔═╡ c8cb2535-7b65-4d86-9405-71880fdb906e
+_, zskm₂, ms₂ = kmeans(data₂, K₂; seed= 442);
+
+# ╔═╡ ca7f12d8-f823-448b-ab1f-0e28c85a3f7f
+md"""
+
+## Limitations of K-means (cont.)
+
+
+"""
+
+# ╔═╡ 8d2778fd-edfe-4a02-92f9-2b9a67f2a2c0
+md"""
+
+## K-means results
+
+"""
+
+# ╔═╡ 8107c1d9-58c4-41f0-8870-bfd7084e42b5
+md"""
+
+K-means fails again (and even worse for this case)
+
+
+* K-means in general **cannot** handle overlapping dataset
+"""
+
+# ╔═╡ ecb07f7e-e742-4948-b190-c3e37eadc29e
+md"""
+
+## More more dataset: no ground truth 
+"""
+
+# ╔═╡ 449564e9-426f-4242-856d-080f227af450
+begin
+
+	Random.seed!(123)
+	nobs = 1200
+	ts = rand(nobs) * 2 .- 1 
+
+	ys = @. 0.45 * sin(π * ts * 4.5) - 0.5 * ts + randn() * 0.05
+	data₄ = [ys ts]
+end;
+
+# ╔═╡ b087739a-c892-4c94-92ba-dbba390095f4
+begin
+	plot(ys, ts, st=:scatter, ratio =1, label="data", xlabel=L"x", ylabel=L"y", title="Dataset without ground truth", xlim =[-1.2, 1.2], markersize =4, alpha=0.5)
+end
+
+# ╔═╡ 9412db91-c5d8-4836-bdd0-38f37da1f51b
+_, zskm₄, ms₄ = kmeans(data₄, 9; seed= 222);
+
+# ╔═╡ d9eaf592-1522-4f7e-a7db-cf503a152eb9
+md"""
+
+## 
+
+
+### Question: can we find non-trivial structures from data unsupervisedly?
+
+#### _Yes!_ EM algorithm
+"""
+
+# ╔═╡ aabdfd01-c9b8-4c45-83c3-29881581e6e3
+# begin
+# 	Random.seed!(4321)
+# 	K₄ = 2
+# 	trueπs₄ = [0.6, 0.4]
+# 	trueμs₄ = [[-2, -2] [0.5, 0.5] ]
+# 	trueΣs₄ = zeros(2, 2, K₄)
+# 	trueΣs₄[:,:, 1] = [1 0.9; 0.9 1]
+# 	trueΣs₄[:,:, 2] = [0.5 0.; 0. 0.5]
+# 	truemvns₄ = [MvNormal(trueμs₄[:,k], trueΣs₄[:,:,k]) for k in 1:K₄]
+# 	data₄, truezs₄ = sampleMixGaussian(100, truemvns₄, trueπs₄)
+# 	xs₄ = (minimum(data₄[:,1])-1):0.1: (maximum(data₄[:,1])+1)
+# 	ys₄ = (minimum(data₄[:,2])-1):0.1: (maximum(data₄[:,2])+1)
+
+# 	dataset4 = data_set(data₄, truezs₄, truemvns₄, trueπs₄)
+# end;
+
+# ╔═╡ bbd25bdf-e82d-4f65-bfad-7d8e8e9cca18
+struct data_set
+	X
+	labels
+	mvns
+	πs
+end
+
+# ╔═╡ 4cc1f89c-6e1d-4457-9e84-fd5bdd0b575a
+Σs = [Matrix(1.0I, 2,2), [2 0; 0 0.5],  [.5 0; 0 2] , [1 0.9; 0.9 1], [1 -0.9; -0.9 1]];
+
+# ╔═╡ ba06623e-a9e6-4f39-8c4d-d8f86c765a8c
+plts_mvns=let
+	Random.seed!(123)
+	nobs= 250
+	plts = []
+
+	for Σ in Σs
+		mvn = MvNormal(zeros(2), Σ)
+		# data = rand(mvn, nobs)
+	  	# scatter(data[1,:], data[2,:])
+		plt = plot(-3:0.1:3, -3:0.1:3, (x, y) -> pdf(mvn, [x,y]), st=:contour, c=:jet, clabels=false, ratio=1, lw=2, levels=5, colorbar=false, framestyle=:origin)
+
+		scatter!([0], [0], markershape=:star, color=:red, label=L"\mu")
+		# plot!(-3:0.1:3, -3:0.1:3, (x, y) -> pdf(mvn, [x,y]), st=:contour, c=:jet, ratio=1, lw=3, levels=5, colorbar=false, framestyle=:origin)
+		# scatter!(data[1,:], data[2,:], c=1, alpha=0.5, ms=2, label="")
+		push!(plts, plt)
+	end
+
+	# color=:turbo, clabels=true,
+	plts
+end;
+
+# ╔═╡ c4c51b3c-c0d3-44d7-b5e8-1a65c3e737cc
+ThreeColumn(
+md"""
+
+$$\mathbf \Sigma=$$
+$(latexify_md(Σs[1]))
+
+$(plot(plts_mvns[1], size=(220,220)))
+	
+
+
+"""	,
+md"""
+
+$$\mathbf \Sigma=$$
+$(latexify_md(Σs[2]))
+
+$(plot(plts_mvns[2], size=(220,220)))
+	
+
+
+
+"""
+	,
+
+
+md"""
+
+$$\mathbf \Sigma=$$
+$(latexify_md(Σs[4]))
+
+
+$(plot(plts_mvns[4], size=(220,220)))
+	
+
+
+"""
+)
+
+# ╔═╡ a0465ae8-c843-4fc0-abaf-0497ada26652
+md"""
+
+## Appendix
+
+Utility functions
+"""
+
+# ╔═╡ dafd1a68-715b-4f06-a4f2-287c123761f8
+begin
+	function sampleMixGaussian(n, mvns, πs)
+		d = size(mvns[1].Σ)[1]
+		samples = zeros(n, d)
+		# sample from the multinoulli distribution of cⁱ
+		cs = rand(Categorical(πs), n)
+		for i in 1:n
+			samples[i,:] = rand(mvns[cs[i]])
+		end
+		return samples, cs
+	end
+end
+
+# ╔═╡ e0cfcb9b-794b-4731-abf7-5435f67ced42
+begin
+	Random.seed!(123)
+	K₃ = 3
+	trueπs₃ = [0.25, 0.5, 0.25]
+	trueμs₃ = [[1, 1] [0.0, 0] [-1, -1]]
+	trueΣs₃ = zeros(2,2,K₃)
+	trueΣs₃ .= [1 -0.9; -0.9 1]
+	trueΣs₃[:,:,2] = [1 0.9; 0.9 1]
+	truemvns₃ = [MvNormal(trueμs₃[:,k], trueΣs₃[:,:,k]) for k in 1:K₃]
+	n₃ = 200* K₃
+	data₃, truezs₃ = sampleMixGaussian(200, truemvns₃, trueπs₃)
+	data₃test, truezs₃test = sampleMixGaussian(100, truemvns₃, trueπs₃)
+	xs₃ = (minimum(data₃[:,1])-1):0.1: (maximum(data₃[:,1])+1)
+	ys₃ = (minimum(data₃[:,2])-1):0.1: (maximum(data₃[:,2])+1)
+	# dataset3
+	dataset3 = data_set(data₃, truezs₃, truemvns₃, trueπs₃)
+end;
+
+# ╔═╡ c7fd532d-d72a-439a-9e71-e85392c66f8c
+_, zskm₃, ms₃ = kmeans(data₃, K₃) ;
+
+# ╔═╡ 76859d4c-f3e2-4576-b4d6-b637e9c99877
+function QDA_fit(data, labels)
+	n, d = size(data)
+	# sse = zeros(d, d)
+	K = length(unique(labels))
+	μs = zeros(d, K)
+	Σs = zeros(d,d,K)
+	ns = zeros(Int, K)
+	for k in (unique(labels)|>sort)
+		ns[k] = sum(labels .==k)
+		datak = data[labels .== k, :]
+		μs[:, k] = μk = mean(datak, dims=1)[:]
+		error = (datak .- μk')
+		Σs[:,:,k] = error'*error/ns[k]
+	end
+	μs, Σs, ns/n
+end
+
+# ╔═╡ 620789b7-59bc-4e17-bcfb-728a329eed0f
+qdform(x, S) = dot(x, S, x)
+
+# ╔═╡ 8d0c6fdc-4717-4203-b933-4b37fe60d512
+function logLikMixGuassian(x, mvns, πs, logLik=true) 
+	l = logsumexp(log.(πs) .+ [logpdf(mvn, x) for mvn in mvns])
+	logLik ? l : exp(l)
+end
+
+# ╔═╡ d66e373d-8443-4810-9332-305d9781a21a
+md"""
+
+Functions used to plot and produce the gifs
+
+"""
+
+# ╔═╡ acfb80f0-f4d0-4870-b401-6e26c1c99e45
+function plot_clusters(D, zs, K, loss=nothing, iter=nothing,  framestyle=:origin; title_string=nothing, alpha=0.5)
+	if isnothing(title_string)
+		title_string = ""
+		if !isnothing(iter)
+			title_string ="Iteration: "*string(iter)*";"
+		end
+		if !isnothing(loss)
+			title_string *= " L = "*string(round(loss; digits=2))
+		end
+	end
+	plt = plot(title=title_string, ratio=1, framestyle=framestyle)
+	for k in 1:K
+		scatter!(D[zs .==k,1], D[zs .==k, 2], label="cluster "*string(k), ms=3, alpha=alpha)
+	end
+	return plt
+end
+
+# ╔═╡ f2b7b63a-fd54-4f80-af28-f255d186f6f9
+begin
 	gr()
-	poly_order = 12
-	λs = [0, 0.5, 1, 10, 20, 1e20]
-	plots_ =[]
-	for λ in λs
-		plt = plot(x_poly, y_poly, st=:scatter, ms=3, mc=1,alpha=0.5, label="train data")
-		plot!(x_poly_test, y_poly_test, st=:scatter, ms=3, mc=2,alpha=0.5,  label="test data")
-		x_p = poly_expand(x_poly; order = poly_order)
-		w = ridge_reg(x_p, y_poly; λ = λ)
-		loss_test = norm([poly_fun(x, w) for x in x_poly_test] - y_poly_test)/length(y_poly_test)
-		plot!(-2:0.05:2, (x) -> poly_fun(x, w), lw=2, lc=:red,  label="", legend=:outerbottom, ylim=[-7, 7], title="test loss: "*L"%$(round(loss_test; digits=2));\;" * L"\lambda=%$(round(λ; digits=1))")
-		push!(plots_, plt)
+	anim1 = Animation() 
+	pltsₖₘ = [plt_demo]
+	for iter in 1:5
+		ls, initzs = assignment_step(data₁, ms)
+	    p = plot_clusters(data₁, initzs, K₁, sum(ls), iter; title_string="Assignment step; Iteration = "*L"%$(iter)")
+		for k in 1:K₁
+			ctr = ms[:, k]
+			scatter!([ms[1,k]], [ms[2,k]], markershape = :star4, markerstrokewidth =3, markersize = 10, c= k, labels= "μ"*string(k))
+			plot!(-6:0.1:6, -5:0.1:5, (x,y) -> sum(([x, y] - ms[:, k]).^2), st=:contour, c=k, colorbar = false, levels=[5], lw=2)
+
+			
+			for x in eachrow(data₁[initzs.==k, :])
+				plot!([x[1], ctr[1]],  [x[2], ctr[2]], lc=k, arrow=Plots.Arrow(:close, :both, 1,1),  lw=0.1, st=:path, label="")
+			end
+		end
+		push!(pltsₖₘ, p)
+		frame(anim1, p)
+		p = plot_clusters(data₁, initzs, K₁, sum(ls), iter; title_string="Update step; Iteration = "*L"%$(iter)")
+		ms = update_step(data₁, initzs, K₁)
+		for k in 1:K₁
+			scatter!([ms[1,k]], [ms[2,k]], markershape = :star4, markerstrokewidth =3, markersize = 10, c= k, labels= "μ"*string(k))
+			plot!(-6:0.1:6, -5:0.1:5, (x,y) -> sum(([x, y] - ms[:, k]).^2), st=:contour, c=k, colorbar = false, levels=[5], lw=2)
+		end
+		push!(pltsₖₘ, p)
+		frame(anim1, p)
 	end
-	plot(plots_..., size=(900, 600))
+end;
+
+# ╔═╡ 188b9f9d-78e3-4e78-8eae-795a9b012cab
+begin
+	next2
+	pltsₖₘ[min(next_idx2[1]+1, length(pltsₖₘ))]
 end
 
-# ╔═╡ 0c58aa5d-408a-4f7a-ba04-9783bbfa8f6b
-path_ridge, path_lasso = let
-	poly_order = 12
-	X_p = poly_expand(x_poly; order = poly_order)[:, 2:end]
-	path_r = glmnet(X_p, y_poly, alpha = 0.0, lambda = exp.([-11:.1:4;]) )
-	path_l = glmnet(X_p, y_poly, alpha = 1.0,lambda = exp.([-11:.1:4;]) )
-	path_r, path_l
+# ╔═╡ bd670cde-bcbe-4104-8114-34f761f7f850
+gif(anim1, fps=2)
+
+# ╔═╡ a2b02ca9-6edc-48bf-b5e5-746d986d8252
+plts_km_alt, anim_km_alt =let
+	gr()
+	pltsₖₘ2 = []
+	zs0 = rand(1:K₁, size(data₁)[1])
+	anim2 = Animation()
+	l_ = Inf
+	p = plot_clusters(data₁, zs0, K₁, l_, 0)
+	push!(pltsₖₘ2, p)
+	frame(anim2, p)
+	for iter in 1:6
+		ms0 = update_step(data₁, zs0, K₁)
+		p = plot_clusters(data₁, zs0, K₁, l_, iter; title_string="Update step; Iteration = "*L"%$(iter)")
+		for k in 1:K₁
+			scatter!([ms0[1,k]], [ms0[2,k]], markershape = :star4, markersize = 10, c=k, markerstrokewidth =3, color=k, labels= "μ"*string(k))
+			plot!(-6:0.1:6, -5:0.1:5, (x,y) -> sum(([x, y] - ms0[:, k]).^2), st=:contour, c=k, colorbar = false, levels=[5], lw=2)
+		end
+		push!(pltsₖₘ2, p)
+		frame(anim2, p)
+		
+		ls, zs0 = assignment_step(data₁, ms0)
+		p = plot_clusters(data₁, zs0, K₁, l_, iter; title_string="Assignment step; Iteration = "*L"%$(iter)")
+		for k in 1:K₁
+			ctr = ms0[:, k]
+			scatter!([ms0[1,k]], [ms0[2,k]], markershape = :star4, markerstrokewidth =3, markersize = 10, c= k, labels= "μ"*string(k))
+			plot!(-6:0.1:6, -5:0.1:5, (x,y) -> sum(([x, y] - ms0[:, k]).^2), st=:contour, c=k, colorbar = false, levels=[5], lw=2)
+			for x in eachrow(data₁[zs0.==k, :])
+				plot!([x[1], ctr[1]],  [x[2], ctr[2]], lc=k, arrow=Plots.Arrow(:close, :both, 1,1),  lw=0.1, st=:path, label="")
+			end
+		end
+		push!(pltsₖₘ2, p)
+		frame(anim2, p)
+	end
+
+	pltsₖₘ2, anim2
 end;
 
-# ╔═╡ b9e76fca-8da0-413e-8d46-2f7b48cf1622
-plt_ridge = let
-	plt_ridge = plot(path_ridge.lambda, path_ridge.betas',xaxis=:log, title="Ridge regression", xlabel=L"\log \lambda", ylabel=L"w"; legend=:outerright, labels=[1:size(path_ridge.betas)[1];]', lw=1.5, legendtitle=L"w_i")
-	# plot!(path_lasso.lambda, path_lasso.betas', xaxis=:log)
-	# vline!([exp.((4-11) /2)], ls=:dash, lw=1.5, lc=:gray, label="")
+# ╔═╡ 20e84d48-0f5f-403e-a8aa-1cbd11cd3b04
+begin
+	next3
+	plts_km_alt[min(next_idx3[1], length(plts_km_alt))]
+end
+
+# ╔═╡ 8d86466e-93c5-4263-b436-6fe684eeccd8
+gif(anim_km_alt, fps = 1)
+
+# ╔═╡ e091ce93-9526-4c7f-9f14-7634419bfe57
+# plot clustering results: scatter plot + Gaussian contours
+function plot_clustering_rst(data, K, zs, mvns, πs= 1/K .* ones(K); title="", add_gaussian_contours= false, add_contours=true)
+	xs = (minimum(data[:,1])-0.5):0.1: (maximum(data[:,1])+0.5)
+	ys = (minimum(data[:,2])-0.5):0.1: (maximum(data[:,2])+0.5)
+	_, dim = size(data)
+	# if center parameters are given rather than an array of MvNormals
+	if mvns isa Matrix{Float64}
+		mvns = [MvNormal(mvns[:,k], Matrix(1.0I, dim, dim)) for k in 1:K]
+		πs = 1/K .* ones(K)
+	end
+	if ndims(zs) >1
+		zs = [c[2] for c in findmax(zs, dims=2)[2]][:]
+	end
+	p = plot_clusters(data, zs, K)
+	for k in 1:K 
+		if add_gaussian_contours
+			plot!(xs, ys, (x,y)-> pdf(mvns[k], [x,y]), levels=5,  st=:contour, colorbar = false, ratio=1, color=:jet, linewidth=2) 
+		elseif add_contours
+			plot!(xs, ys, (x,y)-> qdform([x,y]-mvns[k].μ, inv(mvns[k].Σ)), levels=[2.0],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=3) 
+		end
+		
+		scatter!([mvns[k].μ[1]], [mvns[k].μ[2]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=3)
+	end
+	title!(p, title)
+	return p
+end
+
+# ╔═╡ 9612d7c1-3c86-45bc-806a-a53bbf869d87
+begin
+	gr()
+	plt2_= plot_clustering_rst(data₂,  K₂, truezs₂, truemvns₂, trueπs₂)
+	title!(plt2_, "Ground truth dataset", titlefontsize=8)
+	plot!(plt2_, legendfontsize=5)
+	plt2_
 end;
 
-# ╔═╡ 1778f951-a906-4670-993e-653f120f05ca
-plt_ridge
+# ╔═╡ eb273a3a-60d6-439e-bb63-6af8130b4ec0
+plot(plt2_,  title="Ground truth data", titlefontsize=15, legendfontsize=8)
 
-# ╔═╡ da6a876f-3212-4132-af0e-612f32f1cb7b
-md"Add vline: $(@bind add_vline CheckBox(default=false)), Add vline of ``\ln\lambda``: $(@bind λi Slider(1:length(path_ridge.lambda)))"
+# ╔═╡ caf21a20-8dd8-4a31-8463-96d3869d3ee9
+TwoColumn(plot(plt2_, size=(350,350), titlefontsize=10, legendfontsize=6), let
+	gr()
+	plt=plot_clustering_rst(data₂, K₂, zskm₂, ms₂; title= "K-means result for dataset 2")
 
-# ╔═╡ b0883880-f758-4c04-abcf-302676d4ee38
-L"%$(round.(path_ridge.betas[:, λi]; digits=3))"
+	plot(plt, size=(350,350), titlefontsize=10, legendfontsize=6)
+end)
 
-# ╔═╡ bb4b15ce-f42d-4a04-a6d0-4571a8ba9cb9
-L"%$(round.(path_lasso.betas[:, λi]; digits=3))"
+# ╔═╡ 9cbc7ef6-788c-4dfd-a98d-2a9409eb5127
+begin
+	gr()
+	plt₂_ =plot_clustering_rst(data₂, K₂, truezs₂,  truemvns₂, trueπs₂)
+	title!(plt₂_, "Ground truth for dataset")
+end;
 
-# ╔═╡ b3aa9fe0-760e-4cb1-85a0-2bc534568ba5
+# ╔═╡ 6569c4e1-5d62-42ad-94c0-927dd6b6f504
+TwoColumn(md"""
+\
+\
+
+**How about this dataset ?**
+
+
+* rotated ellipsoid shaped distances
+* **_overlapping_** data
+""", begin
+	gr()
+	plt₃_= plot_clustering_rst(data₃,  K₃, truezs₃, truemvns₃, trueπs₃)
+	title!(plt₃_, "Overlapping dataset")
+	plot(plt₃_, size=(300,300), titlefontsize=10)
+end)
+
+# ╔═╡ f6b06459-0608-4981-bdb4-8f54d0cadfe1
+TwoColumn(plot(plt₃_, titlefontsize=10, legendfontsize=6, size=(350,350)), let
+	gr()
+	plt=plot_clustering_rst(data₃, K₃, zskm₃, ms₃; title= "K-means result for dataset 2")
+
+	plot(plt, titlefontsize=10, legendfontsize=6, size=(350,350))
+end)
+
+# ╔═╡ f0fb238f-fff6-49bb-9b6e-9881e4a36593
 let
 
-	plt_ridge = plot(path_ridge.lambda, path_ridge.betas',xaxis=:log, title="Ridge regression", xlabel=L"\log \lambda", ylabel=L"w"; legend=:outerright, labels=[1:size(path_ridge.betas)[1];]', lw=1.5, legendtitle=L"w_i")
-	# plot!(path_lasso.lambda, path_lasso.betas', xaxis=:log)
-	# vline!([exp.((4-11) /2)], ls=:dash, lw=1.5, lc=:gray, label="")
-plt_lasso = plot(path_lasso.lambda, path_lasso.betas', xaxis=:log, title="Lasso regression",  xlabel=L"\log \lambda", ylabel=L"w"; legend=:outerright, labels=[1:size(path_ridge.betas)[1];]', legendtitle=L"w_i", lw=2);
-	if add_vline
-		vline!(plt_lasso, [(path_ridge.lambda[λi])], ls=:dash, lw=1.5, lc=:gray, label="")
-		vline!(plt_ridge, [(path_ridge.lambda[λi])], ls=:dash, lw=1.5, lc=:gray, label="")
-	end
-	plot(plt_ridge, plt_lasso, lw=2, size=(900,450))
+plt = plot_clustering_rst(data₄, 9, zskm₄, ms₄; add_contours=false, title= "K-means result for dataset 4")
 end
 
-# ╔═╡ bc513037-c689-4eca-865d-d94a6a8aa997
-begin
-	Random.seed!(123)
-	true_f(x) = sin(x)
-	nobs_ = 25
-	xs_q4 = collect(range(0, 2π, nobs_))
-	ys_q4 = true_f.(xs_q4) + randn(nobs_)/4
+# ╔═╡ d44526f4-3051-47ee-8b63-f5e694c2e609
+function e_step(data, mvns, πs)
+	K = length(mvns)
+	# logLiks: a n by K matrix of P(dᵢ|μₖ, Σₖ)
+	logLiks = hcat([logpdf(mvns[k], data') for k in 1:K]...)
+	# broadcast log(P(zᵢ=k)) to each row 
+	logPost = log.(πs') .+ logLiks
+	# apply log∑exp to each row to find the log of the normalising constant of p(zᵢ|…)
+	logsums = logsumexp(logPost, dims=2)
+	# normalise in log space then transform back to find the responsibility matrix
+	ws = exp.(logPost .- logsums)
+	# return the responsibility matrix and the log-likelihood
+	return ws, sum(logsums)
+end
 
+# ╔═╡ 7b47cda6-d772-468c-a8f3-75e3d77369d8
+begin
+# decision boundary function of input [x,y] 
+function decisionBdry(x,y, mvns, πs)
+	z, _ = e_step([x,y]', mvns, πs)
+	findmax(z[:])
+end
+
+end
+
+# ╔═╡ 5a8cdbe7-6abe-4f07-8bcc-89dd71fc35f7
+function kmeansDemoGif(data, K, iters = 10; init_step="a", add_contour=false, seed=123)
+	Random.seed!(seed)
+	# only support 2-d
+	anims = [Animation() for i in 1:3]
+	dim =2 
+	# initialise by random assignment
+	if init_step == "a"
+		zs = rand(1:K, size(data)[1])
+		l = Inf
+	# initialise by randomly setting the centers 
+	else
+		ridx = sample(1:size(data)[1], K)
+		# ms = reshape(repeat(mean(data, dims=1)', K), (dim,K))
+		# ms .+= randn(dim,K)
+		ms = data[ridx, :]'
+		ls, zs = assignment_step(data, ms)
+		l = sum(ls)
+	end
+	# xs = (minimum(data[:,1])-0.1):0.1:(maximum(data[:,1])+0.1)
+	xs = range(minimum(data[:,1])-0.1, maximum(data[:,1])+0.1, 100)
+	# ys = (minimum(data[:,2])-0.1):0.1:(maximum(data[:,2])+0.1)
+	ys = range(minimum(data[:,2])-0.1, maximum(data[:,2])+0.1, 100)
+
+	# cs = cgrad(:lighttest, K+1, categorical = true)
+	ps = 1/K .* ones(K)
+	for iter in 1:iters
+		ms = update_step(data, zs, K)
+		# animation 1: classification evolution
+		p1 = plot_clusters(data, zs, K, l, iter)
+		# if add_contour
+			for k in 1:K 
+				if add_contour
+				plot!(xs, ys, (x,y)-> sum((ms[:, k] - [x,y]).^2), levels=[5],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=3)  
+				end
+				scatter!([ms[1,k]], [ms[2,k]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=2)
+			end
+		# end
+		frame(anims[1], p1)
+		# animation 2: decision boundary
+		mvns = [MvNormal(ms[:,k], Matrix(1.0I, dim, dim)) for k in 1:K]
+		p2 = plot(xs, ys, (x,y) -> decisionBdry(x,y, mvns, ps)[2],  leg=:none, title="Iteration: "*string(iter)*"; L="*string(round(l; digits=2)), ratio=1, framestyle=:origin, c=1:K, alpha=0.5, st=:heatmap)
+		for k in 1:K
+			scatter!(data[zs .==k, 1], data[zs .==k, 2], c= k, ms=3, alpha=0.5)
+			scatter!([ms[1,k]], [ms[2,k]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=2)
+			# plot!(xs, ys, (x,y)-> sum((ms[:, k] - [x,y]).^2), levels=[1.5],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=3)  
+		end
+		frame(anims[2], p2)
+
+		# animation 3: contour evolution
+		# animation 3: contour plot
+		# p3 = plot_clusters(data, zs, K, l, iter)
+		p3 = plot(xs, ys, (x,y) -> logLikMixGuassian([x,y], mvns, ps), st=:contour, fill=true, colorbar=false, ratio=1, title="Iteration: "*string(iter)*"; L="*string(round(l; digits=2)))
+		# for k in 1:K
+		# 	scatter!(data[zs .==k, 1], data[zs .==k, 2], c= cs[k], label="")
+		# end
+		frame(anims[3], p3)
+		
+		ls,zs = assignment_step(data, ms)
+		l = sum(ls)
+	end
+
+	return anims
+end
+
+# ╔═╡ a0ebfea7-bbe5-4798-8db3-163381bf67c2
+begin
+	gr()
+	kmAnim₁ = kmeansDemoGif(data₁, K₁, 10; init_step="a", add_contour=true);
 end;
+
+# ╔═╡ ab0c4765-e9a0-4ba3-8a21-e81b214ab060
+TwoColumn(gif(kmAnim₁[1], fps=1), gif(kmAnim₁[2], fps=1))
+
+# ╔═╡ 533efc1a-fd99-4a5d-9ef3-4ff7ce483f24
+begin
+	gr()
+	kmAnim3 = kmeansDemoGif(data₂, K₂, 22; init_step="a", add_contour=true)
+end;
+
+# ╔═╡ c46949ad-46c8-4bcb-9e83-1eb646b4ea2a
+gif(kmAnim3[2], fps=5)
+
+# ╔═╡ f847fb00-3ccb-4137-a5b4-62567fa51498
+begin
+	gr()
+	kmAnim₄ = kmeansDemoGif(data₄, 9, 25; init_step="u", add_contour=false, seed=234);
+end;
+
+# ╔═╡ 04f81aff-903c-40fa-9acd-9e867ede8a9b
+TwoColumn(gif(kmAnim₄[1], fps=5), gif(kmAnim₄[2], fps=5))
+
+# ╔═╡ ad943140-9510-463e-b57c-4956ed2cd5d5
+begin
+	gr()
+	kmAnim₃ = kmeansDemoGif(data₃, K₃, 10; init_step="a", add_contour=true)
+end;
+
+# ╔═╡ 27755688-f647-48e5-a939-bb0fa70c95d8
+function m_step(data, ws)
+	_, d = size(data)
+	K = size(ws)[2]
+	ns = sum(ws, dims=1)
+	πs = ns ./ sum(ns)
+	# weighted sums ∑ wᵢₖ xᵢ where wᵢₖ = P(zᵢ=k|\cdots)
+	ss = data' * ws
+	# the weighted ML for μₖ = ∑ wᵢₖ xᵢ/ ∑ wᵢₖ
+	μs = ss ./ ns
+	Σs = zeros(d, d, K)
+	for k in 1:K
+		error = (data .- μs[:,k]')
+		# weighted sum of squared error
+		# use Symmetric to remove floating number numerical error
+		Σs[:,:,k] =  Symmetric((error' * (ws[:,k] .* error))/ns[k])
+	end
+	# this is optional: you can just return μs and Σs
+	mvns = [MvNormal(μs[:,k], Σs[:,:,k]) for k in 1:K]
+	return mvns, πs[:]
+end
+
+# ╔═╡ 8d06ce32-2c8d-4317-8c38-108ec0e7fe23
+function em_mix_gaussian(data, K=3; maxIters= 100, tol= 1e-4, init_step="e", seed=123)
+	Random.seed!(seed)
+	# initialisation
+	n,d = size(data)
+	if init_step == "e"
+		zᵢ = rand(1:K, n)
+		μs = zeros(d, K)
+		[μs[:,k] = mean(data[zᵢ .== k,:], dims=1)[:] for k in 1:K] 
+	elseif init_step == "m"
+		μs = data[rand(1:n, K), :]'
+	else
+		μs = randn(d,K)
+		μs .+= mean(data, dims=1)[:] 
+	end
+	Σs = zeros(d,d,K)
+	Σs .= Matrix(1.0I, d,d)
+	mvns = [MvNormal(μs[:,k], Σs[:,:,k]) for k in 1:K]
+	πs = 1/K .* ones(K)
+	zs = zeros(n,K)
+	logLiks = Array{Float64,1}()
+	i = 1
+	for i in 1:maxIters
+		# E-step
+		zs, logLik = e_step(data, mvns, πs)
+		# M-step
+		mvns, πs = m_step(data, zs)
+		push!(logLiks, logLik)
+		# be nice, let it run at least three iters
+		if i>2 && abs(logLiks[end] - logLiks[end-1])< tol
+			break;
+		end
+	end
+	return logLiks, mvns, πs, zs
+end
+
+# ╔═╡ c46e0b36-c3fd-4b7f-8f31-25c3315bb10c
+# plot type: cl: classification; db: decision boundary; ct: contour
+function mixGaussiansDemoGif(data, K, iters = 10; init_step="e", add_contour=false, seed=123)
+	Random.seed!(seed)
+	# only support 2-d
+	dim = 2 
+	anims = [Animation() for i in 1:3]
+	if init_step == "e"
+		zs_ = rand(1:K, size(data)[1])
+		zs = Matrix(I,K,K)[zs_,:]
+		l = Inf
+	else
+		ms = reshape(repeat(mean(data, dims=1)', K), (dim,K))
+		ms .+= randn(dim,K)
+		mvns = [MvNormal(ms[:,k], Matrix(1.0I,dim,dim)) for k in 1:K]
+		zs, l = e_step(data, mvns, 1/K .* ones(K))
+		zs_ = [c[2] for c in findmax(zs, dims=2)[2]][:]
+	end
+	xs = (minimum(data[:,1])-0.1):0.1:(maximum(data[:,1])+0.1)
+	ys = (minimum(data[:,2])-0.1):0.1:(maximum(data[:,2])+0.1)
+	# cs = cgrad(:lighttest, K+1, categorical = true)
+
+	for iter in 1:iters
+		# M step
+		mvns, ps  = m_step(data, zs)
+		# animation 1: classification evolution 
+		p1 = plot_clusters(data, zs_, K, l, iter)
+		if add_contour
+			for k in 1:K 
+				plot!(xs, ys, (x,y)-> qdform([x,y]-mvns[k].μ, inv(mvns[k].Σ)), levels=[2.0],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=3) 
+				scatter!([mvns[k].μ[1]], [mvns[k].μ[2]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=2)
+			end
+		end
+		frame(anims[1], p1)
+		# animation 2: decision boundary evolution 
+		p2 = heatmap(xs, ys, (x,y) -> decisionBdry(x,y, mvns, ps)[2], c=1:K, leg=:none, title="Iteration: "*string(iter)*"; L="*string(round(l; digits=2)), ratio=1, framestyle=:origin)
+		for k in 1:K
+			scatter!(data[zs_ .==k, 1], data[zs_ .==k, 2], c= k)
+		end
+		frame(anims[2], p2)
+
+		# animation 3: contour plot
+		# p3 = plot_clusters(data, zs_, K, l, iter)
+		p3 = plot(xs, ys, (x,y) -> logLikMixGuassian([x,y], mvns, ps), st=:contour, fill=true, colorbar=false, title="Iteration: "*string(iter)*"; L="*string(round(l; digits=2)), ratio=1, framestyle=:origin)
+		# for k in 1:K
+		# 	scatter!(data[zs_ .==k, 1], data[zs_ .==k, 2], c= cs[k], label="")
+		# end
+		frame(anims[3], p3)
+		# E step
+		zs, l = e_step(data, mvns, ps)
+		zs_ = [c[2] for c in findmax(zs, dims=2)[2]][:]
+	end
+	return anims
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-GLMNet = "8d5ece8b-de18-5317-b113-243142960cc6"
+Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LogExpFunctions = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
-MLDatasets = "eb30cadb-4394-5ae3-aed4-317e484a6458"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
@@ -684,15 +1283,13 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
-CSV = "~0.10.10"
-DataFrames = "~1.6.1"
-GLMNet = "~0.7.2"
+Clustering = "~0.15.4"
+Distributions = "~0.25.100"
 HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.16.1"
-LogExpFunctions = "~0.3.23"
-MLDatasets = "~0.7.9"
-Plots = "~1.38.14"
+LogExpFunctions = "~0.3.26"
+Plots = "~1.38.17"
 PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.52"
 StatsBase = "~0.34.0"
@@ -705,7 +1302,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "88c38277ba5eb3ebfbbef7a5739542095a2c5878"
+project_hash = "14d6b30cc4457409f52221963f394b8ee3122732"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -734,11 +1331,6 @@ weakdeps = ["StaticArrays"]
     [deps.Adapt.extensions]
     AdaptStaticArraysExt = "StaticArrays"
 
-[[deps.ArgCheck]]
-git-tree-sha1 = "a3a402a35a2f7e0b87828ccabbd5ebfbebe356b4"
-uuid = "dce04be8-c92d-5529-be00-80e4d2c0e197"
-version = "2.3.0"
-
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 version = "1.1.1"
@@ -758,84 +1350,25 @@ version = "3.5.1+1"
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
-[[deps.Atomix]]
-deps = ["UnsafeAtomics"]
-git-tree-sha1 = "c06a868224ecba914baa6942988e2f2aade419be"
-uuid = "a9b6321e-bd34-4604-b9c9-b65b8de01458"
-version = "0.1.0"
-
-[[deps.AtomsBase]]
-deps = ["LinearAlgebra", "PeriodicTable", "Printf", "Requires", "StaticArrays", "Unitful", "UnitfulAtomic"]
-git-tree-sha1 = "c9804781ca49261c8eb6ce4b62f171cfa3d900f0"
-uuid = "a963bdd2-2df7-4f54-a1ee-49d51e6be12a"
-version = "0.3.4"
-
 [[deps.AxisAlgorithms]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "WoodburyMatrices"]
 git-tree-sha1 = "66771c8d21c8ff5e3a93379480a2307ac36863f7"
 uuid = "13072b0f-2c55-5437-9ae7-d433b7a33950"
 version = "1.0.1"
 
-[[deps.BFloat16s]]
-deps = ["LinearAlgebra", "Printf", "Random", "Test"]
-git-tree-sha1 = "dbf84058d0a8cbbadee18d25cf606934b22d7c66"
-uuid = "ab4f0b2a-ad5b-11e8-123f-65d77653426b"
-version = "0.4.2"
-
-[[deps.BangBang]]
-deps = ["Compat", "ConstructionBase", "InitialValues", "LinearAlgebra", "Requires", "Setfield", "Tables"]
-git-tree-sha1 = "e28912ce94077686443433c2800104b061a827ed"
-uuid = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
-version = "0.3.39"
-
-    [deps.BangBang.extensions]
-    BangBangChainRulesCoreExt = "ChainRulesCore"
-    BangBangDataFramesExt = "DataFrames"
-    BangBangStaticArraysExt = "StaticArrays"
-    BangBangStructArraysExt = "StructArrays"
-    BangBangTypedTablesExt = "TypedTables"
-
-    [deps.BangBang.weakdeps]
-    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-    DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-    StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
-    TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
-
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
-
-[[deps.Baselet]]
-git-tree-sha1 = "aebf55e6d7795e02ca500a689d326ac979aaf89e"
-uuid = "9718e550-a3fa-408a-8086-8db961cd8217"
-version = "0.1.1"
 
 [[deps.BitFlags]]
 git-tree-sha1 = "43b1a4a8f797c1cddadf60499a8a077d4af2cd2d"
 uuid = "d1d4a3ce-64b1-5f1a-9ba4-7e7e69966f35"
 version = "0.1.7"
 
-[[deps.BufferedStreams]]
-git-tree-sha1 = "4ae47f9a4b1dc19897d3743ff13685925c5202ec"
-uuid = "e1450e63-4bb3-523b-b2a4-4ffa8c0fd77d"
-version = "1.2.1"
-
 [[deps.Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "19a35467a82e236ff51bc17a3a44b69ef35185a2"
 uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
 version = "1.0.8+0"
-
-[[deps.CEnum]]
-git-tree-sha1 = "eb4cb44a499229b3b8426dcfb5dd85333951ff90"
-uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
-version = "0.4.2"
-
-[[deps.CSV]]
-deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "PrecompileTools", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings", "WorkerUtilities"]
-git-tree-sha1 = "44dbf560808d49041989b8a96cae4cffbeb7966a"
-uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-version = "0.10.11"
 
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
@@ -854,18 +1387,6 @@ deps = ["Compat", "LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "1.16.0"
-
-[[deps.Chemfiles]]
-deps = ["AtomsBase", "Chemfiles_jll", "DocStringExtensions", "PeriodicTable", "Unitful", "UnitfulAtomic"]
-git-tree-sha1 = "82fe5e341c793cb51149d993307da9543824b206"
-uuid = "46823bd8-5fb3-5f92-9aa0-96921f3dd015"
-version = "0.10.41"
-
-[[deps.Chemfiles_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "f3743181e30d87c23d9c8ebd493b77f43d8f1890"
-uuid = "78a364fa-1a3c-552a-b4bb-8fa0f9c1fcca"
-version = "0.10.4+0"
 
 [[deps.Clustering]]
 deps = ["Distances", "LinearAlgebra", "NearestNeighbors", "Printf", "Random", "SparseArrays", "Statistics", "StatsBase"]
@@ -928,69 +1449,21 @@ deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "1.0.5+0"
 
-[[deps.CompositionsBase]]
-git-tree-sha1 = "802bb88cd69dfd1509f6670416bd4434015693ad"
-uuid = "a33af91c-f02d-484b-be07-31d278c5ca2b"
-version = "0.1.2"
-
-    [deps.CompositionsBase.extensions]
-    CompositionsBaseInverseFunctionsExt = "InverseFunctions"
-
-    [deps.CompositionsBase.weakdeps]
-    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
-
 [[deps.ConcurrentUtilities]]
 deps = ["Serialization", "Sockets"]
 git-tree-sha1 = "5372dbbf8f0bdb8c700db5367132925c0771ef7e"
 uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
 version = "2.2.1"
 
-[[deps.ConstructionBase]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "fe2838a593b5f776e1597e086dcd47560d94e816"
-uuid = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
-version = "1.5.3"
-
-    [deps.ConstructionBase.extensions]
-    ConstructionBaseIntervalSetsExt = "IntervalSets"
-    ConstructionBaseStaticArraysExt = "StaticArrays"
-
-    [deps.ConstructionBase.weakdeps]
-    IntervalSets = "8197267c-284f-5f27-9208-e0e47529a953"
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-
-[[deps.ContextVariablesX]]
-deps = ["Compat", "Logging", "UUIDs"]
-git-tree-sha1 = "25cc3803f1030ab855e383129dcd3dc294e322cc"
-uuid = "6add18c4-b38d-439d-96f6-d6bc489c04c5"
-version = "0.1.3"
-
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.6.2"
 
-[[deps.Crayons]]
-git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
-uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
-version = "4.1.1"
-
 [[deps.DataAPI]]
 git-tree-sha1 = "8da84edb865b0b5b0100c0666a9bc9a0b71c553c"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
 version = "1.15.0"
-
-[[deps.DataDeps]]
-deps = ["HTTP", "Libdl", "Reexport", "SHA", "p7zip_jll"]
-git-tree-sha1 = "6e8d74545d34528c30ccd3fa0f3c00f8ed49584c"
-uuid = "124859b0-ceae-595e-8997-d05f6a7a8dfe"
-version = "0.7.11"
-
-[[deps.DataFrames]]
-deps = ["Compat", "DataAPI", "DataStructures", "Future", "InlineStrings", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrecompileTools", "PrettyTables", "Printf", "REPL", "Random", "Reexport", "SentinelArrays", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
-git-tree-sha1 = "04c738083f29f86e62c8afc341f0967d8717bdb8"
-uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-version = "1.6.1"
 
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -1006,11 +1479,6 @@ version = "1.0.0"
 [[deps.Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
-
-[[deps.DefineSingletons]]
-git-tree-sha1 = "0fba8b706d0178b4dc7fd44a96a92382c9065c2c"
-uuid = "244e2a9f-e319-4986-a169-4d1fe445cd52"
-version = "0.1.2"
 
 [[deps.DelimitedFiles]]
 deps = ["Mmap"]
@@ -1099,30 +1567,6 @@ git-tree-sha1 = "c6033cc3892d0ef5bb9cd29b7f2f0331ea5184ea"
 uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
 version = "3.3.10+0"
 
-[[deps.FLoops]]
-deps = ["BangBang", "Compat", "FLoopsBase", "InitialValues", "JuliaVariables", "MLStyle", "Serialization", "Setfield", "Transducers"]
-git-tree-sha1 = "ffb97765602e3cbe59a0589d237bf07f245a8576"
-uuid = "cc61a311-1640-44b5-9fba-1b764f453329"
-version = "0.2.1"
-
-[[deps.FLoopsBase]]
-deps = ["ContextVariablesX"]
-git-tree-sha1 = "656f7a6859be8673bf1f35da5670246b923964f7"
-uuid = "b9860ae5-e623-471e-878b-f6a53c775ea6"
-version = "0.1.1"
-
-[[deps.FileIO]]
-deps = ["Pkg", "Requires", "UUIDs"]
-git-tree-sha1 = "299dc33549f68299137e51e6d49a13b5b1da9673"
-uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
-version = "1.16.1"
-
-[[deps.FilePathsBase]]
-deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
-git-tree-sha1 = "e27c4ebe80e8699540f2d6c805cc12203b614f12"
-uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
-version = "0.9.20"
-
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
@@ -1167,27 +1611,11 @@ git-tree-sha1 = "aa31987c2ba8704e23c6c8ba8a4f769d5d7e4f91"
 uuid = "559328eb-81f9-559d-9380-de523a88c83c"
 version = "1.0.10+0"
 
-[[deps.Future]]
-deps = ["Random"]
-uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
-
 [[deps.GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
 git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.3.8+0"
-
-[[deps.GLMNet]]
-deps = ["DataFrames", "Distributed", "Distributions", "Printf", "Random", "SparseArrays", "StatsBase", "glmnet_jll"]
-git-tree-sha1 = "7ea4e2bbb84183fe52a488d05e16c152b2387b95"
-uuid = "8d5ece8b-de18-5317-b113-243142960cc6"
-version = "0.7.2"
-
-[[deps.GPUArraysCore]]
-deps = ["Adapt"]
-git-tree-sha1 = "2d6ca471a6c7b536127afccfa7564b5b39227fe0"
-uuid = "46192b85-c4d5-4398-a991-12ede77f4527"
-version = "0.1.5"
 
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
@@ -1201,12 +1629,6 @@ git-tree-sha1 = "1596bab77f4f073a14c62424283e7ebff3072eca"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
 version = "0.72.9+1"
 
-[[deps.GZip]]
-deps = ["Libdl", "Zlib_jll"]
-git-tree-sha1 = "6388a2d8e409ce23de7d03a7c73d83c5753b3eb2"
-uuid = "92fee26a-97fe-5a0c-ad85-20a5f3185b63"
-version = "0.6.1"
-
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "9b02998aba7bf074d14de89f9d37ca24a1a0b046"
@@ -1219,11 +1641,6 @@ git-tree-sha1 = "d3b3624125c1474292d0d8ed0f65554ac37ddb23"
 uuid = "7746bdde-850d-59dc-9ae8-88ece973131d"
 version = "2.74.0+2"
 
-[[deps.Glob]]
-git-tree-sha1 = "97285bbd5230dd766e9ef6749b80fc617126d496"
-uuid = "c27321d9-0574-5035-807b-f59d2c89b15c"
-version = "1.3.1"
-
 [[deps.Graphite2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "344bf40dcab1073aca04aa0df4fb092f920e4011"
@@ -1234,18 +1651,6 @@ version = "1.3.14+0"
 git-tree-sha1 = "53bb909d1151e57e2484c3d1b53e19552b887fb2"
 uuid = "42e2da0e-8278-4e71-bc24-59509adca0fe"
 version = "1.0.2"
-
-[[deps.HDF5]]
-deps = ["Compat", "HDF5_jll", "Libdl", "Mmap", "Printf", "Random", "Requires", "UUIDs"]
-git-tree-sha1 = "114e20044677badbc631ee6fdc80a67920561a29"
-uuid = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-version = "0.16.16"
-
-[[deps.HDF5_jll]]
-deps = ["Artifacts", "JLLWrappers", "LibCURL_jll", "Libdl", "OpenSSL_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "4cc2bb72df6ff40b055295fdef6d92955f9dede8"
-uuid = "0234f1f7-429e-5d53-9886-15a909be8d59"
-version = "1.12.2+2"
 
 [[deps.HTTP]]
 deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "ExceptionUnwrapping", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
@@ -1283,35 +1688,6 @@ git-tree-sha1 = "d75853a0bdbfb1ac815478bacd89cd27b550ace6"
 uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
 version = "0.2.3"
 
-[[deps.ImageBase]]
-deps = ["ImageCore", "Reexport"]
-git-tree-sha1 = "eb49b82c172811fd2c86759fa0553a2221feb909"
-uuid = "c817782e-172a-44cc-b673-b171935fbb9e"
-version = "0.1.7"
-
-[[deps.ImageCore]]
-deps = ["AbstractFFTs", "ColorVectorSpace", "Colors", "FixedPointNumbers", "MappedArrays", "MosaicViews", "OffsetArrays", "PaddedViews", "PrecompileTools", "Reexport"]
-git-tree-sha1 = "fc5d1d3443a124fde6e92d0260cd9e064eba69f8"
-uuid = "a09fc81d-aa75-5fe9-8630-4744c3626534"
-version = "0.10.1"
-
-[[deps.ImageShow]]
-deps = ["Base64", "ColorSchemes", "FileIO", "ImageBase", "ImageCore", "OffsetArrays", "StackViews"]
-git-tree-sha1 = "3b5344bcdbdc11ad58f3b1956709b5b9345355de"
-uuid = "4e3cecfd-b093-5904-9786-8bbb286a6a31"
-version = "0.3.8"
-
-[[deps.InitialValues]]
-git-tree-sha1 = "4da0f88e9a39111c2fa3add390ab15f3a44f3ca3"
-uuid = "22cec73e-a1b8-11e9-2c92-598750a2cf9c"
-version = "0.3.1"
-
-[[deps.InlineStrings]]
-deps = ["Parsers"]
-git-tree-sha1 = "9cc2baf75c6d09f9da536ddf58eb2f29dedaf461"
-uuid = "842dd82b-1e85-43dc-bf29-5d0ee9dffc48"
-version = "1.4.0"
-
 [[deps.IntelOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "ad37c091f7d7daf900963171600d7c1c5c3ede32"
@@ -1322,22 +1698,11 @@ version = "2023.2.0+0"
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
-[[deps.InternedStrings]]
-deps = ["Random", "Test"]
-git-tree-sha1 = "eb05b5625bc5d821b8075a77e4c421933e20c76b"
-uuid = "7d512f48-7fb1-5a58-b986-67e6dc259f01"
-version = "0.7.0"
-
 [[deps.Interpolations]]
 deps = ["Adapt", "AxisAlgorithms", "ChainRulesCore", "LinearAlgebra", "OffsetArrays", "Random", "Ratios", "Requires", "SharedArrays", "SparseArrays", "StaticArrays", "WoodburyMatrices"]
 git-tree-sha1 = "721ec2cf720536ad005cb38f50dbba7b02419a15"
 uuid = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 version = "0.14.7"
-
-[[deps.InvertedIndices]]
-git-tree-sha1 = "0dc7b50b8d436461be01300fd8cd45aa0274b038"
-uuid = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
-version = "1.3.0"
 
 [[deps.IrrationalConstants]]
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
@@ -1348,12 +1713,6 @@ version = "0.2.2"
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
-
-[[deps.JLD2]]
-deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "Pkg", "Printf", "Reexport", "Requires", "TranscodingStreams", "UUIDs"]
-git-tree-sha1 = "aa6ffef1fd85657f4999030c52eaeec22a279738"
-uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-version = "0.4.33"
 
 [[deps.JLFzf]]
 deps = ["Pipe", "REPL", "Random", "fzf_jll"]
@@ -1373,12 +1732,6 @@ git-tree-sha1 = "31e996f0a15c7b280ba9f76636b3ff9e2ae58c9a"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.4"
 
-[[deps.JSON3]]
-deps = ["Dates", "Mmap", "Parsers", "PrecompileTools", "StructTypes", "UUIDs"]
-git-tree-sha1 = "95220473901735a0f4df9d1ca5b171b568b2daa3"
-uuid = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
-version = "1.13.2"
-
 [[deps.JpegTurbo_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "6f2675ef130a300a112286de91973805fcc5ffbc"
@@ -1390,24 +1743,6 @@ deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
 git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
 uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
 version = "0.9.25"
-
-[[deps.JuliaVariables]]
-deps = ["MLStyle", "NameResolution"]
-git-tree-sha1 = "49fb3cb53362ddadb4415e9b73926d6b40709e70"
-uuid = "b14d175d-62b4-44ba-8fb7-3064adc8c3ec"
-version = "0.2.4"
-
-[[deps.KernelAbstractions]]
-deps = ["Adapt", "Atomix", "InteractiveUtils", "LinearAlgebra", "MacroTools", "PrecompileTools", "Requires", "SparseArrays", "StaticArrays", "UUIDs", "UnsafeAtomics", "UnsafeAtomicsLLVM"]
-git-tree-sha1 = "4c5875e4c228247e1c2b087669846941fb6e0118"
-uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
-version = "0.9.8"
-
-    [deps.KernelAbstractions.extensions]
-    EnzymeExt = "EnzymeCore"
-
-    [deps.KernelAbstractions.weakdeps]
-    EnzymeCore = "f151be2c-9106-41f4-ab19-57ee4f262869"
 
 [[deps.KernelDensity]]
 deps = ["Distributions", "DocStringExtensions", "FFTW", "Interpolations", "StatsBase"]
@@ -1426,18 +1761,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "bf36f528eec6634efc60d7ec062008f171071434"
 uuid = "88015f11-f218-50d7-93a8-a6af411a945d"
 version = "3.0.0+1"
-
-[[deps.LLVM]]
-deps = ["CEnum", "LLVMExtra_jll", "Libdl", "Printf", "Unicode"]
-git-tree-sha1 = "8695a49bfe05a2dc0feeefd06b4ca6361a018729"
-uuid = "929cbde3-209d-540e-8aea-75f648917ca0"
-version = "6.1.0"
-
-[[deps.LLVMExtra_jll]]
-deps = ["Artifacts", "JLLWrappers", "LazyArtifacts", "Libdl", "TOML"]
-git-tree-sha1 = "c35203c1e1002747da220ffc3c0762ce7754b08c"
-uuid = "dad2f222-ce93-54a1-a47d-0025e8a3acab"
-version = "0.0.23+0"
 
 [[deps.LLVMOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1473,11 +1796,6 @@ version = "0.16.1"
 [[deps.LazyArtifacts]]
 deps = ["Artifacts", "Pkg"]
 uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
-
-[[deps.LazyModules]]
-git-tree-sha1 = "a560dd966b386ac9ae60bdd3a3d3a326062d3c3e"
-uuid = "8cdb02fc-e678-4876-92c5-9defec4f444e"
-version = "0.3.1"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -1584,12 +1902,6 @@ git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
 uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
 version = "2.3.0"
 
-[[deps.MAT]]
-deps = ["BufferedStreams", "CodecZlib", "HDF5", "SparseArrays"]
-git-tree-sha1 = "79fd0b5ee384caf8ebba6c8fb3f365ca3e2c5493"
-uuid = "23992714-dd62-5051-b70f-ba57cb901cac"
-version = "0.10.5"
-
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
 uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
@@ -1601,33 +1913,11 @@ git-tree-sha1 = "eb006abbd7041c28e0d16260e50a24f8f9104913"
 uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
 version = "2023.2.0+0"
 
-[[deps.MLDatasets]]
-deps = ["CSV", "Chemfiles", "DataDeps", "DataFrames", "DelimitedFiles", "FileIO", "FixedPointNumbers", "GZip", "Glob", "HDF5", "ImageShow", "JLD2", "JSON3", "LazyModules", "MAT", "MLUtils", "NPZ", "Pickle", "Printf", "Requires", "SparseArrays", "Statistics", "Tables"]
-git-tree-sha1 = "41922968c0aaca46baa5d658d3a173828313e2d0"
-uuid = "eb30cadb-4394-5ae3-aed4-317e484a6458"
-version = "0.7.12"
-
-[[deps.MLStyle]]
-git-tree-sha1 = "bc38dff0548128765760c79eb7388a4b37fae2c8"
-uuid = "d8e11817-5142-5d16-987a-aa16d5891078"
-version = "0.4.17"
-
-[[deps.MLUtils]]
-deps = ["ChainRulesCore", "Compat", "DataAPI", "DelimitedFiles", "FLoops", "NNlib", "Random", "ShowCases", "SimpleTraits", "Statistics", "StatsBase", "Tables", "Transducers"]
-git-tree-sha1 = "3504cdb8c2bc05bde4d4b09a81b01df88fcbbba0"
-uuid = "f1d291b0-491e-4a28-83b9-f70985020b54"
-version = "0.4.3"
-
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
 git-tree-sha1 = "9ee1618cbf5240e6d4e0371d6f24065083f60c48"
 uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.11"
-
-[[deps.MappedArrays]]
-git-tree-sha1 = "2dab0221fe2b0f2cb6754eaa743cc266339f527e"
-uuid = "dbb5928d-eab1-5f90-85c2-b9b0edb7c900"
-version = "0.4.2"
 
 [[deps.Markdown]]
 deps = ["Base64"]
@@ -1649,12 +1939,6 @@ git-tree-sha1 = "c13304c81eec1ed3af7fc20e75fb6b26092a1102"
 uuid = "442fdcdd-2543-5da2-b0f3-8c86c306513e"
 version = "0.3.2"
 
-[[deps.MicroCollections]]
-deps = ["BangBang", "InitialValues", "Setfield"]
-git-tree-sha1 = "629afd7d10dbc6935ec59b32daeb33bc4460a42e"
-uuid = "128add7d-3638-4c79-886c-908ea0c25c34"
-version = "0.1.4"
-
 [[deps.Missings]]
 deps = ["DataAPI"]
 git-tree-sha1 = "f66bdc5de519e8f8ae43bdc598782d35a25b1272"
@@ -1663,12 +1947,6 @@ version = "1.1.0"
 
 [[deps.Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
-
-[[deps.MosaicViews]]
-deps = ["MappedArrays", "OffsetArrays", "PaddedViews", "StackViews"]
-git-tree-sha1 = "7b86a5d4d70a9f5cdf2dacb3cbe6d251d1a61dbe"
-uuid = "e94cdb99-869f-56ef-bcf0-1ae2bcbe0389"
-version = "0.3.4"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
@@ -1680,39 +1958,11 @@ git-tree-sha1 = "68bf5103e002c44adfd71fea6bd770b3f0586843"
 uuid = "6f286f6a-111f-5878-ab1e-185364afe411"
 version = "0.10.2"
 
-[[deps.NNlib]]
-deps = ["Adapt", "Atomix", "ChainRulesCore", "GPUArraysCore", "KernelAbstractions", "LinearAlgebra", "Pkg", "Random", "Requires", "Statistics"]
-git-tree-sha1 = "3d42748c725c3f088bcda47fa2aca89e74d59d22"
-uuid = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
-version = "0.9.4"
-
-    [deps.NNlib.extensions]
-    NNlibAMDGPUExt = "AMDGPU"
-    NNlibCUDACUDNNExt = ["CUDA", "cuDNN"]
-    NNlibCUDAExt = "CUDA"
-
-    [deps.NNlib.weakdeps]
-    AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
-    CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
-    cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
-
-[[deps.NPZ]]
-deps = ["FileIO", "ZipFile"]
-git-tree-sha1 = "60a8e272fe0c5079363b28b0953831e2dd7b7e6f"
-uuid = "15e1cf62-19b3-5cfa-8e77-841668bca605"
-version = "0.4.3"
-
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
 git-tree-sha1 = "0877504529a3e5c3343c6f8b4c0381e57e4387e4"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.0.2"
-
-[[deps.NameResolution]]
-deps = ["PrettyPrint"]
-git-tree-sha1 = "1a0fa0e9613f46c9b8c11eee38ebb4f590013c5e"
-uuid = "71a1bf82-56d0-4bbc-8a3c-48b961074391"
-version = "0.1.5"
 
 [[deps.NearestNeighbors]]
 deps = ["Distances", "StaticArrays"]
@@ -1791,29 +2041,11 @@ git-tree-sha1 = "67eae2738d63117a196f497d7db789821bce61d1"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
 version = "0.11.17"
 
-[[deps.PaddedViews]]
-deps = ["OffsetArrays"]
-git-tree-sha1 = "0fac6313486baae819364c52b4f483450a9d793f"
-uuid = "5432bcbf-9aad-5242-b902-cca2824c8663"
-version = "0.5.12"
-
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools", "UUIDs"]
 git-tree-sha1 = "716e24b21538abc91f6205fd1d8363f39b442851"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 version = "2.7.2"
-
-[[deps.PeriodicTable]]
-deps = ["Base64", "Test", "Unitful"]
-git-tree-sha1 = "9a9731f346797126271405971dfdf4709947718b"
-uuid = "7b2266bf-644c-5ea3-82d8-af4bbd25a884"
-version = "1.1.4"
-
-[[deps.Pickle]]
-deps = ["BFloat16s", "DataStructures", "InternedStrings", "Serialization", "SparseArrays", "Strided", "StringEncodings", "ZipFile"]
-git-tree-sha1 = "2e71d7dbcab8dc47306c0ed6ac6018fbc1a7070f"
-uuid = "fbb45041-c46e-462f-888f-7c521cafbc2c"
-version = "0.3.3"
 
 [[deps.Pipe]]
 git-tree-sha1 = "6842804e7867b115ca9de748a0cf6b364523c16d"
@@ -1887,12 +2119,6 @@ git-tree-sha1 = "e47cd150dbe0443c3a3651bc5b9cbd5576ab75b7"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 version = "0.7.52"
 
-[[deps.PooledArrays]]
-deps = ["DataAPI", "Future"]
-git-tree-sha1 = "a6062fe4063cdafe78f4a0a81cfffb89721b30e7"
-uuid = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
-version = "1.4.2"
-
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
 git-tree-sha1 = "03b4c25b43cb84cee5c90aa9b5ea0a78fd848d2f"
@@ -1904,17 +2130,6 @@ deps = ["TOML"]
 git-tree-sha1 = "7eb1686b4f04b82f96ed7a4ea5890a4f0c7a09f1"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.4.0"
-
-[[deps.PrettyPrint]]
-git-tree-sha1 = "632eb4abab3449ab30c5e1afaa874f0b98b586e4"
-uuid = "8162dcfd-2161-5ef2-ae6c-7681170c5f98"
-version = "0.2.0"
-
-[[deps.PrettyTables]]
-deps = ["Crayons", "LaTeXStrings", "Markdown", "Printf", "Reexport", "StringManipulation", "Tables"]
-git-tree-sha1 = "ee094908d720185ddbdc58dbe0c1cbe35453ec7a"
-uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
-version = "2.2.7"
 
 [[deps.Printf]]
 deps = ["Unicode"]
@@ -2016,20 +2231,9 @@ version = "1.4.0"
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
-[[deps.Setfield]]
-deps = ["ConstructionBase", "Future", "MacroTools", "StaticArraysCore"]
-git-tree-sha1 = "e2cc6d8c88613c05e1defb55170bf5ff211fbeac"
-uuid = "efcf1570-3423-57d1-acb7-fd33fddbac46"
-version = "1.1.1"
-
 [[deps.SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
-
-[[deps.ShowCases]]
-git-tree-sha1 = "7f534ad62ab2bd48591bdeac81994ea8c445e4a5"
-uuid = "605ecd9f-84a6-4c9e-81e2-4798472b76a3"
-version = "0.1.0"
 
 [[deps.Showoff]]
 deps = ["Dates", "Grisu"]
@@ -2041,12 +2245,6 @@ version = "1.0.3"
 git-tree-sha1 = "874e8867b33a00e784c8a7e4b60afe9e037b74e1"
 uuid = "777ac1f9-54b0-4bf8-805c-2214025038e7"
 version = "1.1.0"
-
-[[deps.SimpleTraits]]
-deps = ["InteractiveUtils", "MacroTools"]
-git-tree-sha1 = "5d7e3f4e11935503d3ecaf7186eac40602e7d231"
-uuid = "699a6c99-e7fa-54fc-8d76-47d257e15c1d"
-version = "0.9.4"
 
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
@@ -2070,18 +2268,6 @@ weakdeps = ["ChainRulesCore"]
 
     [deps.SpecialFunctions.extensions]
     SpecialFunctionsChainRulesCoreExt = "ChainRulesCore"
-
-[[deps.SplittablesBase]]
-deps = ["Setfield", "Test"]
-git-tree-sha1 = "e08a62abc517eb79667d0a29dc08a3b589516bb5"
-uuid = "171d559e-b47b-412a-8079-5efa626c420e"
-version = "0.1.15"
-
-[[deps.StackViews]]
-deps = ["OffsetArrays"]
-git-tree-sha1 = "46e589465204cd0c08b4bd97385e4fa79a0c770c"
-uuid = "cae243ae-269e-4f55-b966-ac2d0dc13c15"
-version = "0.1.1"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "StaticArraysCore"]
@@ -2134,29 +2320,6 @@ deps = ["AbstractFFTs", "Clustering", "DataStructures", "Distributions", "Interp
 git-tree-sha1 = "9115a29e6c2cf66cf213ccc17ffd61e27e743b24"
 uuid = "f3b207a7-027a-5e70-b257-86293d7955fd"
 version = "0.15.6"
-
-[[deps.Strided]]
-deps = ["LinearAlgebra", "TupleTools"]
-git-tree-sha1 = "a7a664c91104329c88222aa20264e1a05b6ad138"
-uuid = "5e0ebb24-38b0-5f93-81fe-25c709ecae67"
-version = "1.2.3"
-
-[[deps.StringEncodings]]
-deps = ["Libiconv_jll"]
-git-tree-sha1 = "b765e46ba27ecf6b44faf70df40c57aa3a547dcb"
-uuid = "69024149-9ee7-55f6-a4c4-859efe599b68"
-version = "0.3.7"
-
-[[deps.StringManipulation]]
-git-tree-sha1 = "46da2434b41f41ac3594ee9816ce5541c6096123"
-uuid = "892a3eda-7b42-436c-8928-eab12a02cf0e"
-version = "0.3.0"
-
-[[deps.StructTypes]]
-deps = ["Dates", "UUIDs"]
-git-tree-sha1 = "ca4bccb03acf9faaf4137a9abc1881ed1841aa70"
-uuid = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
-version = "1.10.0"
 
 [[deps.SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
@@ -2211,35 +2374,10 @@ git-tree-sha1 = "9a6ae7ed916312b41236fcef7e0af564ef934769"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 version = "0.9.13"
 
-[[deps.Transducers]]
-deps = ["Adapt", "ArgCheck", "BangBang", "Baselet", "CompositionsBase", "ConstructionBase", "DefineSingletons", "Distributed", "InitialValues", "Logging", "Markdown", "MicroCollections", "Requires", "Setfield", "SplittablesBase", "Tables"]
-git-tree-sha1 = "53bd5978b182fa7c57577bdb452c35e5b4fb73a5"
-uuid = "28d57a85-8fef-5791-bfe6-a80928e7c999"
-version = "0.4.78"
-
-    [deps.Transducers.extensions]
-    TransducersBlockArraysExt = "BlockArrays"
-    TransducersDataFramesExt = "DataFrames"
-    TransducersLazyArraysExt = "LazyArrays"
-    TransducersOnlineStatsBaseExt = "OnlineStatsBase"
-    TransducersReferenceablesExt = "Referenceables"
-
-    [deps.Transducers.weakdeps]
-    BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
-    DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-    LazyArrays = "5078a376-72f3-5289-bfd5-ec5146d43c02"
-    OnlineStatsBase = "925886fa-5bf2-5e8e-b522-a9147a512338"
-    Referenceables = "42d2dcc6-99eb-4e98-b66c-637b7d73030e"
-
 [[deps.Tricks]]
 git-tree-sha1 = "aadb748be58b492045b4f56166b5188aa63ce549"
 uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
 version = "0.1.7"
-
-[[deps.TupleTools]]
-git-tree-sha1 = "3c712976c47707ff893cf6ba4354aa14db1d8938"
-uuid = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
-version = "1.3.0"
 
 [[deps.URIs]]
 git-tree-sha1 = "b7a5e99f24892b6824a954199a45e9ffcc1c70f0"
@@ -2273,28 +2411,11 @@ version = "1.17.0"
     ConstructionBase = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
     InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
 
-[[deps.UnitfulAtomic]]
-deps = ["Unitful"]
-git-tree-sha1 = "903be579194534af1c4b4778d1ace676ca042238"
-uuid = "a7773ee8-282e-5fa2-be4e-bd808c38a91a"
-version = "1.0.0"
-
 [[deps.UnitfulLatexify]]
 deps = ["LaTeXStrings", "Latexify", "Unitful"]
 git-tree-sha1 = "e2d817cc500e960fdbafcf988ac8436ba3208bfd"
 uuid = "45397f5d-5981-4c77-b2b3-fc36d6e9b728"
 version = "1.6.3"
-
-[[deps.UnsafeAtomics]]
-git-tree-sha1 = "6331ac3440856ea1988316b46045303bef658278"
-uuid = "013be700-e6cd-48c3-b4a1-df204f14c38f"
-version = "0.2.1"
-
-[[deps.UnsafeAtomicsLLVM]]
-deps = ["LLVM", "UnsafeAtomics"]
-git-tree-sha1 = "323e3d0acf5e78a56dfae7bd8928c989b4f3083e"
-uuid = "d80eeb9a-aca5-4d75-85e5-170c8b632249"
-version = "0.1.3"
 
 [[deps.Unzip]]
 git-tree-sha1 = "ca0969166a028236229f63514992fc073799bb78"
@@ -2313,12 +2434,6 @@ git-tree-sha1 = "4528479aa01ee1b3b4cd0e6faef0e04cf16466da"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
 version = "1.25.0+0"
 
-[[deps.WeakRefStrings]]
-deps = ["DataAPI", "InlineStrings", "Parsers"]
-git-tree-sha1 = "b1be2855ed9ed8eac54e5caff2afcdb442d52c23"
-uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
-version = "1.4.2"
-
 [[deps.Widgets]]
 deps = ["Colors", "Dates", "Observables", "OrderedCollections"]
 git-tree-sha1 = "fcdae142c1cfc7d89de2d11e08721d0f2f86c98a"
@@ -2330,11 +2445,6 @@ deps = ["LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "de67fa59e33ad156a590055375a30b23c40299d3"
 uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
 version = "0.5.5"
-
-[[deps.WorkerUtilities]]
-git-tree-sha1 = "cd1659ba0d57b71a464a29e64dbc67cfe83d54e7"
-uuid = "76eceee3-57b5-4d4a-8e66-0e911cebbf60"
-version = "1.6.1"
 
 [[deps.XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
@@ -2480,12 +2590,6 @@ git-tree-sha1 = "e92a1a012a10506618f10b7047e478403a046c77"
 uuid = "c5fb5394-a638-5e4d-96e5-b29de1b5cf10"
 version = "1.5.0+0"
 
-[[deps.ZipFile]]
-deps = ["Libdl", "Printf", "Zlib_jll"]
-git-tree-sha1 = "f492b7fe1698e623024e873244f10d89c95c340a"
-uuid = "a5390f91-8eb1-5f08-bee0-b1d1ffed6cea"
-version = "0.10.1"
-
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
@@ -2502,12 +2606,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "868e669ccb12ba16eaf50cb2957ee2ff61261c56"
 uuid = "214eeab7-80f7-51ab-84ad-2988db7cef09"
 version = "0.29.0+0"
-
-[[deps.glmnet_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "31adae3b983b579a1fbd7cfd43a4bc0d224c2f5a"
-uuid = "78c6b45d-5eaf-5d68-bcfb-a5a2cb06c27f"
-version = "2.0.13+0"
 
 [[deps.libaom_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -2574,69 +2672,110 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
-# ╟─17a3ac47-56dd-4901-bb77-90171eebc8c4
-# ╟─29998665-0c8d-4ba4-8232-19bd0de71477
-# ╟─cb72ebe2-cea8-4467-a211-5c3ac7af74a4
-# ╟─358dc59c-8d06-4272-9a13-6886cdaf3dd9
-# ╟─9bd2e7d6-c9fb-4a67-96ef-049f713f4d53
-# ╟─8bdb72cc-2e91-4df4-b913-6ab48672ac25
-# ╟─88d98d87-f3cf-42f4-9282-1e6f383934cd
-# ╟─0e60180d-c4eb-4c83-9301-e3151ab828d5
-# ╟─5af83fc2-9196-428e-8ca0-5542914b64b3
-# ╟─0a403d9f-357f-402c-9e91-0141675c64b9
-# ╟─7a9267b5-09a2-4bd6-97ed-4fb4aa1f6bb9
-# ╟─fbbb04a0-242e-4a95-984f-dac82df7a03d
-# ╟─6863918e-444c-4641-8524-67b7f82cc32c
-# ╟─1778f951-a906-4670-993e-653f120f05ca
-# ╟─b9e76fca-8da0-413e-8d46-2f7b48cf1622
-# ╟─9e9e8249-4db5-4b12-87ed-d609c31166ad
-# ╟─0c58aa5d-408a-4f7a-ba04-9783bbfa8f6b
-# ╟─083346bc-62a1-4c86-9b8d-af00daea1e91
-# ╟─63505587-3b2f-4a1d-ada9-f436c0506f60
-# ╟─b69a0590-0718-439a-9ed5-c7f956a83260
-# ╟─86322eeb-2e91-4d86-8931-0333cbae383a
-# ╟─eed620a6-b5f2-4a53-9ec8-6e1df3699a84
-# ╟─1e523517-4e1f-4bc5-b8b7-1c17b5f58377
-# ╟─1371f5f5-acf7-43ba-bd74-4a5c65e761a2
-# ╟─7946415e-6e7c-4058-a17a-ac93fb995dd4
-# ╟─19966fe8-f3f8-4051-9251-19a359745650
-# ╟─bfa98fa5-1a6a-400d-8b16-0268e0c79bac
-# ╟─da6a876f-3212-4132-af0e-612f32f1cb7b
-# ╟─7f4584e4-8b16-4c6e-80cd-dfab8054d529
-# ╟─b0883880-f758-4c04-abcf-302676d4ee38
-# ╟─01a5b9e7-76e2-401f-9b83-c01274473d6b
-# ╟─bb4b15ce-f42d-4a04-a6d0-4571a8ba9cb9
-# ╟─b3aa9fe0-760e-4cb1-85a0-2bc534568ba5
-# ╟─2af7ca97-25c5-4f1e-b504-5303b3694ee0
-# ╟─d9df1dd8-0190-48ad-9016-27d273cbcfb4
-# ╟─dec59e77-8545-46fc-bb4c-dbb9c7c958b9
-# ╟─5e704189-c3fb-4ba0-b7f1-607b351a0341
-# ╟─4c0b0be1-94d8-47ea-a804-aa9f20b5fb62
-# ╟─f2bdf68d-3c36-4dd0-8f3e-02597f2f56f6
-# ╟─0c1e5a46-4abc-421f-9851-596696381c81
-# ╟─1abf629d-fd7f-4309-942d-a396b84b8356
-# ╟─974f1b58-3ec6-447a-95f2-6bbeda43f12f
-# ╟─6fa3941b-5975-463c-9427-2ebad15f78eb
-# ╟─7c6520b2-0446-44c0-a0b5-5aacff87cf84
-# ╟─5965c389-2d9e-4d0a-8ae0-9868b360e12e
-# ╟─8493d307-9158-4821-bf3b-c368d9cd5fc5
-# ╟─4aee3eff-61ae-4feb-b16b-3c60a45cad8e
-# ╟─37e2dd2d-a190-4cf4-ba1f-5347d8e9fbb3
-# ╟─238e7b56-fb3a-4e9b-9c31-09c1f4a1df2a
-# ╟─cb02aee5-d082-40a5-b799-db6b4af557f7
-# ╟─8deb1b8c-b67f-4d07-8986-2333dbadcccc
-# ╟─f79bd8ab-894e-4e7b-84eb-cf840baa08e4
-# ╟─af622189-e504-4633-9d9e-ab16c7293f82
-# ╟─9267c4a4-74d1-4515-95d6-acc3b12e5ed6
-# ╟─76cc8ca7-d17e-4cd7-a6de-4d606e0a0985
-# ╟─c4e497fc-cfbf-4d0b-9a0c-1071f2f43a98
-# ╟─0e2dc755-57df-4d9a-b4f3-d01569c3fcde
-# ╟─c4f42980-0e68-4943-abbe-b28f05dd3ee5
-# ╟─8fbcf6c3-320c-47ae-b4d3-d710a120eb1a
-# ╟─ce35ddcb-5018-4cb9-b0c9-01fb4b14be40
-# ╟─edc245bc-6571-4e65-a50c-0bd4b8d63b74
-# ╟─4154585d-4eff-4ee9-8f33-dad0dfdd143c
-# ╟─46180264-bddc-47d8-90a7-a16d0ea87cfe
-# ╟─bc513037-c689-4eca-865d-d94a6a8aa997
+# ╟─120a282a-91c1-11ec-346f-25d56e50d38c
+# ╟─06d45497-b465-4370-8411-9651e33e70e6
+# ╟─48bf8355-1bfe-41a1-97fc-5e2d0470a6c3
+# ╟─646dd3d8-6092-4435-aee9-01fa6a281bdc
+# ╟─6f051fad-2c4b-4a9e-9361-e9b62ba189c5
+# ╟─be9bcfcb-7ec7-4851-bd3f-24d4c29462fe
+# ╟─e61193e8-3f91-455b-9e33-101de4cfd4a3
+# ╟─234a8b66-d84a-4f6f-aad2-60db238c1850
+# ╟─203b859f-f6ea-4ff8-be1b-dc68a44c10d1
+# ╟─edf96a48-1e6d-4866-85ba-7e1afd19ca61
+# ╟─76d4b64b-471f-4688-9da2-f896d9d0d05c
+# ╟─e136edb5-3e98-4355-83e2-55761eb8b15c
+# ╟─f8b54f24-c144-4ac5-8083-706436a368e9
+# ╟─abd46485-03c9-4077-8ace-34f9b897bb04
+# ╟─3ea57a8e-8d15-4f41-acfb-e3bd1d65e585
+# ╟─08c17e06-b9f4-40de-acb1-5481fa53e5e8
+# ╟─cc38bdc2-4c1b-4a08-b8e6-1504a11924a5
+# ╟─77f0d45a-c658-4143-ad14-3a3a20ce2b4b
+# ╟─eb1c7d49-fffc-44ab-9d1b-026d7a39fc15
+# ╟─0ee59618-d28c-4929-bb7c-cd590068c7b7
+# ╟─4c2cf2db-0042-4074-a740-c6458c552ebe
+# ╟─c63b4e0d-9f64-4248-ac7b-75ceeedddf0c
+# ╟─38e89872-c1ff-4d50-ab99-1ed063f5118b
+# ╟─2831de52-9f49-494e-8b2b-4cee810cee06
+# ╟─7c9b404e-ef6c-4ed1-910e-2f409e579309
+# ╟─434f1bf9-b6d2-4029-9ffa-36241c6ce23f
+# ╟─b81503f3-1caf-498a-8dc9-639ea5a5d569
+# ╟─63ce270b-c5ed-45c2-ae96-2146d0487b87
+# ╟─99a717ee-1b29-42c3-9ef7-80201e715e79
+# ╟─188b9f9d-78e3-4e78-8eae-795a9b012cab
+# ╟─f6bb31fd-d30c-4e59-86bb-ebac1163609f
+# ╟─29b0734a-41d4-43e0-938a-3ced8e70b85b
+# ╟─f2b7b63a-fd54-4f80-af28-f255d186f6f9
+# ╟─61fb0322-07f6-4e59-a5d3-dfdd7399d558
+# ╟─bd670cde-bcbe-4104-8114-34f761f7f850
+# ╟─e1ccac4e-1cba-43d2-b0e0-e8c650a79d9a
+# ╟─ceaedbd8-6c88-407b-84f6-aedc0a59a22d
+# ╟─00d85bc5-c320-41dc-8a85-4ad409b058a8
+# ╟─8efbba52-7a34-4c17-bca9-52a417f69d56
+# ╟─3873ef48-34c1-479a-b6f8-2cd05bcdc8bb
+# ╟─a2b02ca9-6edc-48bf-b5e5-746d986d8252
+# ╟─5276ff0e-bc4f-4b24-b98c-8f9e7c0d018d
+# ╟─dd461997-cf3c-4124-8503-11f5b5a9e530
+# ╟─20e84d48-0f5f-403e-a8aa-1cbd11cd3b04
+# ╟─d2365f95-9b61-41fa-83d8-9bf4a8b5ee92
+# ╟─b5dc223b-c5b5-4eda-889e-c39171c44499
+# ╟─8d86466e-93c5-4263-b436-6fe684eeccd8
+# ╟─a391d4a3-9fe3-4ccf-9a62-c2cb19ea8813
+# ╟─a0ebfea7-bbe5-4798-8db3-163381bf67c2
+# ╟─d8e832e1-bc53-400d-a5a9-7cda2c5b8799
+# ╠═a414e554-3a8c-472d-af82-07c2f0843627
+# ╠═33cc44b4-bd32-4112-bf33-6807ae53818c
+# ╟─8c803aa8-de06-4194-bb55-67af083cfd74
+# ╟─bba94ae7-a6a8-4958-bcf5-9380864a9147
+# ╟─4dc678ce-8f35-44c7-b58c-628345350b49
+# ╟─9f18a392-8edb-4f4e-a468-6d1d735d05bf
+# ╟─40d1d8ec-3875-49c8-9425-f5cb6765603b
+# ╟─c4c51b3c-c0d3-44d7-b5e8-1a65c3e737cc
+# ╟─ba06623e-a9e6-4f39-8c4d-d8f86c765a8c
+# ╟─542b0f6f-befa-4dfe-acb7-b7aa6ab9f56c
+# ╟─ab0c4765-e9a0-4ba3-8a21-e81b214ab060
+# ╟─05de404f-d2d7-4feb-ba70-a25d8eba71d4
+# ╟─eb273a3a-60d6-439e-bb63-6af8130b4ec0
+# ╟─b44fce15-1056-4f42-9ec7-7a70092c355b
+# ╟─533efc1a-fd99-4a5d-9ef3-4ff7ce483f24
+# ╟─c46949ad-46c8-4bcb-9e83-1eb646b4ea2a
+# ╟─adb47976-1d3c-42d9-941c-8a791866eb97
+# ╟─c8cb2535-7b65-4d86-9405-71880fdb906e
+# ╟─caf21a20-8dd8-4a31-8463-96d3869d3ee9
+# ╟─5f9ad998-c410-4358-925b-66e5d3b2f9e9
+# ╟─9612d7c1-3c86-45bc-806a-a53bbf869d87
+# ╟─9cbc7ef6-788c-4dfd-a98d-2a9409eb5127
+# ╟─ca7f12d8-f823-448b-ab1f-0e28c85a3f7f
+# ╟─6569c4e1-5d62-42ad-94c0-927dd6b6f504
+# ╟─8d2778fd-edfe-4a02-92f9-2b9a67f2a2c0
+# ╟─8107c1d9-58c4-41f0-8870-bfd7084e42b5
+# ╟─f6b06459-0608-4981-bdb4-8f54d0cadfe1
+# ╟─ecb07f7e-e742-4948-b190-c3e37eadc29e
+# ╟─b087739a-c892-4c94-92ba-dbba390095f4
+# ╟─449564e9-426f-4242-856d-080f227af450
+# ╟─f847fb00-3ccb-4137-a5b4-62567fa51498
+# ╟─04f81aff-903c-40fa-9acd-9e867ede8a9b
+# ╟─9412db91-c5d8-4836-bdd0-38f37da1f51b
+# ╟─f0fb238f-fff6-49bb-9b6e-9881e4a36593
+# ╟─d9eaf592-1522-4f7e-a7db-cf503a152eb9
+# ╟─ad943140-9510-463e-b57c-4956ed2cd5d5
+# ╟─c7fd532d-d72a-439a-9e71-e85392c66f8c
+# ╟─e0cfcb9b-794b-4731-abf7-5435f67ced42
+# ╟─aabdfd01-c9b8-4c45-83c3-29881581e6e3
+# ╟─bbd25bdf-e82d-4f65-bfad-7d8e8e9cca18
+# ╟─4cc1f89c-6e1d-4457-9e84-fd5bdd0b575a
+# ╟─a0465ae8-c843-4fc0-abaf-0497ada26652
+# ╟─dafd1a68-715b-4f06-a4f2-287c123761f8
+# ╠═76859d4c-f3e2-4576-b4d6-b637e9c99877
+# ╠═620789b7-59bc-4e17-bcfb-728a329eed0f
+# ╠═7b47cda6-d772-468c-a8f3-75e3d77369d8
+# ╠═8d0c6fdc-4717-4203-b933-4b37fe60d512
+# ╠═8d06ce32-2c8d-4317-8c38-108ec0e7fe23
+# ╟─d66e373d-8443-4810-9332-305d9781a21a
+# ╠═acfb80f0-f4d0-4870-b401-6e26c1c99e45
+# ╠═e091ce93-9526-4c7f-9f14-7634419bfe57
+# ╠═5a8cdbe7-6abe-4f07-8bcc-89dd71fc35f7
+# ╠═c46e0b36-c3fd-4b7f-8f31-25c3315bb10c
+# ╠═d44526f4-3051-47ee-8b63-f5e694c2e609
+# ╠═27755688-f647-48e5-a939-bb0fa70c95d8
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

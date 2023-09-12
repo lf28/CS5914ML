@@ -25,15 +25,35 @@ begin
 	using Statistics
 	using HypertextLiteral
 	using Plots; default(fontfamily="Computer Modern", framestyle=:box) # LaTex-style
-	using Distributions
-	using StatsPlots
+	
 end
 
-# ╔═╡ 58204d30-9975-4546-8591-64dc44b3524b
+# ╔═╡ 3edc4472-7439-4f22-ab88-68dc36ad7dc6
 using Zygote
 
 # ╔═╡ 3e2e1ea8-3a7d-462f-ac38-43a087907a14
 TableOfContents()
+
+# ╔═╡ 52dcd4b9-9ef7-4128-a81d-d7e454cae9d6
+figure_url = "https://leo.host.cs.st-andrews.ac.uk/figs/";
+
+# ╔═╡ 19ebad08-8461-46fc-90bf-fcb1fa30d833
+function show_img(path_to_file; center=true, h = 400, w = nothing)
+	if center
+		if isnothing(w)
+			@htl """<center><img src= $(figure_url * path_to_file) height = '$(h)' /></center>"""
+		else
+			@htl """<center><img src= $(figure_url * path_to_file) width = '$(w)' /></center>"""
+		end
+
+	else
+		if isnothing(w)
+			@htl """<img src= $(figure_url * path_to_file) height = '$(h)' />"""
+		else
+			@htl """<img src= $(figure_url * path_to_file) width = '$(w)' />"""
+		end
+	end
+end;
 
 # ╔═╡ 7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 ChooseDisplayMode()
@@ -44,7 +64,7 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Probabilistic regression extensions
+#### Non-convexity & gradient descent
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -57,642 +77,329 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 
 """
 
-# ╔═╡ fc4bb806-0c85-48d9-b4af-ed957af361d3
+# ╔═╡ ec324086-0193-4612-bc4a-d584642909f7
 md"""
 
-# Robust regression
+## Gabor function 
 
-"""
-
-# ╔═╡ a19e9007-e5b3-44d9-a071-92443ab21e28
-md"""
-
-## Why bother MLE?
-
-
-The likelihood function provides a **principled approach** to define *goodness* via negative log likelihood
-
-```math
-\large
-\text{loss}(\mathbf{w}) = - \ln p(y^{(i)}|\mathbf{x}^{(i)}) 
-```
-
-
-* different models/loss depending on the nature of your data
-
-  * *e.g.* ``y^{(i)}`` is continuous but noisy, we can assume Laplace or Cauchy likelihood for ``y^{(i)}``
-    * robust regression
-
-  * *e.g.* ``y^{(i)}`` is continuous but ``\sigma^2`` is not constant but depend on ``x^{(i)}``
-    * heterogeneous regression
-
-
-"""
-
-# ╔═╡ 0d0559e1-41b7-414d-83ee-6c1271baf1e7
-plt_heter = let
-	Random.seed!(123)
-	n0 = 200
-	xs = range(-0.5, 1; length = n0)
-	true_w = [1, 3]
-	true_σ = [0, 1]
-	lnσ = true_σ[1] .+ true_σ[2] * xs 
-	ys = true_w[1] .+ 3 * xs +  exp.(lnσ).* randn(n0)
-	plt = plot(xs, ys, st=:scatter, framestyle=:origin, label="observations", legend=:topleft, size=(300,300), ms=3, alpha=.5)
-	# plot!(xs_new, ys_outliers, st=:scatter, framestyle=:origin, label="outliers", legend=:topright)
-	# w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=3, lc=1, label="the true signal: " * L"h(x)", title="Heterogeneous noise")
-
-	xis = range(-.5, 1; length = 8)
-	for i in 1:length(xis)
-		x = xis[i]
-		μi = dot(true_w, [1, x])
-		σ = exp(true_σ[1] .+ true_σ[2] * x)
-		xs_ = μi- 4 * σ :0.1:μi+ 4 * σ
-		ys_ = pdf.(Normal(μi, σ), xs_)
-		ys_ = 0.1 *ys_ ./ maximum(ys_)
-		plot!(ys_ .+x, xs_, c=:grey, label="", linewidth=1)
-		# scatter!([xis[i]],[ys[i]], markershape = :circle, label="", c=1, markersize=4)
-	end
-	plt
-end;
-
-# ╔═╡ 173b7d36-4b5a-4297-b462-3d16fc564f41
-begin
-	Random.seed!(123)
-	n_obs = 100
-	# the input x is fixed; non-random
-	xs = range(-0.5, 1; length = n_obs)
-	true_w = [1.0, 1.0]
-	true_σ² = 0.05
-	ys = zeros(n_obs)
-	for (i, xⁱ) in enumerate(xs)
-		hⁱ = true_w' * [1, xⁱ]
-		ys[i] = hⁱ + rand(Normal(0, sqrt(true_σ²)))
-	end
-end
-
-# ╔═╡ 771b7002-24c3-44a9-994f-6522afb57dcd
-plt_out=let
-	Random.seed!(123)
-	n0 = 100
-	xs_new = collect(range(-0.55, -0.4, length=4))
-	ys_outliers = ones(length(xs_new)) * 5 + randn(length(xs_new))/5
-	xs_out = [xs; xs_new]
-	ys_out = [ys; ys_outliers]
-	outlier_plt = plot(xs, ys, st=:scatter, framestyle=:origin, c=1, alpha=.5, label="observations", legend=:topleft)
-	plot!(xs_new, ys_outliers, st=:scatter, framestyle=:origin,c=1, label="outliers", legend=:topright)
-	w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=3, lc=1, label="the true signal: " * L"h(x)", size=(300,300),  title="Outlier observations")
-	outlier_plt
-end;
-
-# ╔═╡ d04bc149-4815-40bc-9d65-c68cc107c5bb
-plot(plot(plt_out, title="Robust regression",size=(300,300)), plt_heter, size=(600,300))
-
-# ╔═╡ 7cdd0017-f485-4ded-a0f8-7f8635761b68
-md"""
-
-## Why bother MLE ?
-
-And nearly all discriminative ML models are *probabilistic regression* model
-  * **Binary classification**:  ``y^{(i)}`` is binary, we can assume Bernoulli likelihood for ``y^{(i)}``
-    * logistic regression 
-  * **Multi-class classification**:  ``y^{(i)}`` is categorical, we can assume Multinoulli likelihood for ``y^{(i)}``
-    * softmax regression 
-  * **Others**: ``y^{(i)}`` is count data, # of visitors of a webpage, we can assume a Poisson likelihood
-    * Poisson regression
-"""
-
-# ╔═╡ dd55a282-9e21-4111-9c2d-372d3eee26ce
-md"""
-
-
-## Outliers -- robust linear regression
-
-If our dataset contains outliers...
-
-* `Gaussian` likelihood is not *robust* to outliers
-* 4 noisy outliers change the regression line a lot
-"""
-
-# ╔═╡ 5e6b83d7-3551-4b5c-96c2-366bf8eb33e4
-md"Add `Gaussian` likelihood fit: $(@bind add_gaussian_plt CheckBox(default=false))"
-
-# ╔═╡ bbb449e1-f6ba-40fa-a892-09786419cda1
-md"""
-
-## `Laplace` distribution
 
 
 ```math
-\large
-	p(y|\mu, \sigma) = \frac{1}{2\sigma}\exp\left (-\frac{|y -\mu|}{\sigma}\right )
+f(x; \mathbf{w}) = \sin(w_0 + 0.06 \cdot w_1 x) \cdot \exp\left \{-\frac{(w_0 + 0.06 \cdot w_1 x)^2}{32.0} \right \}
 ```
 
-
-* ``\mu``: location
-* ``\sigma``: scale
-"""
-
-# ╔═╡ 97fca6ae-f19c-4440-a5ca-633af08910e5
-md"Add `Gaussian` $(@bind add_gaussian CheckBox(default=false)),
-Add `Laplace` samples $(@bind add_lap_s CheckBox(default=false)),
-Add `Gaussian` samples $(@bind add_gauss_s CheckBox(default=false))
-"
-
-# ╔═╡ a63881f1-9248-4052-ad56-04767d680f38
-let
-	# gr()
-	# μs = [ 0, 3]
-	# σ²s = [1 , 2 , 5]
-	Random.seed!(123456)
-	nn = 400
-	ys = rand(Laplace(), nn)
-	plt_gaussian = plot(title="Gaussian/Laplace distributions", xlabel=L"y",ylabel=L"p(y)", framestyle=:origin)
-
-
-	plot!(plt_gaussian, -4.5:0.1:4.5, (x) -> pdf(Laplace(0, sqrt(1)), x), fill=true, alpha=0.5, label=L"\texttt{Laplace}(μ=0, σ=1)", c=1)
-
-	if add_gaussian
-		plot!(plt_gaussian, -4.5:0.1:4.5, (x) -> pdf(Normal(0, sqrt(1)), x), fill=true, alpha=0.5, label=L"\mathcal{N}(μ=0, σ^2=1)", c=2)
-	end
-
-
-	if add_lap_s
-		scatter!(ys, zeros(length(ys)) .-0.05, c=1,  markersize=3, alpha=.4, label="Laplace samples")
-	end
-
-	if add_gauss_s
-		ys_gaus = randn(nn)
-		scatter!(ys_gaus, zeros(length(ys)) .-0.025, c=2,  markersize=3, alpha=.4, label="Gaussian samples")
-	end
-
-	plt_gaussian
-	# # end
-	# plt_gaussian
-end
-
-# ╔═╡ 7cdf569c-a944-45ad-b672-c6e73cc7eacc
-md"""
-
-
-## Robust linear regression
-
-Just replace the `Gaussian` with `Laplace`!
-
-$$\large y^{(i)} = \mathbf{w}^\top \mathbf{x}^{(i)} + \epsilon^{(i)}, \;\; \epsilon^{(i)} \sim  \texttt{Laplace}(0, \sigma)$$
-
-which implies 
-
-$\large \begin{align}p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) &= \texttt{Laplace}(y^{(i)};  \mathbf{w}^\top \mathbf{x}^{(i)} , \sigma)\\
-&= \frac{1}{2\sigma}\text{exp}\left (-\frac{|y^{(i)}-{\mathbf{w}}^\top\mathbf{x}^{(i)}|}{\sigma}\right)\end{align}$
-
-* ``y^{(i)}`` is a univariate Laplace with mean $\mathbf{w}^\top \mathbf{x}^{(i)}$ and scale $\sigma$ 
+* the parameters: ``w_0`` and ``w_1``
 
 """
 
-# ╔═╡ 085f5bb8-0f1b-47b2-94a0-2f93629e446e
-md"``x_i`` $(@bind xᵢ0_lap Slider(-0.5:0.1:1, default=0.15));	``\sigma`` $(@bind σ0_lap Slider(0.01:0.01:0.5, default=0.1))"
-
-# ╔═╡ 996276c4-e8af-4c06-a5f5-bb7b63e1b744
-md"input $x^{(i)}=$ $(xᵢ0_lap); and ``\sigma =`` $(σ0_lap)"
-
-# ╔═╡ a373376c-368b-45b9-9a97-e0392d78c077
+# ╔═╡ e3888295-ba41-4c19-86db-a693da49261f
 begin
-	Random.seed!(123)
-	yy_laplace = true_w[1] .+ xs * true_w[2] + rand(Laplace(0, σ0_lap), n_obs);
+	function gabor_f(x; w)
+		z = w[1] .+ 0.06 * w[2] * x 
+		@. sin(z) * exp(- z^2 /32.0) 
+	end
+
 end;
 
-# ╔═╡ f5e88531-0cc4-49bc-93b3-f763b7c64e2b
+# ╔═╡ eb1a033f-7945-4309-b8f0-37706d4e327f
 let
 	gr()
-	σ0 = σ0_lap
-	xᵢ0 = xᵢ0_lap
-	b_1 = 3.0
-	p_lr = plot(title="Robust regression's probabilistic model",legend=:bottomright)
-	β0 = true_w
-	n0 = n_obs
-	# xx = [ones(n0) collect(xs)]
-	yy = yy_laplace
-	plot!(xs, yy, st=:scatter, ylim=[0, 3],framestyle=:origin, label="observations", legend=:topleft)
-	plot!(-0.5:0.1:1.0, x->β0[1]+β0[2]*x, c= 1, linewidth=5, label="",  ylim=[0, 3],framestyle=:origin)
-	# xis = [-0.35, -0.2, 0, 0.25, 0.5, 0.75, 0.99, xᵢ0]
-	xis = [range(-0.5, 1.0, 8)...]
-	push!(xis, xᵢ0)
-	for i in 1:length(xis)
-		x = xis[i]
-		μi = dot(β0, [1, x])
-		σ = σ0
-		xs_ = μi- 4*σ :0.01:μi+ 4 *σ
-		ys_ = pdf.(Laplace(μi, σ), xs_)
-		ys_ = 0.1 *ys_ ./ maximum(ys_)
-		if i == length(xis)
-			scatter!([x],[μi], markerstrokewidth =2, markershape = :diamond, c=:red, label=L"h(x)", markersize=6)
-			plot!(ys_ .+x, xs_, c=:red, label="", linewidth=3)
+	xs = range(-15, 15, 500)
+	ws = [[-5, 25], [20,40], 10 * [-5, 25], [-20,40]]
+	plts = []
+	lw = 1.5
+	for (i, w) in enumerate(ws)
+		if i == 1
+			plt = plot(xs, (x)-> gabor_f(x; w=w), lw=lw, title=L"[{w}_0= %$(w[1]),\;\; w_1=%$(w[2])]", xlabel=L"x", ylabel=L"f(x)", titlefontsize=10, label=L"f(x;\mathbf{w})", labelfontsize=8, tickfontsize=6)
+			
+			push!(plts, plt)
 		else
-			plot!(ys_ .+x, xs_, c=:gray, label="", linewidth=1)
-			# scatter!([x],[μi], markerstrokewidth =2, markershape = :diamond, label="μ @ x="*string(x))
+			plt = plot(xs, (x)-> gabor_f(x; w=w), lw=lw, title=L"[{w}_0= %$(w[1]), w_1=%$(w[2])]", titlefontsize=10, xlabel=L"x", ylabel=L"f(x)", label=L"f(x;\mathbf{w})", labelfontsize=8, tickfontsize=6)
+			push!(plts, plt)
 		end
+
+	end
+
+	plot(plts..., layout=(2,2), size=(700,400))
+	# plot((x) -> gabor_f(x; w=w))
+end
+
+# ╔═╡ 588de3ce-ec58-4c45-9332-ace21ba6bbff
+md"""
+
+## Gabor function regression
+
+
+Regression model: ``\{x^{(i)}\}`` are assumed given or fixed, and
+
+```math
+y^{(i)} \sim \mathcal{N}\left (f(x^{(i)};\mathbf{w}), \sigma^2\right );\;\; \text{for }i=1,\ldots, n
+```
+* ``\sigma^2``: irreducible observation noise variance
+"""
+
+# ╔═╡ 5fe43882-fa14-46c9-9d84-3c73bd83b9f1
+begin
+	gr()
+	Random.seed!(111)
+	nobs = 50
+	x_train = rand(nobs) * 30 .- 15 
+	true_w = [0.0, 16.6]
+	σ_noise = 0.05
+	y_train = gabor_f(x_train; w=true_w) + σ_noise * randn(nobs)
+
+end;
+
+# ╔═╡ f706d675-fc33-4415-ab8e-a812a9ca2262
+let
+	gr()
+	plot(-15:0.1:15, (x) -> gabor_f(x; w=true_w), lw=1.5, label="true function", xlabel=L"x", ylabel=L"y")
+
+	annotate!([-10], [.75], text("true "*L"\mathbf{w} = %$((true_w))^\top", :blue, :"Computer Modern", 13))
+	scatter!(x_train, y_train, ms=3, c=1, label="training data", title="Regression dataset with a Gabor function")
+end
+
+# ╔═╡ a1077040-eeed-4f23-a320-5efb41e02e30
+md"""
+
+## Gabor function regression
+
+"""
+
+# ╔═╡ 83067cf5-cc14-4618-8d78-6372d9300358
+TwoColumn(md"""
+
+Regression model: ``\{x^{(i)}\}`` are assumed given or fixed, and
+
+```math
+y^{(i)} \sim \mathcal{N}\left (f(x^{(i)};\mathbf{w}), \sigma^2\right );\;\; \text{for }i=1,\ldots, n
+```
+
+
+Learning objective: minimise the mean squared error
+
+```math
+\begin{align}
+\hat{\mathbf{w}} &= \arg\min_{w_0, w_1} \frac{1}{n} \sum_{i=1}^n L(\hat{y}^{(i)}, y^{(i)}) \\
+&= \arg\min_{w_0, w_1} \underbrace{\frac{1}{2n} \sum_{i=1}^n (\hat{y}^{(i)}- y^{(i)})^2}_{\text{loss: }L(\mathbf{w})}
+\end{align}
+```
+
+* where ``\hat{y}^{(i)} = f(x^{(i)};\mathbf{w})``
+
+""", let
+	gr()
+	Random.seed!(123)
+	ww = true_w /1.5
+	plt = plot(-15:0.1:15, (x) -> gabor_f(x; w=ww), lw=1.5, lc=:gray, label="Prediction function candidate "*L"f(x;\mathbf{w})", legend=:outerbottom, size=(360,350), titlefontsize=8, legendfontsize=5)
+	# step = 2
+	plot_size = 35
+	x_idx = 1:(min(plot_size, length(x_train)))
+	ŷs = gabor_f(x_train; w=ww)
+
+	mseloss = .5 * mean((ŷs - y_train).^2)
+	scatter!(x_train[x_idx], y_train[x_idx], ms=2, c=1, label="training data", title="Regression loss: "*L"L(\mathbf{w})"*L"=%$(round(mseloss, digits=2))", yaxis=false, framestyle=:origin)
+	for i in x_idx
+		# plot!([xi, xi], [y_train[i], ŷs[i]], lw=0.2, ls=:dash,arrow=true, lc=:gray,  label="")
+		plot!([x_train[i], x_train[i]], [y_train[i], ŷs[i]], lw=0.8, ls=:dash, arrow=arrow(:head, :simple, 0.05, 0.05), lc=:gray,  label="")
 		
 	end
-	p_lr	
-end
+	plt
 
-# ╔═╡ 7dea21ce-04b6-424d-9d14-464aa901918e
+	# annotate!([-10], [.75], text("true "*L"\mathbf{w} = %$((true_w))^\top", :blue, :"Computer Modern", 13))
+	# 
+end)
+
+# ╔═╡ dcd234e3-743e-40b8-9fec-e93297a67b5e
 md"""
-## Log-likelihood and MLE
 
-Based on the `Laplace`'s likelihood
-
-$\large p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) = \frac{1}{2\sigma}\text{exp}\left (-\frac{|y^{(i)}-{\mathbf{w}}^\top\mathbf{x}^{(i)}|}{\sigma}\right)$
+## Gradient descent
 
 
-The log-transformed likelihood for ``y^{(i)}`` therefore is
-
-$$\large\ln p({y}^{(i)}| \mathbf{w}, \sigma, \mathbf{x}^{(i)}) = -\ln 2\sigma -\frac{1}{\sigma}|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|$$
-
-## Log-likelihood and MLE
-
-Based on the `Laplace`'s likelihood
-
-$\large p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma^2) = \frac{1}{2\sigma}\text{exp}\left (-\frac{|y^{(i)}-{\mathbf{w}}^\top\mathbf{x}^{(i)}|}{\sigma}\right)$
-
-
-The log-transformed likelihood for ``y^{(i)}`` therefore is
-
-$$\large\ln p({y}^{(i)}| \mathbf{w}, \sigma, \mathbf{x}^{(i)}) = -\ln 2\sigma -\frac{1}{\sigma}|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|$$
-
-The log-likelihood of the whole training data is 
-
-$$\large \begin{align}\ell (\mathbf{w}, \sigma) &= \ln p(\mathcal{D}|\mathbf{w}, \sigma) \\
-&= \sum_{i=1}^n \ln p(y^{(i)}|\mathbf{x}^{(i)}, \mathbf{w}, \sigma)\\
-&= -n \ln 2\sigma -\frac{1}{\sigma} \underbrace{\sum_{i=1}^n|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|}_{\text{sum of absolute deviations!}}
-\end{align}$$
-
-
-## MLE for robust regression
-
-MLE aims at **minimising** the negative log-likelihood ``\ell(\mathbf{w})``:
-
-
+The optimisation problem **cannot** be solved analytically:
 ```math
-\large
 \begin{align}
-&\;\;\;\;\;\,\hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}} -\ell (\mathbf{w}) \\
-
-&\Rightarrow \hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}}  \underbrace{\sum_{i=1}^n|{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|}_{\text{sum of absolute deviations!}} + C
-
+\hat{\mathbf{w}} 
+&= \arg\min_{w_0, w_1} \underbrace{\frac{1}{2n} \sum_{i=1}^n (\hat{y}^{(i)}- y^{(i)})^2}_{L(\mathbf{w})}
 \end{align}
 ```
+* where ``\hat{y}^{(i)} =  \sin(w_0 + 0.06 \cdot w_1 x^{(i)}) \cdot \exp\left \{-\frac{(w_0 + 0.06 \cdot w_1 x^{(i)})^2}{32.0} \right \}``
 
-
-"""
-
-# ╔═╡ 51f2b7fb-0ded-445d-a43e-4fe884fbe584
-md"""
-
-## Learning -- Gradient descent
-
-"""
-
-# ╔═╡ 3886400e-f985-4a69-b9cd-930bb0996eb0
-md"""
-
-Consider the ``i``-th loss only
-
+_In other words_, the following system of equations
 
 ```math
 \large
-\begin{align}
-	&l^{(i)}(\mathbf{w}) = |{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|\\
-
-&\nabla l^{(i)}(\mathbf{w})= ?
-\end{align}
+\nabla_{\mathbf{w}} L(\mathbf{w}) =\mathbf{0}
 ```
 
-* the total loss (and gradient) is just the sum (of the individual gradients)
-
-
+* ##### _has no easy closed-form analytical solution!_
+* _indeed_! this is a complicated **non-convex** optimisation problem
+## Non-convex loss surface
 """
 
-# ╔═╡ f963dd3d-2c53-46c6-b92a-6bece799af35
+# ╔═╡ 0e8e10fe-c623-484a-83c6-b037a60d593e
 md"""
 
-## Learning -- Gradient descent
 
+
+The loss surface is plotted below
+* there are **multiple local minimums** (the darker the smaller the loss)
 """
 
-# ╔═╡ 309f7945-29f6-47cc-9ef4-24483f0f3855
+# ╔═╡ 424759f6-fa73-41b9-8893-bb6ede7d558e
 md"""
-
-Consider the ``i``-th loss only
-
-
-```math
-\large
-\begin{align}
-	&l^{(i)}(\mathbf{w}) = |{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|\\
-
-&\nabla l^{(i)}(\mathbf{w})= ?
-\end{align}
-```
-
-* the total loss (and gradient) is just the sum (of the individual gradients)
-
-Note that
-
-```math
-\large
-l^{(i)}(\mathbf{w}) = \begin{cases} {y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ -{y}^{(i)}+\mathbf{w}^\top\mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases} 
-```
+## Gradient descent
 
 
 
-"""
-
-# ╔═╡ 6d1c080e-0523-46a2-b3f3-0f91a595d351
-aside(tip(plot(abs, size=(275,200),lw=2, title=L"f(x)=|x|", label="")))
-
-# ╔═╡ 7084f202-3d8f-42ff-b3be-0717612b345d
-md"""
-
-## Learning -- Gradient descent
-
-"""
-
-# ╔═╡ db222925-812f-4dfa-b102-f1a9b44d8824
-md"""
-
-Consider the ``i``-th loss only
+### But we can resort to *gradient descent*!
 
 
-```math
-\large
-\begin{align}
-	&l^{(i)}(\mathbf{w}) = |{y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)}|\\
+##### Show me the code
 
-&\nabla l^{(i)}(\mathbf{w})= ?
-\end{align}
-```
-
-* the total loss (and gradient) is just the sum (of the individual gradients)
-
-
-Note that
-
-```math
-\large
-l^{(i)}(\mathbf{w}) = \begin{cases} {y}^{(i)}-\mathbf{w}^\top \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ -{y}^{(i)}+\mathbf{w}^\top\mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases} 
-```
-
-
-Its gradient therefore is
-
-
-```math
-\large
-\nabla l^{(i)}(\mathbf{w}) = \begin{cases} - \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ \mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases}= - {\normalsize\texttt{sign}}(y^{(i)} - \mathbf{w}^\top \mathbf{x}^{(i)})\cdot \mathbf{x}^{(i)}
-```
-* `sign`: `sign(-2) = -1`, `sign(2)=1`
-
-"""
-
-# ╔═╡ d28073c7-08e6-490e-95ba-8cda4ae9aa4a
-md"""
-## Learning -- Gradient descent (cont.)
-"""
-
-# ╔═╡ c395f3aa-5e00-4f54-9a4e-845adee810a3
-md"""
-
-##
-
-
-The final gradient is the sum of the individual gradients
-
-```math
-\large
-\begin{align}
-\nabla l(\mathbf{w}) &= \sum_{i=1}^n\nabla l^{(i)}(\mathbf{w}) = - \sum_{i=1}^n  \texttt{sign}(y^{(i)} - \mathbf{w}^\top \mathbf{x}^{(i)})\cdot \mathbf{x}^{(i)} \\
-&= -\mathbf{X}^\top \cdot \mathbf{\texttt{sign}}(\mathbf{y} - \mathbf{Xw})
-\end{align}
-```
-"""
-
-# ╔═╡ fb1ffb36-c064-4e01-bc93-c5989c83edcb
-md"""
-
-**Implementation of the gradient in Python**
 ```python
-	# implementation in Python and Numpy
-	# @: matrix multiplication
-	# np.sign: Numpy provides the sign function
-	grad = - Xs.T @ np.sign(ys - (Xs @ w))
-
+w0 = np.random.randn(2) # random guess
+lr = 0.1 # learning rate 
+while True:
+	gradw = evaluate_grad(w0, x_train, y_train)
+	w0 = w0 - lr * gradw
+	# check converge
+	...
 ```
-
 """
 
-# ╔═╡ 34f3186a-5c46-4a1d-8abc-d96fe20c4d6e
+# ╔═╡ 8973a40b-c6e7-4953-aaad-873534c76c7c
 md"""
-**Implementation of the gradient in Julia**
+## Demonstration
 
-```julia
-	# much cleaner implementation in Julia
-	# ".": broadcasting
-	∇l = - Xs' * sign.(ys - Xs * w)
-```
-
+Random start location ``\mathbf{w}_0= [0, 8]^\top``
 """
 
-# ╔═╡ 1b9a92f3-8996-4829-9929-52fba1cfe91f
+# ╔═╡ 0ef46fd3-8bc0-4f9c-a7ab-7ee83329b6ab
 md"""
-## Robust regression -- result
+## Demonstration
 
-
-```julia
-	wₜ = [0,0]
-	γ = 0.001
-	# gradient descent
-	for _ in 1:100
-		∇wₜ = - Xs' * sign.(ys - Xs * w)
-		wₜ = wₜ - γ * ∇wₜ
-	end
-```
+Random start location ``\mathbf{w}_0= [2.8, 12]^\top``
 """
 
-# ╔═╡ c3eeb2e9-93b8-4bb6-afd4-b08d23358f6e
-md"##"
-
-# ╔═╡ 747fadfb-ba6b-4520-8166-f538da1d194d
-md"Add robust regrssion fit: $(@bind add_robust CheckBox(default=false))"
-
-# ╔═╡ 7a0b667e-f2d6-496c-b223-62854690fe5f
+# ╔═╡ 09d4ae3b-841b-4990-9d5d-f4788ecb3102
 md"""
+## Demonstration
 
-## Aside: sub-derivative
-
-The gradient for the absolute deviation loss is
-
-```math
-\nabla l^{(i)}(\mathbf{w}) = \begin{cases} - \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ \mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)}\end{cases}
-```
-
-> What is the gradient when 
-> ```math
->\large
-> y^{(i)} = \mathbf{w}^\top \mathbf{x}^{(i)}
-> ```
+Random start location ``\mathbf{w}_0= [-7.5, 12]^\top``
 """
 
-# ╔═╡ 4e0a8f9c-93f8-4329-bb7f-1c0ece6f38cb
+# ╔═╡ 03cd72c9-9807-4d9e-843f-85fb4b5bb51b
 md"""
-## Aside: sub-derivative
+## Demonstration
 
-
-The absolute value function 
-
-```math
-\large
-f(x) =|x|
-```
-
-```math
-f'(x) =\begin{cases}
-1 & x>0 \\
--1 & x<0 \\
-\colorbox{pink}{$[-1, 1]$}& \colorbox{pink}{$x=0$}
-\end{cases}
-```
+Random start location ``\mathbf{w}_0= [-5, 5]^\top``
 """
 
-# ╔═╡ 9e25d784-da56-4894-aa53-b8c8e1c0733b
-md"Add sub-derivative: $(@bind add_sub CheckBox(default=false))
-Sub gradient ``\partial f``: $(@bind subk Slider(-1:0.1:1, default=0))
-"
+# ╔═╡ b80e0c24-3cb1-4757-bba1-d1aeddc3527e
+md"""
+## Demonstration
 
-# ╔═╡ 77b112ef-f21a-40e5-becf-260116e9d04a
-let
+Random start location ``\mathbf{w}_0= [6, 10]^\top``
+"""
 
-	plt = plot(abs, label = L"|x|", framestyle=:origin, lw=2, title=L"f(x) =|x|", ylim=[-2,3], legend=:outerright)
-
-	df(x; k = 0.5) = k * x 
-	
-
-	if add_sub
-		# plot!(-4.5:0.5:4.5, (x) -> 0.5*x, lw=1.5, label="")
-		plot!(-4.5:0.5:4.5, (x) -> subk*x, lc=2,lw=1.5, label="")
-	end
-
-	plt
-end
-
-# ╔═╡ d60a639a-51f7-4a46-9a7b-f34933898c79
+# ╔═╡ db794e4d-5e95-4204-8051-9dfdf097d904
 md"""
 
-## Aside: sub-derivative
+## Loss trajectories _vs_ local minimums
 
-The gradient for the absolute deviation loss is
 
-```math
-\large
-\nabla l^{(i)}(\mathbf{w}) = \begin{cases} - \mathbf{x}^{(i)} & \text{if}\; y^{(i)} > \mathbf{w}^\top \mathbf{x}^{(i)}\\ \mathbf{x}^{(i)}  & \text{if}\; y^{(i)} < \mathbf{w}^\top \mathbf{x}^{(i)} \\
-[-\mathbf{x}^{(i)}, \mathbf{x}^{(i)}]  & \text{if}\; y^{(i)} = \mathbf{w}^\top \mathbf{x}^{(i)}
-\end{cases} 
-```
+Note the true parameter is ``\mathbf{w}_{\text{true}} = [0, 16.5]``
+* it converges to different local minimums depending on the starting ``\mathbf{w}_0``
 
 """
 
-# ╔═╡ 46f38254-0176-414a-9c46-9e6057ed94be
-begin
-	function laplace_reg_loss(w, X, y) 
-		diff = sum(abs.(X * w - y))
-		return diff
- 	end
-end;
+# ╔═╡ eaa3f859-c675-4155-ab59-a9676afdc3f3
+# let
+# 	gr()
+# 	plt_losses = plot() 
 
-# ╔═╡ f46b008a-1fc7-461a-9f68-efc68506186b
+# 	cs = 1:length(losses_all)
+# 	for (i, w) in enumerate(keys(losses_all))
+# 		wid = i == highlight_i ?  3 : 1
+# 		plot!(losses_all[w][1:10:end], xscale=:identity, label=L"\mathbf{w}_0=%$(round.(w[1]; digits=1));"*"  "*L"\mathbf{w}_{\texttt{end}}=%$(round.(w[2]; digits=1))", lw=wid, lc= cs[i], xlabel="Iteration "*L"\times\, 10", ylabel="loss", legendfontsize=10)
+# 	end
+
+# 	title!("Different losses curves; the true "*L"\mathbf{w} = %$(true_w)")
+# 	plt_losses
+# end
+
+# ╔═╡ 8446f358-7acf-4bd7-8641-264b4add458f
+md"""
+
+
+## ``L_2`` regularisation 
+
+
+We often apply a penalty term to regularise the loss 
+
+* mainly for _over-fitting purpose_
+* ######  but also has the benefit of regularising the loss surface
+  * minimums shrinks towards ``\mathbf{0}``
+  * some local minimums disappear
+  * ###### overall, leads to a smoother loss function (more numerical stable as well)
+"""
+
+# ╔═╡ 8242c0c3-d75a-46be-9c6d-c02faf41ca02
 # begin
-# 	function ∇laplace_reg_loss2(w, X, y) 
-# 		# return zeros(length(w))
-# 		# error1 = - sign.(y - X * w) .* X
-# 		# error2 = (error1.^2 .+ ϵ).^(-0.5)
-# 		# error = error2 .* error1
-# 		# (- X' * error)/length(y)
-# 		# return sum(error1, dims=1)[:]/length(y)
+# 	Random.seed!(1234)
+# 	# w₀ = randn(2) * 20
+# 	max_iters = 5000
+# 	# w₀ = true_w + randn(2) *10
+# 	w₀ = [2., 20.]
+# 	ws = zeros(2, max_iters+1)
+# 	ws[:, 1] = w₀
+# 	losses = []
+# 	γ = 0.1
+# 	for i in 1:max_iters
+# 		loss, grad = withgradient(w₀) do w
+# 			ŷs = gabor_f(x_train; w = w)
+# 			.5 * mean((ŷs - y_train).^2)
+# 		end
+# 		push!(losses, loss)
+# 		w₀ .-= γ * grad[1]
+# 		ws[:, i+1] = w₀
+# 		# println(w₀)
+# 	end
+# end
 
-# 		return - X' * sign.(y - X * w) / length(y)
+# ╔═╡ 0fc5f4f9-5dc2-4dab-930f-ec3486fa4353
+# begin
+# 	gr()
+# 	plot(losses, label="loss", xlabel="Iteration", ylabel="Loss")
+# end
+
+# ╔═╡ 15a68d04-ed33-4a1b-b66b-413e94b4c25d
+# begin
+# 	gr()
+# 	plot(-10:0.1:10, 2.5:0.1:25, (w0, w1) -> forward_loss([w0, w1], x_train, y_train), st=:contour, fill=true, alpha=0.9, c=:jet, xlabel=L"w_0", ylabel=L"w_1")
+# 	scatter!(true_w[1:1], true_w[2:2], label="true w", markershape=:x, markerstrokewidth=2, markersize=6, xlim=[-10,10], ylim =[2.5, 25])
+# end
+
+# ╔═╡ 5bfb871d-86a5-4954-8335-9c377030b360
+# let
+# 	gr()
+# 	plt = plot(-10:0.1:10, 2.5:0.1:25, (w0, w1) -> forward_loss([w0, w1], x_train, y_train), st=:contour, fill=false, alpha=0.9, c=:jet, xlabel=L"w_0", ylabel=L"w_1")
+# 	scatter!(true_w[1:1], true_w[2:2], label="true w", markershape=:x, markerstrokewidth=2, markersize=6, xlim=[-10,10], ylim =[2.5, 25])
+# 	# wt = [0, -1]
+# 	traces = ws
+# 	wt = traces[:, 1]
+# 	anim = @animate for t in 2:200:size(traces)[2]
+# 		plot!([traces[1, t]], [traces[2, t]], st=:scatter, color=1, label="", markersize=3)
+# 		plot!([wt[1], traces[1, t]], [wt[2], traces[2, t]], line = (:arrow, 0.8, :gray), label="")
+# 		wt = traces[1:2, t]
 # 	end
 
+# 	gif(anim, fps=5)
+# end
 
-# 	function ∇laplace_reg_loss1(w, X, y) 
-# 		# return zeros(length(w))
-# 		error1 = - sign.(y - X * w) .* X
-# 		# error2 = (error1.^2 .+ ϵ).^(-0.5)
-# 		# error = error2 .* error1
-# 		# (- X' * error)/length(y)
-# 		return sum(error1, dims=1)[:]/length(y)
-
-# 		# return - X' * sign.(y - X * w) 
-# 	end
-
-# end;
-
-# ╔═╡ bb583c35-64af-41bb-a805-fb505001e29f
-xs_out, ys_out, outlier_plt = let
-	Random.seed!(123)
-	xs_new = collect(range(-0.55, -0.4, length=4))
-	ys_outliers = ones(length(xs_new)) * 5 + randn(length(xs_new))/5
-	xs_out = [xs; xs_new]
-	ys_out = [ys; ys_outliers]
-	outlier_plt = plot(xs, ys, st=:scatter, framestyle=:origin, label="observations", legend=:topleft, alpha=0.5)
-	plot!(xs_new, ys_outliers, st=:scatter, framestyle=:origin, c=1, label="outliers", legend=:topright)
-	w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=2, lc=1, label="the true signal: " * L"h(x)")
-	if add_gaussian_plt
-		plot!(-0.5:0.1:1.0, (x) -> w_out[1] + w_out[2]*x, lw=2, label="Gaussian MLE " * L"\hat{h}(x)", title="LSE or Gaussian likelihood is not robust")
-	end
-	xs_out, ys_out, outlier_plt
-end;
-
-# ╔═╡ 4a47a0d2-f05f-4a01-a505-5b3de7f53872
-outlier_plt
-
-# ╔═╡ 8fe3a3a2-65df-4e9c-bdaa-64ebf06b2208
-Xs_out = [ones(length(xs_out)) xs_out];
-
-# ╔═╡ 4382f47e-3c62-4ddc-9502-ebeb8d009e26
-w_laplace, losses_laplace = let
-	max_iters = 100
-	wₜ = zeros(2)
-	∇l(w) = Zygote.gradient((x) -> laplace_reg_loss(x, Xs_out, ys_out), w)[1]
-	γ = 0.001
-	loss = []
-	for _ in 1:max_iters
-		∇wₜ = ∇l(wₜ)
-		wₜ = wₜ - γ * ∇wₜ
-		push!(loss, laplace_reg_loss(wₜ, Xs_out, ys_out))
-	end
-	wₜ, loss
-end;
-
-# ╔═╡ f0ad4fdb-2a07-436e-81a7-47a249d6871d
-plot(losses_laplace, xlabel="Iteration", ylabel="Laplace loss", label="", title="Gradient descent's loss trajectory")
-
-# ╔═╡ 89d18c2a-ee6c-4eb7-81f5-0bfec682f4db
-let
-	gr()
-	plt = plot(xs_out, ys_out, st=:scatter, framestyle=:origin, label="observations", legend=:topleft, alpha=.5)
-	w_out = [ones(length(xs_out)) xs_out] \ ys_out
-	plot!(-0.5:0.1:1.0, (x) -> true_w[1] + true_w[2]*x, lw=3, lc=1, label="the true signal: " * L"h(x)", legend=:topright)
-
-	plot!(-0.5:0.1:1.0, (x) -> w_out[1] + w_out[2]*x, lw=2, lc=2, label="Gaussian MLE " * L"\hat{h}(x)", title="Robust regression with Laplace likelihood")
-	if add_robust
-		plot!(-0.5:0.1:1.0, (x) -> w_laplace[1] + w_laplace[2]*x, lw=3, lc=4,  label="Laplace MLE " * L"\hat{h}(x)")
-	end
-	plt
-end
+# ╔═╡ d22765d9-8133-4079-bb22-7968fa304cb0
+# plot_rst(w₀)
 
 # ╔═╡ 0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 md"""
@@ -728,10 +435,244 @@ function arrow3d!(x, y, z,  u, v, w; as=0.1, lc=:black, la=1, lw=0.4, scale=:ide
     end
 end
 
+# ╔═╡ fe24e6db-9269-475e-9347-5ec08b307e5f
+function plot_rst(w; true_w = true_w, x_train = x_train, y_train=y_train, add_truef=true)
+	# plt = plot(-15:0.1:15, (x) -> gabor_f(x; w = true_w), lw=1, label="true function")
+	plt = plot(-15:0.1:15, (x) -> gabor_f(x; w = w), lw=2, lc=2,label="fitted function")
+	if add_truef
+		plot!(-15:0.1:15, (x) -> gabor_f(x; w = true_w),lc=1, lw=1.5, label="true function")
+	end
+	scatter!(x_train, y_train, ms=3, c=1, label="training data")
+	return plt
+end;
+
+# ╔═╡ 11e7d329-3b8e-4b79-97bb-e4c2695713e5
+function forward_loss(w, xs, ys)
+	# forward pass
+	ŷs = gabor_f(xs; w=w)
+
+	.5 * mean((ŷs - ys).^2)
+end
+
+# ╔═╡ a6407bb7-5b21-49db-94f2-0b8594fd6e20
+let
+	# gr()
+	plotly()
+	plt1 = plot(-10:0.1:10, 2:0.1:25, (w0, w1) -> forward_loss([w0, w1], x_train, y_train), st=:contour, levels=20, fill=true, alpha=0.99, xlabel="w0", ylabel="w1", colorbar=true, title="Non-convex loss" )
+
+	plt2=plot(-10:0.1:10, 2:0.1:25, (w0, w1) -> forward_loss([w0, w1], x_train, y_train), st=:surface, levels=20, fill=true, alpha=0.99, xlabel="x0", ylabel="w1", colorbar=false, title="Non-convex loss")
+	plot(plt1, plt2, size=(720,350))
+end
+
+# ╔═╡ 313184fd-171d-44e1-8e8f-735f76401de2
+let
+
+	gr()
+	plt = plot(-10:0.1:10, 2:0.1:25, (w0, w1) -> forward_loss([w0, w1], x_train, y_train), st=:contour, levels=20, fill=true, alpha=0.9, xlabel=L"w_0", ylabel=L"w_1", colorbar=false, title="Loss")
+λ = 0.0011
+plt_loss = plot(-10:0.5:10, -10:0.5:10, (w0, w1) -> 0.5 * λ * (w0^2+w1^2), st=:contour, levels=20, fill=true, alpha=0.9, xlabel=L"w_0", ylabel=L"w_1", colorbar=false, title=L"L_2"*" penalty")
+	
+	# plt2 = plot(-2:0.1:10, 2:0.1:25, (w0, w1) -> forward_loss([w0, w1], x_train, y_train) + 0.5 * λ * (w0^2+w1^2) , levels=12,st=:contour, fill=true, alpha=0.9, xlabel=L"w_0", ylabel=L"w_1", colorbar=false, title=L"L_2"*" regularised loss")
+	# l = @layout [a{0.5w} b{0.5w} ; c{0.5w}]
+	plt1 = plot(plt, plt_loss, layout=(1,2), size=(700,350))
+
+end
+
+# ╔═╡ 8ba48e11-1fbf-49d2-aae1-6931e20bad0e
+begin 
+
+	function train(max_iters; w_init=zeros(2), γ = 0.1, x_train=x_train, y_train=y_train, λ = 0.0)
+		ws = zeros(2, max_iters+1)
+		ws[:, 1] = w₀ = copy(w_init)
+		losses = []
+		for i in 1:max_iters
+			loss, grad = withgradient(w₀) do w
+				ŷs = gabor_f(x_train; w = w)
+				l2_loss = 0.5 * λ * sum(w .^2)
+				.5 * mean((ŷs - y_train).^2) + l2_loss 
+			end
+			push!(losses, loss)
+			w₀ .-= γ * grad[1]
+			ws[:, i+1] = w₀
+			# println(w₀)
+		end
+		return losses, ws
+	end
+end
+
+# ╔═╡ 2cfd0e78-a5ae-4fa7-a04a-e5215c8fd01b
+begin
+	_, ws_l2 = train(5000; w_init=true_w, λ = 0.0011)
+	w_l2 = ws_l2[:, end];
+
+	_, ws_mle = train(5000; w_init=true_w, λ = 0.0)
+	w_mle = ws_mle[:, end];
+end;
+
+# ╔═╡ fe470ca6-b3d3-4d5f-87d3-499c9e7796a5
+let
+	gr()
+	ms = 5
+	plt = plot(-10:0.1:10, 2:0.1:25, (w0, w1) -> forward_loss([w0, w1], x_train, y_train), st=:contour, levels=20,alpha=0.9, fill=true, xlabel=L"w_0", ylabel=L"w_1", colorbar=false, title="Loss")
+
+	scatter!([w_mle[1]], [w_mle[2]], ms = ms, mc=3, markershape=:diamond,label="minimum", xlim = (-10, 10), ylim = (2, 25))
+	
+	λ = 0.0011
+	
+	plt2 = plot(-10:0.1:10, 2:0.1:25, (w0, w1) -> forward_loss([w0, w1], x_train, y_train) + 0.5 * λ * (w0^2+w1^2) , levels=12,st=:contour, fill=true, alpha=0.8, xlabel=L"w_0", ylabel=L"w_1", colorbar=false, title="Loss"*L"\,+\,L_2"*" penalty")
+	# scatter!([w_mle[1]], [w_mle[2]], xs = 8, mc=3, markershape=:diamond,label="minimum", xlim = (-10, 10), ylim = (2, 25))
+	plot!([w_mle[1], w_l2[1]], [w_mle[2], w_l2[2]], lw=1, ls=:dash, arrow=arrow(:head, :simple), lc=:gray,  label="", xlim = (-10, 10), ylim = (2, 25))
+	scatter!([w_mle[1]], [w_mle[2]], ms = ms, mc=3, markershape=:diamond,label="minimum")
+	scatter!([w_l2[1]], [w_l2[2]],  mc=4, ms=ms, markershape=:diamond,label=L"L_2"*" minimum", xlim = (-10, 10), ylim = (2, 25))
+	vv = w_l2 - w_mle
+	# quiver!([w_mle[1]], [w_mle[2]], quiver= ([vv[1]], [vv[2]]))
+	plot(plt, plt2, layout=(1,2), size=(700,350))
+
+end
+
+# ╔═╡ f9bf41d9-0a8e-47c7-be5e-5fbd797497aa
+function produce_anim(w_traces, losses; step=200, x_train = x_train, y_train=y_train, true_w=true_w)
+	gr()
+	plt = plot(-10:0.1:10, 2.5:0.1:25, (w0, w1) -> forward_loss([w0, w1], x_train, y_train), st=:contour, fill=false, alpha=0.9, c=:jet, xlabel=L"w_0", ylabel=L"w_1", colorbar=false)
+	scatter!(plt, true_w[1:1], true_w[2:2], label="true w", markershape=:x, markerstrokewidth=2, markersize=6, xlim=[-10,10], ylim =[2.5, 25])
+	traces = w_traces
+	wt = traces[:, 1]
+	plt2 = plot_rst(wt; add_truef=true)
+
+	anim = @animate for t in 2:step:size(traces)[2]
+		plot!(plt, [traces[1, t]], [traces[2, t]], st=:scatter, color=2, label="", markersize=3, title="Iteration: $(t)"*"; loss=$(round(losses[t];digits=2))")
+		# plot!(plt, [wt[1], traces[1, t]], [wt[2], traces[2, t]], line = (:arrow,1, :gray), label="", title="Iteration: $(t)")
+
+		# plot!(plt, [wt[1], traces[1, t]], [wt[2], traces[2, t]], seriestype = :path, arrow=(:arrow, :head, 0.01, 0.01), linealpha=1, linecolor=:gray, label="", title="Iteration: $(t)")
+		plt2 = plot_rst(wt; add_truef=true)
+
+		title!(plt2, "Iteration: $(t)"*"; loss=$(round(losses[t];digits=2))")
+		plot!(plt2, xlabel=L"x", ylabel=L"y")
+		plot(plt, plt2, layout=(1,2), size=(800,380))
+		wt = traces[1:2, t]
+	end
+	# wt = traces[:, 1]
+	
+	# anim2 = @animate for t in 2:step:size(traces)[2]
+	# 	plot_rst(wt; add_truef=true)
+
+	# 	title!("Iteration: $(t)")
+	# 	# plot!(-15:0.1:15, (x) -> gabor_f(x; w = wt), lw=2, lc=2,label="")
+
+	# 	wt = traces[1:2, t]
+	# end
+
+	return anim
+end
+
+# ╔═╡ 73eff8b5-f20e-4f06-870d-07c40c8491f7
+begin
+	## run GD multiple times from different initial locations
+	losses_all = Dict();
+
+	ws_init = [[0.0, 8], [2.8, 12], [-7.5, 12], [-5.0, 5], [6.0, 10]] 
+
+	max_iters = 5_000
+	anims = []
+	for w in ws_init
+		losses_, ws_trace = train(max_iters; w_init= w)
+		anim = produce_anim(ws_trace, losses_)
+		push!(anims, anim)
+		losses_all[[w, ws_trace[:, end]]] = losses_
+	end
+
+	weights = (losses_all |> keys) |> collect
+	# gif(anim1, fps=5)
+end;
+
+# ╔═╡ 60fc895a-50e6-4eb1-9ecc-308c44d3d64b
+let
+	# w_init = [0.0, 8]
+	# losses_, ws_trace = train(5000; w_init= w_init)
+	# anim1 = produce_anim(ws_trace, losses_)
+
+	# losses_all[[w_init, ws_trace[:, end]]] = losses_
+	gif(anims[1], fps=5)
+	# gif(anim2, fps=5)
+end
+
+# ╔═╡ 4dab6f59-0db0-466f-afce-a049e6126247
+let
+	# w_init = Float64.([2.8, 12])
+	# losses_, ws_trace = train(5000; w_init= w_init)
+	# anim1 = produce_anim(ws_trace, losses_)
+	# losses_all[[w_init, ws_trace[:, end]]] = losses_
+	gif(anims[2], fps=5)
+	# gif(anim2, fps=5)
+end
+
+# ╔═╡ ef9b60c8-245f-462e-8ea2-a32decfa6b30
+let
+	# w_init = Float64.([-7.5, 12])
+	# losses_, ws_trace = train(5000; w_init= w_init)
+	# anim1 = produce_anim(ws_trace, losses_)
+	# losses_all[[w_init, ws_trace[:, end]]] = losses_
+	# gif(anim1, fps=5)
+
+	gif(anims[3], fps=5)
+	# gif(anim2, fps=5)
+end
+
+# ╔═╡ d8a2dab5-33ba-4073-a133-3c1a35d2781c
+let
+	# w_init = Float64.([-5.0, 5])
+	# losses_, ws_trace = train(5000; w_init= w_init)
+	# anim1 = produce_anim(ws_trace, losses_)
+	# losses_all[[w_init, ws_trace[:, end]]] = losses_
+	# gif(anim1, fps=5)
+	# gif(anim2, fps=5)
+	gif(anims[4], fps=5)
+end
+
+# ╔═╡ a482de55-c222-49cf-8ddc-7f50ee1ae104
+let
+	# w_init = Float64.([6, 10])
+	# losses_, ws_trace = train(5000; w_init= w_init)
+	# anim1 = produce_anim(ws_trace, losses_)
+	# losses_all[[w_init, ws_trace[:, end]]] = losses_
+	# gif(anim1, fps=5)
+	# gif(anim2, fps=5)
+	gif(anims[5], fps=5)
+end
+
+# ╔═╡ 439eb6c6-501f-406e-88f5-fcfb66333189
+# highlight_i = 1:((losses_all |> keys ) |> length);
+md"Select curve : $(@bind highlight_i Select(1:((losses_all |> keys ) |> length)))"
+
+# ╔═╡ b960a582-5346-418b-aec0-8c15859bd31f
+TwoColumn(let
+	gr()
+	plt_losses = plot(size=(350,400), legend=:outerbottom) 
+
+	cs = 2:(length(losses_all)+1)
+	for (i, w) in enumerate(keys(losses_all))
+		wid = (i == highlight_i) ?  3 : 1
+		plot!(losses_all[w][1:10:end], xscale=:identity, label=L"\mathbf{w}_0=%$(round.(w[1]; digits=1));"*"  "*L"\mathbf{w}_{\texttt{end}}=%$(round.(w[2]; digits=1))", lw=wid, lc= cs[i], xlabel="Iteration "*L"\times\, 10", ylabel="loss", legendfontsize=8, titlefontsize=9, labelfontsize=8)
+	end
+
+	title!("Different training runs")
+	plt_losses
+end, let
+	w = weights[highlight_i][2]
+	plt = plot(-15:0.1:15, (x) -> gabor_f(x; w = w), lw=3, lc=highlight_i+1, label="fitted function", xlabel=L"x", ylabel=L"y")
+	# if add_truef
+	plot!(-15:0.1:15, (x) -> gabor_f(x; w = true_w),lc = 1, lw=1, label="true function")
+	# end
+	loss_end = losses_all[weights[highlight_i]][end]
+	scatter!(x_train, y_train, ms=3, c=1, label="training data")
+	plot!(plt, size=(350,374), title="Learnt function: "*L"\hat{\mathbf{w}} =%$(round.(w; digits=2));", legend=:outerbottom,legendfontsize=8, titlefontsize=10, labelfontsize=8)
+
+	annotate!([-9], [-0.8], text("Loss: "*L"L=%$(round(loss_end;digits=3))", 10, :blue, "Computer Modern"))
+end)
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
@@ -741,18 +682,15 @@ PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-Distributions = "~0.25.100"
 HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.16.1"
 Plots = "~1.38.17"
 PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.52"
-StatsPlots = "~0.15.6"
 Zygote = "~0.6.63"
 """
 
@@ -760,9 +698,9 @@ Zygote = "~0.6.63"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.3"
+julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "bcca2b3b41294b200020955c854e231d0a86aecd"
+project_hash = "9c820a6e75dbd5ffb7e818c13cfccaec3027a0f9"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -786,35 +724,19 @@ deps = ["LinearAlgebra", "Requires"]
 git-tree-sha1 = "76289dc51920fdc6e0013c872ba9551d54961c24"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 version = "3.6.2"
-weakdeps = ["StaticArrays"]
 
     [deps.Adapt.extensions]
     AdaptStaticArraysExt = "StaticArrays"
+
+    [deps.Adapt.weakdeps]
+    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 version = "1.1.1"
 
-[[deps.Arpack]]
-deps = ["Arpack_jll", "Libdl", "LinearAlgebra", "Logging"]
-git-tree-sha1 = "9b9b347613394885fd1c8c7729bfc60528faa436"
-uuid = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
-version = "0.5.4"
-
-[[deps.Arpack_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "OpenBLAS_jll", "Pkg"]
-git-tree-sha1 = "5ba6c757e8feccf03a1554dfaf3e26b3cfc7fd5e"
-uuid = "68821587-b530-5797-8361-c406ea357684"
-version = "3.5.1+1"
-
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
-
-[[deps.AxisAlgorithms]]
-deps = ["LinearAlgebra", "Random", "SparseArrays", "WoodburyMatrices"]
-git-tree-sha1 = "66771c8d21c8ff5e3a93379480a2307ac36863f7"
-uuid = "13072b0f-2c55-5437-9ae7-d433b7a33950"
-version = "1.0.1"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -841,12 +763,6 @@ git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
 
-[[deps.Calculus]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
-uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
-version = "0.5.1"
-
 [[deps.ChainRules]]
 deps = ["Adapt", "ChainRulesCore", "Compat", "Distributed", "GPUArraysCore", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "Statistics", "StructArrays"]
 git-tree-sha1 = "f98ae934cd677d51d2941088849f0bf2f59e6f6e"
@@ -858,12 +774,6 @@ deps = ["Compat", "LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "1.16.0"
-
-[[deps.Clustering]]
-deps = ["Distances", "LinearAlgebra", "NearestNeighbors", "Printf", "Random", "SparseArrays", "Statistics", "StatsBase"]
-git-tree-sha1 = "b86ac2c5543660d238957dbde5ac04520ae977a7"
-uuid = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
-version = "0.15.4"
 
 [[deps.CodeTracking]]
 deps = ["InteractiveUtils", "UUIDs"]
@@ -975,33 +885,9 @@ git-tree-sha1 = "23163d55f885173722d1e4cf0f6110cdbaf7e272"
 uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "1.15.1"
 
-[[deps.Distances]]
-deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
-git-tree-sha1 = "b6def76ffad15143924a2199f72a5cd883a2e8a9"
-uuid = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-version = "0.10.9"
-weakdeps = ["SparseArrays"]
-
-    [deps.Distances.extensions]
-    DistancesSparseArraysExt = "SparseArrays"
-
 [[deps.Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
-
-[[deps.Distributions]]
-deps = ["FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SpecialFunctions", "Statistics", "StatsAPI", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "938fe2981db009f531b6332e31c58e9584a2f9bd"
-uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.100"
-
-    [deps.Distributions.extensions]
-    DistributionsChainRulesCoreExt = "ChainRulesCore"
-    DistributionsDensityInterfaceExt = "DensityInterface"
-
-    [deps.Distributions.weakdeps]
-    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-    DensityInterface = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
@@ -1013,12 +899,6 @@ version = "0.9.3"
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
-
-[[deps.DualNumbers]]
-deps = ["Calculus", "NaNMath", "SpecialFunctions"]
-git-tree-sha1 = "5837a837389fccf076445fce071c8ddaea35a566"
-uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
-version = "0.6.8"
 
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
@@ -1044,31 +924,14 @@ git-tree-sha1 = "74faea50c1d007c85837327f6775bea60b5492dd"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.2+2"
 
-[[deps.FFTW]]
-deps = ["AbstractFFTs", "FFTW_jll", "LinearAlgebra", "MKL_jll", "Preferences", "Reexport"]
-git-tree-sha1 = "b4fbdd20c889804969571cc589900803edda16b7"
-uuid = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
-version = "1.7.1"
-
-[[deps.FFTW_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "c6033cc3892d0ef5bb9cd29b7f2f0331ea5184ea"
-uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
-version = "3.3.10+0"
-
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
-deps = ["LinearAlgebra", "Random"]
-git-tree-sha1 = "a20eaa3ad64254c61eeb5f230d9306e937405434"
+deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
+git-tree-sha1 = "f372472e8672b1d993e93dada09e23139b509f9e"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "1.6.1"
-weakdeps = ["SparseArrays", "Statistics"]
-
-    [deps.FillArrays.extensions]
-    FillArraysSparseArraysExt = "SparseArrays"
-    FillArraysStatisticsExt = "Statistics"
+version = "1.5.0"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -1093,10 +956,12 @@ deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "Lo
 git-tree-sha1 = "cf0fe81336da9fb90944683b8c41984b08793dad"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
 version = "0.10.36"
-weakdeps = ["StaticArrays"]
 
     [deps.ForwardDiff.extensions]
     ForwardDiffStaticArraysExt = "StaticArrays"
+
+    [deps.ForwardDiff.weakdeps]
+    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [[deps.FreeType2_jll]]
 deps = ["Artifacts", "Bzip2_jll", "JLLWrappers", "Libdl", "Zlib_jll"]
@@ -1175,12 +1040,6 @@ git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
 uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
 version = "2.8.1+1"
 
-[[deps.HypergeometricFunctions]]
-deps = ["DualNumbers", "LinearAlgebra", "OpenLibm_jll", "SpecialFunctions"]
-git-tree-sha1 = "f218fe3736ddf977e0e772bc9a586b2383da2685"
-uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
-version = "0.3.23"
-
 [[deps.Hyperscript]]
 deps = ["Test"]
 git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
@@ -1205,21 +1064,9 @@ git-tree-sha1 = "eac00994ce3229a464c2847e956d77a2c64ad3a5"
 uuid = "7869d1d1-7146-5819-86e3-90919afe41df"
 version = "0.4.10"
 
-[[deps.IntelOpenMP_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "ad37c091f7d7daf900963171600d7c1c5c3ede32"
-uuid = "1d5cc7b8-4909-519e-a0f8-d0f5ad9712d0"
-version = "2023.2.0+0"
-
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
-
-[[deps.Interpolations]]
-deps = ["Adapt", "AxisAlgorithms", "ChainRulesCore", "LinearAlgebra", "OffsetArrays", "Random", "Ratios", "Requires", "SharedArrays", "SparseArrays", "StaticArrays", "WoodburyMatrices"]
-git-tree-sha1 = "721ec2cf720536ad005cb38f50dbba7b02419a15"
-uuid = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
-version = "0.14.7"
 
 [[deps.IrrationalConstants]]
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
@@ -1257,15 +1104,9 @@ version = "2.1.91+0"
 
 [[deps.JuliaInterpreter]]
 deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
-git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
+git-tree-sha1 = "e8ab063deed72e14666f9d8af17bd5f9eab04392"
 uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
-version = "0.9.25"
-
-[[deps.KernelDensity]]
-deps = ["Distributions", "DocStringExtensions", "FFTW", "Interpolations", "StatsBase"]
-git-tree-sha1 = "90442c50e202a5cdf21a7899c66b240fdef14035"
-uuid = "5ab0869b-81aa-558d-bb23-cbf5423bbe9b"
-version = "0.6.7"
+version = "0.9.24"
 
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1402,9 +1243,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "7d6dd4e9212aebaeed356de34ccf262a3cd415aa"
+git-tree-sha1 = "5ab83e1679320064c29e8973034357655743d22d"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.26"
+version = "0.3.25"
 
     [deps.LogExpFunctions.extensions]
     LogExpFunctionsChainRulesCoreExt = "ChainRulesCore"
@@ -1421,9 +1262,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.LoggingExtras]]
 deps = ["Dates", "Logging"]
-git-tree-sha1 = "a03c77519ab45eb9a34d3cfe2ca223d79c064323"
+git-tree-sha1 = "cedb76b37bc5a6c702ade66be44f831fa23c681e"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
-version = "1.0.1"
+version = "1.0.0"
 
 [[deps.LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
@@ -1436,17 +1277,11 @@ git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
 uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
 version = "0.1.4"
 
-[[deps.MKL_jll]]
-deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
-git-tree-sha1 = "eb006abbd7041c28e0d16260e50a24f8f9104913"
-uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
-version = "2023.2.0+0"
-
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
-git-tree-sha1 = "9ee1618cbf5240e6d4e0371d6f24065083f60c48"
+git-tree-sha1 = "42324d08725e200c23d4dfb549e0d5d89dede2d2"
 uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
-version = "0.5.11"
+version = "0.5.10"
 
 [[deps.Markdown]]
 deps = ["Base64"]
@@ -1481,38 +1316,15 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 version = "2022.10.11"
 
-[[deps.MultivariateStats]]
-deps = ["Arpack", "LinearAlgebra", "SparseArrays", "Statistics", "StatsAPI", "StatsBase"]
-git-tree-sha1 = "68bf5103e002c44adfd71fea6bd770b3f0586843"
-uuid = "6f286f6a-111f-5878-ab1e-185364afe411"
-version = "0.10.2"
-
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
 git-tree-sha1 = "0877504529a3e5c3343c6f8b4c0381e57e4387e4"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.0.2"
 
-[[deps.NearestNeighbors]]
-deps = ["Distances", "StaticArrays"]
-git-tree-sha1 = "2c3726ceb3388917602169bed973dbc97f1b51a8"
-uuid = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
-version = "0.4.13"
-
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
-
-[[deps.Observables]]
-git-tree-sha1 = "6862738f9796b3edc1c09d0890afce4eca9e7e93"
-uuid = "510215fc-4207-5dde-b226-833fc4488ee2"
-version = "0.5.4"
-
-[[deps.OffsetArrays]]
-deps = ["Adapt"]
-git-tree-sha1 = "2ac17d29c523ce1cd38e27785a7d23024853a4bb"
-uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-version = "1.12.10"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1563,12 +1375,6 @@ version = "1.6.2"
 deps = ["Artifacts", "Libdl"]
 uuid = "efcefdf7-47ab-520b-bdef-62a2eaa19f15"
 version = "10.42.0+0"
-
-[[deps.PDMats]]
-deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "67eae2738d63117a196f497d7db789821bce61d1"
-uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
-version = "0.11.17"
 
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools", "UUIDs"]
@@ -1650,9 +1456,9 @@ version = "0.7.52"
 
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
-git-tree-sha1 = "03b4c25b43cb84cee5c90aa9b5ea0a78fd848d2f"
+git-tree-sha1 = "9673d39decc5feece56ef3940e5dafba15ba0f81"
 uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
-version = "1.2.0"
+version = "1.1.2"
 
 [[deps.Preferences]]
 deps = ["TOML"]
@@ -1670,12 +1476,6 @@ git-tree-sha1 = "364898e8f13f7eaaceec55fd3d08680498c0aa6e"
 uuid = "c0090381-4147-56d7-9ebc-da0b1113ec56"
 version = "6.4.2+3"
 
-[[deps.QuadGK]]
-deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "6ec7ac8412e83d57e313393220879ede1740f9ee"
-uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.8.2"
-
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
@@ -1683,16 +1483,6 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 [[deps.Random]]
 deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-
-[[deps.Ratios]]
-deps = ["Requires"]
-git-tree-sha1 = "1342a47bf3260ee108163042310d26f2be5ec90b"
-uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
-version = "0.4.5"
-weakdeps = ["FixedPointNumbers"]
-
-    [deps.Ratios.extensions]
-    RatiosFixedPointNumbersExt = "FixedPointNumbers"
 
 [[deps.RealDot]]
 deps = ["LinearAlgebra"]
@@ -1735,18 +1525,6 @@ git-tree-sha1 = "1e597b93700fa4045d7189afa7c004e0584ea548"
 uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
 version = "3.5.3"
 
-[[deps.Rmath]]
-deps = ["Random", "Rmath_jll"]
-git-tree-sha1 = "f65dcb5fa46aee0cf9ed6274ccbd597adc49aa7b"
-uuid = "79098fc4-a85e-5d69-aa6a-4863f24498fa"
-version = "0.7.1"
-
-[[deps.Rmath_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "6ed52fdd3382cf21947b15e8870ac0ddbff736da"
-uuid = "f50d1b31-88e8-58de-be2c-1cc44531875f"
-version = "0.4.0+0"
-
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 version = "0.7.0"
@@ -1757,18 +1535,8 @@ git-tree-sha1 = "30449ee12237627992a99d5e30ae63e4d78cd24a"
 uuid = "6c6a2e73-6563-6170-7368-637461726353"
 version = "1.2.0"
 
-[[deps.SentinelArrays]]
-deps = ["Dates", "Random"]
-git-tree-sha1 = "04bdff0b09c65ff3e06a05e3eb7b120223da3d39"
-uuid = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
-version = "1.4.0"
-
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
-
-[[deps.SharedArrays]]
-deps = ["Distributed", "Mmap", "Random", "Serialization"]
-uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 
 [[deps.Showoff]]
 deps = ["Dates", "Grisu"]
@@ -1804,16 +1572,6 @@ weakdeps = ["ChainRulesCore"]
     [deps.SpecialFunctions.extensions]
     SpecialFunctionsChainRulesCoreExt = "ChainRulesCore"
 
-[[deps.StaticArrays]]
-deps = ["LinearAlgebra", "Random", "StaticArraysCore"]
-git-tree-sha1 = "9cabadf6e7cd2349b6cf49f1915ad2028d65e881"
-uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.6.2"
-weakdeps = ["Statistics"]
-
-    [deps.StaticArrays.extensions]
-    StaticArraysStatisticsExt = "Statistics"
-
 [[deps.StaticArraysCore]]
 git-tree-sha1 = "36b3d696ce6366023a0ea192b4cd442268995a0d"
 uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
@@ -1836,35 +1594,11 @@ git-tree-sha1 = "75ebe04c5bed70b91614d684259b661c9e6274a4"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.34.0"
 
-[[deps.StatsFuns]]
-deps = ["HypergeometricFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
-git-tree-sha1 = "f625d686d5a88bcd2b15cd81f18f98186fdc0c9a"
-uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
-version = "1.3.0"
-
-    [deps.StatsFuns.extensions]
-    StatsFunsChainRulesCoreExt = "ChainRulesCore"
-    StatsFunsInverseFunctionsExt = "InverseFunctions"
-
-    [deps.StatsFuns.weakdeps]
-    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
-
-[[deps.StatsPlots]]
-deps = ["AbstractFFTs", "Clustering", "DataStructures", "Distributions", "Interpolations", "KernelDensity", "LinearAlgebra", "MultivariateStats", "NaNMath", "Observables", "Plots", "RecipesBase", "RecipesPipeline", "Reexport", "StatsBase", "TableOperations", "Tables", "Widgets"]
-git-tree-sha1 = "9115a29e6c2cf66cf213ccc17ffd61e27e743b24"
-uuid = "f3b207a7-027a-5e70-b257-86293d7955fd"
-version = "0.15.6"
-
 [[deps.StructArrays]]
 deps = ["Adapt", "DataAPI", "GPUArraysCore", "StaticArraysCore", "Tables"]
 git-tree-sha1 = "521a0e828e98bb69042fec1809c1b5a680eb7389"
 uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 version = "0.6.15"
-
-[[deps.SuiteSparse]]
-deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
-uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[deps.SuiteSparse_jll]]
 deps = ["Artifacts", "Libdl", "Pkg", "libblastrampoline_jll"]
@@ -1875,12 +1609,6 @@ version = "5.10.1+6"
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 version = "1.0.3"
-
-[[deps.TableOperations]]
-deps = ["SentinelArrays", "Tables", "Test"]
-git-tree-sha1 = "e383c87cf2a1dc41fa30c093b2a19877c83e1bc1"
-uuid = "ab02a1b2-a7df-11e8-156e-fb1833f50b87"
-version = "1.2.0"
 
 [[deps.TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -1940,9 +1668,9 @@ version = "0.4.1"
 
 [[deps.Unitful]]
 deps = ["Dates", "LinearAlgebra", "Random"]
-git-tree-sha1 = "a72d22c7e13fe2de562feda8645aa134712a87ee"
+git-tree-sha1 = "607c142139151faa591b5e80d8055a15e487095b"
 uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
-version = "1.17.0"
+version = "1.16.3"
 
     [deps.Unitful.extensions]
     ConstructionBaseUnitfulExt = "ConstructionBase"
@@ -1974,18 +1702,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "4528479aa01ee1b3b4cd0e6faef0e04cf16466da"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
 version = "1.25.0+0"
-
-[[deps.Widgets]]
-deps = ["Colors", "Dates", "Observables", "OrderedCollections"]
-git-tree-sha1 = "fcdae142c1cfc7d89de2d11e08721d0f2f86c98a"
-uuid = "cc8bc4a8-27d6-5769-a93b-9d913e69aa62"
-version = "0.6.6"
-
-[[deps.WoodburyMatrices]]
-deps = ["LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "de67fa59e33ad156a590055375a30b23c40299d3"
-uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
-version = "0.5.5"
 
 [[deps.XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
@@ -2237,56 +1953,53 @@ version = "1.4.1+0"
 # ╔═╡ Cell order:
 # ╟─9f90a18b-114f-4039-9aaf-f52c77205a49
 # ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
+# ╟─3edc4472-7439-4f22-ab88-68dc36ad7dc6
+# ╟─52dcd4b9-9ef7-4128-a81d-d7e454cae9d6
+# ╟─19ebad08-8461-46fc-90bf-fcb1fa30d833
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
-# ╟─fc4bb806-0c85-48d9-b4af-ed957af361d3
-# ╟─a19e9007-e5b3-44d9-a071-92443ab21e28
-# ╟─d04bc149-4815-40bc-9d65-c68cc107c5bb
-# ╟─0d0559e1-41b7-414d-83ee-6c1271baf1e7
-# ╟─173b7d36-4b5a-4297-b462-3d16fc564f41
-# ╟─771b7002-24c3-44a9-994f-6522afb57dcd
-# ╟─7cdd0017-f485-4ded-a0f8-7f8635761b68
-# ╟─dd55a282-9e21-4111-9c2d-372d3eee26ce
-# ╟─5e6b83d7-3551-4b5c-96c2-366bf8eb33e4
-# ╟─4a47a0d2-f05f-4a01-a505-5b3de7f53872
-# ╟─bbb449e1-f6ba-40fa-a892-09786419cda1
-# ╟─97fca6ae-f19c-4440-a5ca-633af08910e5
-# ╟─a63881f1-9248-4052-ad56-04767d680f38
-# ╟─7cdf569c-a944-45ad-b672-c6e73cc7eacc
-# ╟─996276c4-e8af-4c06-a5f5-bb7b63e1b744
-# ╟─085f5bb8-0f1b-47b2-94a0-2f93629e446e
-# ╟─f5e88531-0cc4-49bc-93b3-f763b7c64e2b
-# ╟─a373376c-368b-45b9-9a97-e0392d78c077
-# ╟─7dea21ce-04b6-424d-9d14-464aa901918e
-# ╟─51f2b7fb-0ded-445d-a43e-4fe884fbe584
-# ╟─3886400e-f985-4a69-b9cd-930bb0996eb0
-# ╟─f963dd3d-2c53-46c6-b92a-6bece799af35
-# ╟─309f7945-29f6-47cc-9ef4-24483f0f3855
-# ╟─6d1c080e-0523-46a2-b3f3-0f91a595d351
-# ╟─7084f202-3d8f-42ff-b3be-0717612b345d
-# ╟─db222925-812f-4dfa-b102-f1a9b44d8824
-# ╟─d28073c7-08e6-490e-95ba-8cda4ae9aa4a
-# ╟─c395f3aa-5e00-4f54-9a4e-845adee810a3
-# ╟─fb1ffb36-c064-4e01-bc93-c5989c83edcb
-# ╟─34f3186a-5c46-4a1d-8abc-d96fe20c4d6e
-# ╟─1b9a92f3-8996-4829-9929-52fba1cfe91f
-# ╟─f0ad4fdb-2a07-436e-81a7-47a249d6871d
-# ╟─c3eeb2e9-93b8-4bb6-afd4-b08d23358f6e
-# ╟─747fadfb-ba6b-4520-8166-f538da1d194d
-# ╟─89d18c2a-ee6c-4eb7-81f5-0bfec682f4db
-# ╟─7a0b667e-f2d6-496c-b223-62854690fe5f
-# ╟─4e0a8f9c-93f8-4329-bb7f-1c0ece6f38cb
-# ╟─9e25d784-da56-4894-aa53-b8c8e1c0733b
-# ╟─77b112ef-f21a-40e5-becf-260116e9d04a
-# ╟─d60a639a-51f7-4a46-9a7b-f34933898c79
-# ╟─46f38254-0176-414a-9c46-9e6057ed94be
-# ╟─58204d30-9975-4546-8591-64dc44b3524b
-# ╟─8fe3a3a2-65df-4e9c-bdaa-64ebf06b2208
-# ╟─f46b008a-1fc7-461a-9f68-efc68506186b
-# ╟─4382f47e-3c62-4ddc-9502-ebeb8d009e26
-# ╟─bb583c35-64af-41bb-a805-fb505001e29f
+# ╟─ec324086-0193-4612-bc4a-d584642909f7
+# ╟─eb1a033f-7945-4309-b8f0-37706d4e327f
+# ╟─e3888295-ba41-4c19-86db-a693da49261f
+# ╟─588de3ce-ec58-4c45-9332-ace21ba6bbff
+# ╟─f706d675-fc33-4415-ab8e-a812a9ca2262
+# ╟─5fe43882-fa14-46c9-9d84-3c73bd83b9f1
+# ╟─a1077040-eeed-4f23-a320-5efb41e02e30
+# ╟─83067cf5-cc14-4618-8d78-6372d9300358
+# ╟─dcd234e3-743e-40b8-9fec-e93297a67b5e
+# ╟─0e8e10fe-c623-484a-83c6-b037a60d593e
+# ╟─a6407bb7-5b21-49db-94f2-0b8594fd6e20
+# ╟─424759f6-fa73-41b9-8893-bb6ede7d558e
+# ╟─73eff8b5-f20e-4f06-870d-07c40c8491f7
+# ╟─8973a40b-c6e7-4953-aaad-873534c76c7c
+# ╟─60fc895a-50e6-4eb1-9ecc-308c44d3d64b
+# ╟─0ef46fd3-8bc0-4f9c-a7ab-7ee83329b6ab
+# ╟─4dab6f59-0db0-466f-afce-a049e6126247
+# ╟─09d4ae3b-841b-4990-9d5d-f4788ecb3102
+# ╟─ef9b60c8-245f-462e-8ea2-a32decfa6b30
+# ╟─03cd72c9-9807-4d9e-843f-85fb4b5bb51b
+# ╟─d8a2dab5-33ba-4073-a133-3c1a35d2781c
+# ╟─b80e0c24-3cb1-4757-bba1-d1aeddc3527e
+# ╟─a482de55-c222-49cf-8ddc-7f50ee1ae104
+# ╟─db794e4d-5e95-4204-8051-9dfdf097d904
+# ╟─439eb6c6-501f-406e-88f5-fcfb66333189
+# ╟─b960a582-5346-418b-aec0-8c15859bd31f
+# ╟─eaa3f859-c675-4155-ab59-a9676afdc3f3
+# ╟─8446f358-7acf-4bd7-8641-264b4add458f
+# ╟─313184fd-171d-44e1-8e8f-735f76401de2
+# ╟─fe470ca6-b3d3-4d5f-87d3-499c9e7796a5
+# ╟─2cfd0e78-a5ae-4fa7-a04a-e5215c8fd01b
+# ╟─8242c0c3-d75a-46be-9c6d-c02faf41ca02
+# ╟─0fc5f4f9-5dc2-4dab-930f-ec3486fa4353
+# ╟─15a68d04-ed33-4a1b-b66b-413e94b4c25d
+# ╟─5bfb871d-86a5-4954-8335-9c377030b360
+# ╟─d22765d9-8133-4079-bb22-7968fa304cb0
 # ╟─0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 # ╟─8687dbd1-4857-40e4-b9cb-af469b8563e2
 # ╟─fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
+# ╟─fe24e6db-9269-475e-9347-5ec08b307e5f
+# ╟─11e7d329-3b8e-4b79-97bb-e4c2695713e5
+# ╟─8ba48e11-1fbf-49d2-aae1-6931e20bad0e
+# ╠═f9bf41d9-0a8e-47c7-be5e-5fbd797497aa
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

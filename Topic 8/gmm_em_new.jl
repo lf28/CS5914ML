@@ -1031,26 +1031,38 @@ md"""
 """
 
 # ╔═╡ ab538ef3-0ebf-4a4c-839a-eea19e1920d8
-# begin
+begin
 
-# 	Random.seed!(123)
-# 	nobs = 1200
-# 	ts = rand(nobs) * 2 .- 1 
+	Random.seed!(123)
+	nobs = 1200
+	ts = rand(nobs) * 2 .- 1 
 
-# 	ys = @. 0.45 * sin(π * ts * 4.5) - 0.5 * ts + randn() * 0.05
-# 	data₄ = [ys ts]
-# end;
+	ys = @. 0.45 * sin(π * ts * 4.5) - 0.5 * ts + randn() * 0.15
+	data₄ = [ys ts]
+end;
 
 # ╔═╡ c00e00f2-a1d6-407a-8326-15e6cf125d56
-# md"""
+md"""
 
-# ## Demon of EM (another dataset)
-# """
+## Demon of EM (another dataset)
+"""
 
 # ╔═╡ 9b27b240-9e2a-4b49-a643-83739d468c5b
-# begin
-# 	plot(ys, ts, st=:scatter, ratio =1, label="data", xlabel=L"x", ylabel=L"y", title="Dataset without ground truth", xlim =[-1.2, 1.2], markersize =4, alpha=0.5)
-# end
+begin
+	plot(ys, ts, st=:scatter, ratio =1, label="data", xlabel=L"x", ylabel=L"y", title="Dataset without ground truth", xlim =[-1.2, 1.2], markersize =4, alpha=0.5)
+end
+
+# ╔═╡ 74557480-f940-4c60-8b12-8255a307c310
+md"""
+
+### K-means result
+"""
+
+# ╔═╡ 44222f14-d4c3-4556-88b0-5021091e64a8
+md"""
+
+### GMM with EM result
+"""
 
 # ╔═╡ 801732eb-b50a-40c1-8199-576cdd06ce5e
 md"""
@@ -1670,9 +1682,37 @@ function plot_clusters(D, zs, K, loss=nothing, iter=nothing,  framestyle=:origin
 	return plt
 end
 
+# ╔═╡ 0cdc7493-8bce-4272-9f1a-bd24326298ef
+# # plot clustering results: scatter plot + Gaussian contours
+# function plot_clustering_rst(data, K, zs, mvns, πs= 1/K .* ones(K); title="", add_gaussian_contours= false, add_contours=true)
+# 	xs = (minimum(data[:,1])-0.5):0.1: (maximum(data[:,1])+0.5)
+# 	ys = (minimum(data[:,2])-0.5):0.1: (maximum(data[:,2])+0.5)
+# 	_, dim = size(data)
+# 	# if center parameters are given rather than an array of MvNormals
+# 	if mvns isa Matrix{Float64}
+# 		mvns = [MvNormal(mvns[:,k], Matrix(1.0I, dim, dim)) for k in 1:K]
+# 		πs = 1/K .* ones(K)
+# 	end
+# 	if ndims(zs) >1
+# 		zs = [c[2] for c in findmax(zs, dims=2)[2]][:]
+# 	end
+# 	p = plot_clusters(data, zs, K)
+# 	for k in 1:K 
+# 		if add_gaussian_contours
+# 			plot!(xs, ys, (x,y)-> pdf(mvns[k], [x,y]), levels=5,  st=:contour, colorbar = false, ratio=1, color=:jet, linewidth=2) 
+# 		elseif add_contours
+# 			plot!(xs, ys, (x,y)-> qdform([x,y]-mvns[k].μ, inv(mvns[k].Σ)), levels=[2.0],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=3) 
+# 		end
+		
+# 		scatter!([mvns[k].μ[1]], [mvns[k].μ[2]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=3)
+# 	end
+# 	title!(p, title)
+# 	return p
+# end
+
 # ╔═╡ e091ce93-9526-4c7f-9f14-7634419bfe57
 # plot clustering results: scatter plot + Gaussian contours
-function plot_clustering_rst(data, K, zs, mvns, πs= 1/K .* ones(K); title="", add_gaussian_contours= false, lw=2)
+function plot_clustering_rst(data, K, zs, mvns, πs= 1/K .* ones(K); title="", add_gaussian_contours= false, add_contours = true, lw=2)
 	xs = (minimum(data[:,1])-0.5):0.1: (maximum(data[:,1])+0.5)
 	ys = (minimum(data[:,2])-0.5):0.1: (maximum(data[:,2])+0.5)
 	_, dim = size(data)
@@ -1688,8 +1728,8 @@ function plot_clustering_rst(data, K, zs, mvns, πs= 1/K .* ones(K); title="", a
 	for k in 1:K 
 		if add_gaussian_contours
 			plot!(xs, ys, (x,y)-> pdf(mvns[k], [x,y]), levels=5,  st=:contour, colorbar = false, ratio=1, color=:jet, linewidth=lw) 
-		else
-			plot!(xs, ys, (x,y)-> qdform([x,y]-mvns[k].μ, inv(mvns[k].Σ)), levels=[2.0],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=lw) 
+		elseif add_contours
+			plot!(xs, ys, (x,y)-> qdform([x,y]-mvns[k].μ, inv(mvns[k].Σ)), levels=[1.0],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=lw) 
 		end
 		
 		scatter!([mvns[k].μ[1]], [mvns[k].μ[2]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=3)
@@ -1761,6 +1801,21 @@ end, let
 
 plot(plt_qda, size=(350,350), xlabel=L"x_1", ylabel=L"x_2", title="Clustering objective", titlefontsize=10)
 end)
+
+# ╔═╡ ca3040cd-35f1-451c-a26c-3a09a9c3a4c0
+let
+	_, zskm₄, ms₄ = kmeans(data₄, 9; seed= 222);
+	plt = plot_clustering_rst(data₄, 9, zskm₄, ms₄; add_gaussian_contours=false, add_contours=false, title= "K-means result for dataset 4")
+end
+
+# ╔═╡ 1781a7b5-8dea-41c9-9cee-5f6c87819aa4
+let
+	KK =9
+	_, mvns, πs , zs = em_mix_gaussian(data₄, KK;  maxIters= 400, tol= 1e-6, init_step="m", seed=3456)
+	# plt₁₀ = plot_clusters(data₂_, argmax.(eachrow(zs[KK])), KK)
+	plt₁₀ = plot_clustering_rst(data₄, KK, argmax.(eachrow(zs)), mvns, πs; title="", add_gaussian_contours= false, lw=3)
+	title!(plt₁₀, "EM fit with "*L"K = %$(KK)")
+end
 
 # ╔═╡ f4d5f3c6-1f85-4401-a9b9-2e2d2e4b3e58
 let
@@ -1836,9 +1891,18 @@ function kmeansDemoGif(data, K, iters = 10; init_step="a", add_contour=false, se
 	return anims
 end
 
+# ╔═╡ 1e8f4f6e-42fe-442e-92c0-d44699904462
+begin
+	gr()
+	kmAnim₄ = kmeansDemoGif(data₄, 9, 25; init_step="u", add_contour=false, seed=234);
+end;
+
+# ╔═╡ 9b693586-5098-4cff-92e8-3f0d736689d3
+gif(kmAnim₄[2])
+
 # ╔═╡ c46e0b36-c3fd-4b7f-8f31-25c3315bb10c
 # plot type: cl: classification; db: decision boundary; ct: contour
-function mixGaussiansDemoGif(data, K, iters = 10; init_step="e", add_contour=false, seed=123)
+function mixGaussiansDemoGif(data, K, iters = 10; init_step="e", add_contour=false, seed=123, every = 1)
 	Random.seed!(seed)
 	# only support 2-d
 	dim = 2 
@@ -1848,34 +1912,42 @@ function mixGaussiansDemoGif(data, K, iters = 10; init_step="e", add_contour=fal
 		zs = Matrix(I,K,K)[zs_,:]
 		l = Inf
 	else
-		ms = reshape(repeat(mean(data, dims=1)', K), (dim,K))
-		ms .+= randn(dim,K)
+		# ms = reshape(repeat(mean(data, dims=1)', K), (dim,K))
+		# ms .+= randn(dim,K)
+
+		ridx = sample(1:size(data)[1], K)
+		# ms = reshape(repeat(mean(data, dims=1)', K), (dim,K))
+		# ms .+= randn(dim,K)
+		ms = data[ridx, :]'
 		mvns = [MvNormal(ms[:,k], Matrix(1.0I,dim,dim)) for k in 1:K]
 		zs, l = e_step(data, mvns, 1/K .* ones(K))
 		zs_ = [c[2] for c in findmax(zs, dims=2)[2]][:]
 	end
-	xs = (minimum(data[:,1])-0.1):0.1:(maximum(data[:,1])+0.1)
-	ys = (minimum(data[:,2])-0.1):0.1:(maximum(data[:,2])+0.1)
+	# xs = (minimum(data[:,1])-0.1):0.1:(maximum(data[:,1])+0.1)
+	# ys = (minimum(data[:,2])-0.1):0.1:(maximum(data[:,2])+0.1)
+	xs = range(minimum(data[:,1])-0.1, maximum(data[:,1])+0.1, 100)
+	ys = range(minimum(data[:,2])-0.1, maximum(data[:,2])+0.1, 100)
 	# cs = cgrad(:lighttest, K+1, categorical = true)
-
 	for iter in 1:iters
 		# M step
 		mvns, ps  = m_step(data, zs)
 		# animation 1: classification evolution 
 		p1 = plot_clusters(data, zs_, K, l, iter)
-		if add_contour
-			for k in 1:K 
+		for k in 1:K 
+			if add_contour
 				plot!(xs, ys, (x,y)-> qdform([x,y]-mvns[k].μ, inv(mvns[k].Σ)), levels=[2.0],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=3) 
-				scatter!([mvns[k].μ[1]], [mvns[k].μ[2]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=2)
 			end
+			
+			scatter!([mvns[k].μ[1]], [mvns[k].μ[2]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=2)
 		end
-		frame(anims[1], p1)
+		
+		# frame(anims[1], p1)
 		# animation 2: decision boundary evolution 
 		p2 = heatmap(xs, ys, (x,y) -> decisionBdry(x,y, mvns, ps)[2], c=1:K, leg=:none, title="Iteration: "*string(iter)*"; L="*string(round(l; digits=2)), ratio=1, framestyle=:origin)
 		for k in 1:K
 			scatter!(data[zs_ .==k, 1], data[zs_ .==k, 2], c= k)
 		end
-		frame(anims[2], p2)
+		# frame(anims[2], p2)
 
 		# animation 3: contour plot
 		# p3 = plot_clusters(data, zs_, K, l, iter)
@@ -1883,7 +1955,12 @@ function mixGaussiansDemoGif(data, K, iters = 10; init_step="e", add_contour=fal
 		# for k in 1:K
 		# 	scatter!(data[zs_ .==k, 1], data[zs_ .==k, 2], c= cs[k], label="")
 		# end
-		frame(anims[3], p3)
+
+		if (every == 1) || (every > 1 && (iter % every == 1))
+			frame(anims[1], p1)
+			frame(anims[2], p2)
+			frame(anims[3], p3)
+		end
 		# E step
 		zs, l = e_step(data, mvns, ps)
 		zs_ = [c[2] for c in findmax(zs, dims=2)[2]][:]
@@ -1911,6 +1988,16 @@ end
 
 # ╔═╡ 69321cbd-f325-4da8-8674-a90f616b9ee2
 gif(mixAnims₃[1], fps=5)
+
+# ╔═╡ 99deb886-deea-4528-967c-7b9330da648d
+begin
+	gr()
+	# mixGaussiansDemoGif(data, K, iters = 10; init_step="e", add_contour=false, seed=123)
+	emAnim₄ = mixGaussiansDemoGif(data₄, 9, 100; init_step="m", add_contour=true, seed=3456, every = 5);
+end;
+
+# ╔═╡ 1c9b4d6f-63d1-42a2-9511-550048b67bf4
+gif(emAnim₄[1], fps=5)
 
 # ╔═╡ 05c2d1ac-d447-4942-940d-4f4052e66eeb
 begin
@@ -3425,6 +3512,14 @@ version = "1.4.1+0"
 # ╟─ab538ef3-0ebf-4a4c-839a-eea19e1920d8
 # ╟─c00e00f2-a1d6-407a-8326-15e6cf125d56
 # ╟─9b27b240-9e2a-4b49-a643-83739d468c5b
+# ╟─74557480-f940-4c60-8b12-8255a307c310
+# ╟─1e8f4f6e-42fe-442e-92c0-d44699904462
+# ╟─9b693586-5098-4cff-92e8-3f0d736689d3
+# ╟─ca3040cd-35f1-451c-a26c-3a09a9c3a4c0
+# ╟─99deb886-deea-4528-967c-7b9330da648d
+# ╟─44222f14-d4c3-4556-88b0-5021091e64a8
+# ╟─1c9b4d6f-63d1-42a2-9511-550048b67bf4
+# ╟─1781a7b5-8dea-41c9-9cee-5f6c87819aa4
 # ╟─801732eb-b50a-40c1-8199-576cdd06ce5e
 # ╟─605c727b-d5c8-418e-8d15-b19fc59acaef
 # ╟─ccefec6c-df1b-4a4e-9155-2c757105fcce
@@ -3454,6 +3549,7 @@ version = "1.4.1+0"
 # ╠═8d06ce32-2c8d-4317-8c38-108ec0e7fe23
 # ╟─d66e373d-8443-4810-9332-305d9781a21a
 # ╠═acfb80f0-f4d0-4870-b401-6e26c1c99e45
+# ╠═0cdc7493-8bce-4272-9f1a-bd24326298ef
 # ╠═e091ce93-9526-4c7f-9f14-7634419bfe57
 # ╠═5a8cdbe7-6abe-4f07-8bcc-89dd71fc35f7
 # ╠═c46e0b36-c3fd-4b7f-8f31-25c3315bb10c

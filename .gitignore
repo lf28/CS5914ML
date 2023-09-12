@@ -1,2 +1,29 @@
 
 resources/figs/.DS_Store
+template backup 1.jl
+template backup 2.jl
+Topic 1 /calculus1_single_var backup 1.jl
+Topic 1 /calculus2_multi_var backup 1.jl
+Topic 1 /calculus3_approx backup 1.jl
+Topic 1 /linearalgebra backup 1.jl
+Topic 1 /linearalgebra backup 2.jl
+Topic 10/neuralnet1 backup 1.jl
+Topic 10/.ipynb_checkpoints/neural_network-checkpoint.ipynb
+Topic 10/.ipynb_checkpoints/Untitled-checkpoint.ipynb
+Topic 10/.ipynb_checkpoints/Untitled1-checkpoint.ipynb
+Topic 2/linearreg backup 1.jl
+Topic 3/prob_theory1 backup 1.jl
+Topic 5/mnist_case backup 1.jl
+Topic 5/logistic_reg backup 2.jl
+Topic 5/logistic_reg backup 1.jl
+Topic 4/crossvalidation backup 1.jl
+Topic 5/regularisation backup 1.jl
+Topic 5/regularisation backup 2.jl
+Topic 6/softmax_reg backup 1.jl
+Topic 5/softmax_reg backup 1.jl
+Topic 6/softmax_reg backup 2.jl
+Topic 8/kmeans backup 1.jl
+Topic 7/multi_gaussian backup 2.jl
+Topic 7/multi_gaussian backup 1.jl
+Topic 7/Lecture11 backup 1.jl
+Topic 7/bayes_rule backup 1.jl
