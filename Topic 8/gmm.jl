@@ -228,27 +228,6 @@ begin
 	plt_demo
 end
 
-# ╔═╡ f2b7b63a-fd54-4f80-af28-f255d186f6f9
-begin
-	gr()
-	pltsₖₘ = []
-	anim2 = @animate for iter in 1:5
-		ls, initzs = assignment_step(data₁, ms)
-	    p = plot_clusters(data₁, initzs, K₁, sum(ls), iter)
-		push!(pltsₖₘ, p)
-		for k in 1:K₁
-			scatter!([ms[1,k]], [ms[2,k]], markershape = :star4, markerstrokewidth =3, markersize = 10, c= k, labels= "μ"*string(k))
-		end
-		ms = update_step(data₁, initzs, K₁)
-	end
-end;
-
-# ╔═╡ 11519291-da33-4bb2-b0e4-cffe347cf085
-pltsₖₘ
-
-# ╔═╡ 474bace2-9586-45d3-b674-73806bbc85b8
-gif(anim2, fps = 1.0)
-
 # ╔═╡ e1ccac4e-1cba-43d2-b0e0-e8c650a79d9a
 md"""
 ## A demonstration of K-means (cont.)
@@ -318,30 +297,6 @@ md"""
 ## A quick demon of alternative K-means
 
 """
-
-# ╔═╡ 5276ff0e-bc4f-4b24-b98c-8f9e7c0d018d
-begin
-	gr()
-	pltsₖₘ2 = []
-	zs0 = rand(1:K₁, size(data₁)[1])
-	l_ = Inf
-	anim = @animate for iter in 1:6
-		p = plot_clusters(data₁, zs0, K₁, l_, iter)
-		ms0 = update_step(data₁, zs0, K₁)
-		for k in 1:K₁
-			scatter!([ms0[1,k]], [ms0[2,k]], markershape = :star4, markersize = 10, c=k, markerstrokewidth =3, color=k, labels= "μ"*string(k))
-		end
-		ls, zs0 = assignment_step(data₁, ms0)
-		l_ = sum(ls)
-		push!(pltsₖₘ2, p)
-	end
-end
-
-# ╔═╡ 20e84d48-0f5f-403e-a8aa-1cbd11cd3b04
-pltsₖₘ2
-
-# ╔═╡ 1954eac7-f155-4c37-9a51-26440d79851d
-gif(anim, fps = 1)
 
 # ╔═╡ a391d4a3-9fe3-4ccf-9a62-c2cb19ea8813
 md"""
@@ -1495,6 +1450,51 @@ function plot_clusters(D, zs, K, loss=nothing, iter=nothing)
 	return plt
 end
 
+# ╔═╡ f2b7b63a-fd54-4f80-af28-f255d186f6f9
+begin
+	gr()
+	pltsₖₘ = []
+	anim2 = @animate for iter in 1:5
+		ls, initzs = assignment_step(data₁, ms)
+	    p = plot_clusters(data₁, initzs, K₁, sum(ls), iter)
+		push!(pltsₖₘ, p)
+		for k in 1:K₁
+			scatter!([ms[1,k]], [ms[2,k]], markershape = :star4, markerstrokewidth =3, markersize = 10, c= k, labels= "μ"*string(k))
+		end
+		ms = update_step(data₁, initzs, K₁)
+	end
+end;
+
+# ╔═╡ 11519291-da33-4bb2-b0e4-cffe347cf085
+pltsₖₘ
+
+# ╔═╡ 474bace2-9586-45d3-b674-73806bbc85b8
+gif(anim2, fps = 1.0)
+
+# ╔═╡ 5276ff0e-bc4f-4b24-b98c-8f9e7c0d018d
+begin
+	gr()
+	pltsₖₘ2 = []
+	zs0 = rand(1:K₁, size(data₁)[1])
+	l_ = Inf
+	anim = @animate for iter in 1:6
+		p = plot_clusters(data₁, zs0, K₁, l_, iter)
+		ms0 = update_step(data₁, zs0, K₁)
+		for k in 1:K₁
+			scatter!([ms0[1,k]], [ms0[2,k]], markershape = :star4, markersize = 10, c=k, markerstrokewidth =3, color=k, labels= "μ"*string(k))
+		end
+		ls, zs0 = assignment_step(data₁, ms0)
+		l_ = sum(ls)
+		push!(pltsₖₘ2, p)
+	end
+end
+
+# ╔═╡ 20e84d48-0f5f-403e-a8aa-1cbd11cd3b04
+pltsₖₘ2
+
+# ╔═╡ 1954eac7-f155-4c37-9a51-26440d79851d
+gif(anim, fps = 1)
+
 # ╔═╡ 4fec39f6-d367-49f7-83f2-47b2b2dee538
 begin
 	plt₂=plot_clusters(data₂, truezs₂, K₂)
@@ -1773,7 +1773,7 @@ StatsPlots = "~0.15.5"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.3"
+julia_version = "1.9.4"
 manifest_format = "2.0"
 project_hash = "2e9df7b887c7ef21eee38b60fec8a32799cbee52"
 
@@ -1988,6 +1988,12 @@ deps = ["Calculus", "NaNMath", "SpecialFunctions"]
 git-tree-sha1 = "5837a837389fccf076445fce071c8ddaea35a566"
 uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
 version = "0.6.8"
+
+[[deps.EpollShim_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "8e9441ee83492030ace98f9789a654a6d0b1f643"
+uuid = "2702e6a9-849d-5ed8-8c21-79e8b8f9ee43"
+version = "0.0.20230411+0"
 
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
@@ -2247,12 +2253,12 @@ uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
-version = "0.6.3"
+version = "0.6.4"
 
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
-version = "7.84.0+0"
+version = "8.4.0+0"
 
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
@@ -2261,7 +2267,7 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
-version = "1.10.2+0"
+version = "1.11.0+1"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -2840,7 +2846,7 @@ uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
 version = "0.2.0"
 
 [[deps.Wayland_jll]]
-deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
+deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "ed8d92d9774b077c53e1da50fd81a36af3744c1c"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
 version = "1.21.0+0"
@@ -3056,7 +3062,7 @@ version = "1.3.7+1"
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
-version = "1.48.0+0"
+version = "1.52.0+1"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
