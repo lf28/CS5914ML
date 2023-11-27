@@ -679,34 +679,15 @@ md"""
 ## (Log-)likelihood function
 
 
-
-For logistic regression model
-
-* the unknown (hypothesis) are: ``\mathbf{w}``
-
-* the data observations are: ``\mathcal{D} =\{y^{(1)}, y^{(2)}, \ldots, y^{(n)}\}``
-
-* as usual, ``\{\mathbf{x}^{(i)}\}`` are assumed fixed
-
-
-
 Therefore, the log-likelihood function is
 
 ```math
-\large
 \begin{align}
-\ln p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{i}\}) &= \sum_{i=1}^n \ln p(y^{(i)}|\mathbf{w}, \mathbf{x}^{(i)}) \\
+\ln p(\mathcal{D}|\mathbf{w},  \{\mathbf{x}^{(i)}\}) &= \ln \prod_{i=1}^n p(y^{(i)}|\mathbf{w}, \mathbf{x}^{(i)}) \tag{independent}\\
+&=\sum_{i=1}^n \ln p(y^{(i)}|\mathbf{w}, \mathbf{x}^{(i)}) \tag{$\ln \small\prod = \sum\ln$}\\
 
 &= \sum_{i=1}^n {y^{(i)}} \ln \sigma^{(i)}+ (1- y^{(i)}) \ln (1-\sigma^{(i)})
 \end{align}
-```
-
-
-In practice, we use take the average/mean loss rather than the sum
-
-```math
-\large
-\frac{1}{n}\ln p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{i}\}) =\colorbox{pink}{$\frac{1}{n}$}\sum_{i=1}^n {y^{(i)}} \ln \sigma^{(i)}+ (1- y^{(i)}) \ln (1-\sigma^{(i)})
 ```
 
 
@@ -717,7 +698,7 @@ In practice, we use take the average/mean loss rather than the sum
 
 
 ```math
-\hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\max_{\mathbf{w}} \ln p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{i}\})
+\hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\max_{\mathbf{w}} \ln p(\mathcal{D}|\mathbf{w},  \{\mathbf{x}^{i}\})
 ```
 
 or minimise its negative (also known as **cross-entropy** (CE) loss)
@@ -725,7 +706,7 @@ or minimise its negative (also known as **cross-entropy** (CE) loss)
 
 ```math
 \large
-\hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}} \underbrace{-\ln p(\mathcal{D}|\mathbf{w}, \sigma^2, \{\mathbf{x}^{i}\})}_{\text{CE loss}(\mathbf{w})}
+\hat{\mathbf{w}}_{\text{MLE}} \leftarrow \arg\min_{\mathbf{w}} \underbrace{-\ln p(\mathcal{D}|\mathbf{w}, \{\mathbf{x}^{i}\})}_{\text{CE loss}(\mathbf{w})}
 ```
 
 """
@@ -747,15 +728,7 @@ Consider one observation ``\{\mathbf{x}^{(i)}, y^{(i)}\}`` only, the loss is
  \text{CE}(\mathbf{w}) = - {y^{(i)}} \ln \sigma^{(i)}- (1- y^{(i)}) \ln (1-\sigma^{(i)})
 \end{align}
 ```
-When ``y^{(i)} = 1``, *i.e.* the true label is 1, the loss becomes 
 
-```math
-\large
-\begin{align}
-y^{(i)} = 1\; \Rightarrow\; \text{CE error}^{(i)} &= - 1 \ln \sigma^{(i)}- (1- 1) \ln (1-\sigma^{(i)})\\
-&= - \ln (\sigma^{(i)})
-\end{align}
-```
 """
 
 # ╔═╡ 67f7449f-19b8-4607-9e32-0f8a16a806c0
@@ -782,7 +755,7 @@ When ``y^{(i)} = 1``, *i.e.* the true label is 1, the loss becomes
 
 """, let
 	gr()
-	plot(0:0.005:1, (x) -> -log(x), lw=2, xlabel="Predicted probability: "* L"\sigma^{(i)}", ylabel="loss", label=L"-\ln \sigma^{(i)}", title=L"y^{(i)}=1"* ": i.e. class label is 1", annotate = [(1, 0.9, text("perfect pred", "Computer Modern", :right, rotation = 270 ,:green, 12)), (0.11, 3.5, text("worst pred", :right, "Computer Modern", rotation = 270 ,:red, 12))], size=(350,350))
+	plot(0:0.005:1, (x) -> -log(x), lw=2, xlabel="Predicted probability: "* L"\sigma^{(i)}", ylabel="CE loss", label=L"-\ln \sigma^{(i)}", title="CE loss when "*L"y^{(i)}=1", annotate = [(1, 0.9, text("perfect pred", "Computer Modern", :right, rotation = 270 ,:green, 12)), (0.11, 3.5, text("worst pred", :right, "Computer Modern", rotation = 270 ,:red, 12))], size=(350,350), ylabelfontsize=18)
 
 
 	quiver!([1], [0.8], quiver=([1-1], [0-0.8]), c=:green, lw=3)
@@ -826,7 +799,7 @@ When ``y^{(i)} = 0``, *i.e.* the true label is 0, the loss becomes
 ```
 """, let
 	gr()
-	plot(0:0.005:1, (x) -> -log(1-x), lw=2, xlabel="Predicted probability: "* L"\sigma^{(i)}", ylabel="loss", label=L"-\ln(1-\sigma^{(i)})", title=L"y^{(i)}=0"* ": the true class label is 0", size=(350,350))
+	plot(0:0.005:1, (x) -> -log(1-x), lw=2, xlabel="Predicted probability: "* L"\sigma^{(i)}", ylabel="loss", label=L"-\ln(1-\sigma^{(i)})",  title="CE loss when "*L"y^{(i)}=1", size=(350,350), ylabelfontsize=18)
 
 
 	# quiver!([0], [0.8], quiver=([1-1], [0-0.8]), c=:red, lw=3)
@@ -2194,6 +2167,12 @@ git-tree-sha1 = "5837a837389fccf076445fce071c8ddaea35a566"
 uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
 version = "0.6.8"
 
+[[deps.EpollShim_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "8e9441ee83492030ace98f9789a654a6d0b1f643"
+uuid = "2702e6a9-849d-5ed8-8c21-79e8b8f9ee43"
+version = "0.0.20230411+0"
+
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
 git-tree-sha1 = "e90caa41f5a86296e014e148ee061bd6c3edec96"
@@ -3241,7 +3220,7 @@ uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
 version = "0.2.0"
 
 [[deps.Wayland_jll]]
-deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
+deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "ed8d92d9774b077c53e1da50fd81a36af3744c1c"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
 version = "1.21.0+0"

@@ -1205,6 +1205,12 @@ git-tree-sha1 = "5837a837389fccf076445fce071c8ddaea35a566"
 uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
 version = "0.6.8"
 
+[[deps.EpollShim_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "8e9441ee83492030ace98f9789a654a6d0b1f643"
+uuid = "2702e6a9-849d-5ed8-8c21-79e8b8f9ee43"
+version = "0.0.20230411+0"
+
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
 git-tree-sha1 = "e90caa41f5a86296e014e148ee061bd6c3edec96"
@@ -2829,7 +2835,7 @@ uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
 version = "0.21.64"
 
 [[deps.Wayland_jll]]
-deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
+deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "ed8d92d9774b077c53e1da50fd81a36af3744c1c"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
 version = "1.21.0+0"
@@ -3110,7 +3116,7 @@ version = "1.4.1+0"
 # ╟─55ffe10e-899d-456f-ba62-12d51a072843
 # ╟─c9302e0c-786a-498a-9a66-a6b160ebfe57
 # ╟─d5c8bdbf-84fd-4d54-8657-e436f08674ad
-# ╠═9d7644af-4749-4b25-bdca-3beea8964d0c
+# ╟─9d7644af-4749-4b25-bdca-3beea8964d0c
 # ╟─27701793-8185-4310-989b-4394a69a96cb
 # ╟─4b0d5bd7-2e3a-4ebf-8e1d-6cb67de267b5
 # ╟─2ad1858b-fcd3-4cc8-be70-97746480eacd

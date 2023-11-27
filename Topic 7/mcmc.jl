@@ -14,49 +14,32 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ 120a282a-91c1-11ec-346f-25d56e50d38c
+# ╔═╡ dbdb0950-4a33-11ed-39a0-6b2ea3d774e6
 begin
-	using Distributions,Random, StatsBase, Clustering, LinearAlgebra
-	using PlutoUI
 	using StatsPlots
-	# using PlutoTeachingTools
-end
-
-# ╔═╡ 06d45497-b465-4370-8411-9651e33e70e6
-begin
-	# using LinearAlgebra
-	# using PlutoUI
 	using PlutoTeachingTools
-	using LaTeXStrings
-	using Latexify
-	# using Random
-	using Statistics
-	using LogExpFunctions
-	using HypertextLiteral
+	using PlutoUI
+	using MCMCChains
+	using Random
+	using StatsFuns:xlogy, logsumexp
+	using Distributions
+	using LaTeXStrings, Latexify
 	using Plots; default(fontfamily="Computer Modern", framestyle=:box) # LaTex-style
-	
 end
 
-# ╔═╡ 48bf8355-1bfe-41a1-97fc-5e2d0470a6c3
-begin
-	using Logging
-	Logging.disable_logging(Logging.Info); # or e.g. Logging.Info
-end;
-
-# ╔═╡ 646dd3d8-6092-4435-aee9-01fa6a281bdc
-ChooseDisplayMode()
-
-# ╔═╡ 6f051fad-2c4b-4a9e-9361-e9b62ba189c5
+# ╔═╡ 89f53893-93f1-49d3-b643-2aee7e6f4610
 TableOfContents()
 
-# ╔═╡ be9bcfcb-7ec7-4851-bd3f-24d4c29462fe
+# ╔═╡ b5e1f496-02e1-4352-9912-ff7bf4ea622c
+ChooseDisplayMode()
+
+# ╔═╡ d1b809fb-e381-49ac-bfa4-77c12f3ccf17
 md"""
 
 # CS5914 Machine Learning Algorithms
 
 
-#### Unsupervised learning 
-###### Clustering 1
+#### MCMC -- Metropolis Hasting
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -69,1230 +52,1002 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 
 """
 
-# ╔═╡ e61193e8-3f91-455b-9e33-101de4cfd4a3
-md"""
+# ╔═╡ 83eb182e-8fed-4827-b56c-756273f847a7
 
-## Topics to cover
-	
+md"""
+## Bayesian computation is hard
+
+
+
+For Bayesian logistic regresion,  we need to work out the integraion
+```math
+\begin{align}
+p(y_{test} |\mathbf{x}_{test}, \mathbf{y}, \mathbf{X}) 
+&= \int_{\mathbf{w}} p(y_{test}|\mathbf{x}_{test}, \mathbf{w})  \underbrace{p(\mathbf{w}|\mathbf{y}, \mathbf{X})}_{\text{posterior!}}\,\rm{d}\mathbf{w}
+\end{align}
+```
+
+
+* which is intractable
 """
 
-# ╔═╡ 234a8b66-d84a-4f6f-aad2-60db238c1850
-aside((md"""$(@bind next1 Button("next")) 
-$(@bind init1 Button("init"))
-	"""))
-
-# ╔═╡ edf96a48-1e6d-4866-85ba-7e1afd19ca61
-begin
-	init1
-	next_idx = [0];
-end;
-
-# ╔═╡ 203b859f-f6ea-4ff8-be1b-dc68a44c10d1
-begin
-	next1
-	topics = ["Un-supervised learning - clustering problem", "Algorithm: K means algorithm", "Algorithm: Gaussian mixture models"]
-	@htl "<ul>$([@htl("""<li>$b</li><br>""") for b in topics[1:min(next_idx[1], length(topics))]])</ul>"
-end
-
-# ╔═╡ 76d4b64b-471f-4688-9da2-f896d9d0d05c
-let
-	next1
-	next_idx[1] += 1
-end;
-
-# ╔═╡ e136edb5-3e98-4355-83e2-55761eb8b15c
-md"""
-## Why probabilistic approach
-
-A key message I hope to convey here
-!!! correct ""
-	**Probabilistic models** unify most *interesting* machine learning models 
-    * supervised learning
-	* and also **unsupervised learning**
-
-In other words: **from probabilistic models' eyes, they are the same**
-
-
-**Machine learning** are just **probabilistic inferences**:
-
-$$P(y|x)$$
-
-* assume different $P(\cdot)$ and plug in different $x$ and $y$ for different problems/situations
-  * e.g. regression: $P$ is Gaussian;
-  * and classification: $P$ is Bernoulli or Multinoulli 
-* we will come back to this key message at the end of next lecture
-
-""";
-
-# ╔═╡ f8b54f24-c144-4ac5-8083-706436a368e9
-md"""
-# Clustering problem
-"""
-
-# ╔═╡ abd46485-03c9-4077-8ace-34f9b897bb04
+# ╔═╡ 2f5f8005-fda3-4a07-9c39-969ca4417f2c
 md"""
 
-## Supervised learning: classification
 
-> **Classification**: input data ${X}=\{\mathbf{x}^{(1)}, \mathbf{x}^{(2)}, \ldots, \mathbf{x}^{(n)}\}$ and their targets $Y=\{y^{(1)}, y^{(2)}, \ldots, y^{(n)}\}$
-
-  - ``\mathbf{x}^{(i)} \in \mathbb{R}^d``: ``d`` is the dimension of ``\mathbf{x}``
-  - ``y^{(i)} \in \{1,2,\ldots,K\}`` are also known
-
-"""
-
-# ╔═╡ 3ea57a8e-8d15-4f41-acfb-e3bd1d65e585
-begin
-	Random.seed!(123)
-	K₁ =3
-	n_each = 100
-	# D₁ = zeros(n₁, 2)
-	# 200 per cluster
-	truezs₁ = repeat(1:K₁; inner=n_each)
-	trueμs₁ = zeros(2, K₁)
-	trueμs₁[:,1] = [-3.0, 2.0]
-	trueμs₁[:,2] = [3.0, 2.0]
-	trueμs₁[:,3] = [0., -2]
-	data₁ = trueμs₁[:,1]' .+ randn(n_each, 2)
-	data₁ = vcat(data₁, trueμs₁[:,2]' .+ randn(n_each, 2))
-	data₁ = vcat(data₁, trueμs₁[:,3]' .+ randn(n_each, 2))
-	plt₁ = plot(ratio=1, framestyle=:origin)
-	for k in 1:K₁
-		scatter!(data₁[truezs₁ .== k,1], data₁[truezs₁ .==k,2], label="Class"*string(k)) 
-	end
-	title!(plt₁, "Supervised learning: classification")
-end
-
-# ╔═╡ 08c17e06-b9f4-40de-acb1-5481fa53e5e8
-md"""
-## Unsupervised learning: clustering
-"""
-
-# ╔═╡ cc38bdc2-4c1b-4a08-b8e6-1504a11924a5
-md"""
-
-> **Clustering**: input features ${X}=\{\mathbf{x}^{(1)}, \mathbf{x}^{(2)}, \ldots, \mathbf{x}^{(n)}\}$ only; **without** targets
+## Bayesian computation is hard
 
 
+**Bayes' theorem** has provided us with a conceptually simple mechanism to compute the posterior:
 
-* intuitively: **clustering** is to **color**/**group** ``\mathbf{x}^{(i)}`` into $K$ groups
+$$\text{posterior}=\frac{\text{prior} \times \text{likelihood}}{\text{evidence}}\;\;\text{or}\;\;p(\theta|\mathcal D) =\frac{p(\theta) p(\mathcal D|\theta)}{p(\mathcal D)},$$
+where 
 
-* *unsupervised*:  un--labelled data
-"""
-
-# ╔═╡ 77f0d45a-c658-4143-ad14-3a3a20ce2b4b
-let
-	plt = plot(ratio=1, framestyle=:origin, title="Clustering data")
-	# for k in 1:K₁
-	scatter!(data₁[:,1], data₁[:,2], label="data") 
-	# end
-
-end
-
-# ╔═╡ eb1c7d49-fffc-44ab-9d1b-026d7a39fc15
-md"""
-## Unsupervised learning: clustering
-"""
-
-# ╔═╡ 0ee59618-d28c-4929-bb7c-cd590068c7b7
-md"""
-
-> **Clustering**: input features ${X}=\{\mathbf{x}^{(1)}, \mathbf{x}^{(2)}, \ldots, \mathbf{x}^{(n)}\}$ only; **without** targets
+$$p(\mathcal D) = \int p(\theta) p(\mathcal D|\theta) \mathrm{d}\theta,$$ known as *evidence* or *marginal likelihood*, is a constant with respect to ``\theta``.
 
 
-
-* intuitively: **clustering** is to **color**/**group** ``\mathbf{x}^{(i)}`` into $K$ groups
-
-* *unsupervised*:  un--labelled data
-"""
-
-# ╔═╡ 4c2cf2db-0042-4074-a740-c6458c552ebe
-html"<center><img src='https://miro.medium.com/v2/resize:fit:1400/format:webp/1*rw8IUza1dbffBhiA4i0GNQ.png' width = '500' /></center>"	
-
-# ╔═╡ c63b4e0d-9f64-4248-ac7b-75ceeedddf0c
-md"""
-
-# K-means clustering
-"""
-
-# ╔═╡ 38e89872-c1ff-4d50-ab99-1ed063f5118b
-md"""
-
-## K-means 
+* ###### the difficulty part lies in the computation of the normalising constant: ``p(\mathcal D)``
 
 
-**K-means** is a very simple and intuitive clustering algorithm
+* ###### the integration is often *intractable*
 
-
-\
-
-
----
-
-**Initialisation**: random guess $K$ centroids $\{\boldsymbol{\mu}_k\}$
-
-**Repeat** the following two steps until converge:
-
-* **assignment step**: assign each $\mathbf{x}^{(i)}$ to the closest centroid $\boldsymbol{\mu}_k$
-
-
-* **update step**: update $\boldsymbol{\mu}_k$ by averaging the assigned samples
----
-
-"""
-
-# ╔═╡ 2831de52-9f49-494e-8b2b-4cee810cee06
-md"""
-
-## K-means (more details)
-
-
-A very simple and intuitive clustering algorithm
-
-**Initialisation**: random guess $K$ centroids $\{\boldsymbol{\mu}_k\}$
-
-**Repeat** the following two steps until converge:
-
-* **assignment step**: assign each $\mathbf{x}^{(i)}$ to the closest centroid $\boldsymbol{\mu}_k$; for $i= 1\ldots n,\; k= 1\ldots K$:
-
-  $$\large {z}^{(i)} \leftarrow \arg\min_{k} \boxed{d(\mathbf{x}^{(i)}, \boldsymbol{\mu}_k)}_{\text{Euclidean distance}}$$ 
-  * where $$d(\mathbf{x}^{(i)}, \boldsymbol{\mu}_k)=\|\mathbf{x}^{(i)} - \boldsymbol{\mu}_k\|^2 = \sum_{j=1}^d (x^i_j - \mu_{kj})^2$$
-\
-
-* **update step**: update $\boldsymbol{\mu}_k$ by taking the average
-
-  $$\boldsymbol{\mu}_{k} \leftarrow  \frac{\sum_{i=1}^n I({z}^{(i)}=k)\cdot \mathbf{x}^{(i)}}{\sum_{i=1}^n I({z}^{(i)}=k)}\;$$
-  - where ``I`` is the indicator function: return ``1`` if true; ``0`` otherwise  
-
-
-
-## Convergence check
-
-We need to do **convergence check** to decide when to stop
-
-$$\text{loss} = \sum_{i=1}^n \|\mathbf{x}^{(i)} - \boldsymbol{\mu}_{z_i}\|^2 = \sum_{i=1}^n\sum_{k=1}^K I(z^{(i)}=k) \cdot \|\mathbf{x}^{(i)} - \boldsymbol\mu_{k}\|^2$$
-
-* the total distances between $\mathbf{x}^{(i)}$ and its assigned cluster centre
-* the loss will only decrease over the iterations
-  * can be used to test/debug your implementation
-"""
-
-# ╔═╡ 7c9b404e-ef6c-4ed1-910e-2f409e579309
-md"""
-
-## K-means demon (initialisation)
-"""
-
-# ╔═╡ 434f1bf9-b6d2-4029-9ffa-36241c6ce23f
-md"""
-Initialisation: randomly guess ``K=3`` centres
-"""
-
-# ╔═╡ b81503f3-1caf-498a-8dc9-639ea5a5d569
-begin
-	gr()
-	# random initialisation step: randn: zero mean Gaussian
-	Random.seed!(123)
-	ms = randn(2,K₁)
-	plt_demo = plot(data₁[:,1], data₁[:,2], ratio=1, st=:scatter, label= "data",title="K means initialisation; Iteration=0", ms =3, alpha=0.5, framestyle=:origin)
-	for k in 1:K₁
-		scatter!([ms[1,k]], [ms[2,k]], label="μ"*string(k), markerstrokewidth =3, markershape = :star4, color=k, markersize = 10)
-	end
-	plt_demo
-end
-
-# ╔═╡ 63ce270b-c5ed-45c2-ae96-2146d0487b87
-md"""
-
-## K-means demon (step through)
-"""
-
-# ╔═╡ 99a717ee-1b29-42c3-9ef7-80201e715e79
-aside((md"""$(@bind next2 Button("next")) 
-$(@bind init2 Button("init"))
-	"""))
-
-# ╔═╡ f6bb31fd-d30c-4e59-86bb-ebac1163609f
-begin
-	init2
-	next_idx2 = [0];
-end;
-
-# ╔═╡ 29b0734a-41d4-43e0-938a-3ced8e70b85b
-let
-	next2
-	next_idx2[1] += 1
-end;
-
-# ╔═╡ 61fb0322-07f6-4e59-a5d3-dfdd7399d558
-md"""
 ##
 
-The animation:
+**As a result**, posterior probability calculations, such as $\theta \in A$
+
+$$\mathbb{P}(\theta \in A|\mathcal D) = \int_{\theta \in A} p(\theta |\mathcal D) \mathrm{d}\theta = \frac{ \int_{\theta \in A} p(\theta) p(\mathcal D|\theta) \mathrm{d}\theta}{p(\mathcal D)}$$ 
+
+* can not be evaluated exactly. 
+
+
+**For example**, if ``\theta`` is the bias of a coin, even the following computation
+
+$$\mathbb{P}(0.45 \leq \theta \leq 0.55|\mathcal D)= \frac{\int_{.45}^.55 p(\theta)p(\theta |\mathcal D) \mathrm{d}\theta}{p(\mathcal D)}$$ 
+
+
+can be challenging.
+
+
+
+
 """
 
-# ╔═╡ e1ccac4e-1cba-43d2-b0e0-e8c650a79d9a
-md"""
-## A demonstration of K-means (cont.)
-
-"""
-
-# ╔═╡ 8efbba52-7a34-4c17-bca9-52a417f69d56
-md"""
-
-## An alternative K-means formula
-
-We can swap the order of **assignment** and **update** steps
-
-* initialise by randomly guessing on the assignments $z^{(i)}$
-* will usually converge to the same results
-
-
-## An alternative K-means formula
-
-We can swap the order of **assignment** and **update** steps
-
-* initialise by randomly guessing on the assignments $z^{(i)}$
-* will usually converge to the same results
-
-Specifically, the algorithm is 
-
----
-**Initialisation**: random guess of $z^{(i)}$ for $i=1,\ldots,n$
-
-$$z^{(i)} \leftarrow \text{rand}(1,\ldots,K)$$
-**Repeat** until convergence:
-
-  - **update step**: update ${\mu}_k$ by averaging the assigned samples
-$$\boldsymbol{\mu}_{k} \leftarrow  \frac{\sum_{i=1}^n I({z}^{(i)}=k)\cdot \mathbf{x}^{(i)}}{\sum_{i=1}^n I({z}^{(i)}=k)}\;$$
-  * **assignment step**: assign each $\mathbf{x}^{(i)}$ to the closest centroid $\boldsymbol{\mu}_k$: for $i= 1\ldots n,\; k= 1\ldots K$:
-    
-
-$${z}^{(i)} \leftarrow \arg\min_{k} \|\mathbf{x}^{(i)} - \boldsymbol{\mu}_k\|^2$$
----
-"""
-
-# ╔═╡ 3873ef48-34c1-479a-b6f8-2cd05bcdc8bb
+# ╔═╡ 0688cb0f-422a-413f-87d6-aaecc04f1914
 md"""
 
-## A quick demon of alternative K-means
+## Monte Carlo method
+
+
+**Monte Carlo** methods: approximating a distribution by its **empirical samples distribution**
+
+$$\theta^{(1)}, \theta^{(2)}, \ldots, \theta^{(R)} \sim p(\theta|\mathcal D),$$
+
+* if the sample size, ``R``, is large enough:
+
+$${\mathbb{P}}(\theta \in A|\mathcal D) \approx \frac{\#\{\theta^{(r)} \in A\}}{R},$$ 
+* where ``\#\{\cdot\}`` counts how many samples falls in set ``A``.
+
+
 
 """
 
-# ╔═╡ 5276ff0e-bc4f-4b24-b98c-8f9e7c0d018d
-# begin
-# 	gr()
-# 	pltsₖₘ2 = []
-# 	zs0 = rand(1:K₁, size(data₁)[1])
-# 	l_ = Inf
-# 	anim = @animate for iter in 1:6
-# 		p = plot_clusters(data₁, zs0, K₁, l_, iter)
-# 		ms0 = update_step(data₁, zs0, K₁)
-# 		for k in 1:K₁
-# 			scatter!([ms0[1,k]], [ms0[2,k]], markershape = :star4, markersize = 10, c=k, markerstrokewidth =3, color=k, labels= "μ"*string(k))
-# 			plot!(-6:0.1:6, -5:0.1:5, (x,y) -> sum(([x, y] - ms0[:, k]).^2), st=:contour, c=k, colorbar = false, levels=[5], lw=2)
-# 		end
-# 		ls, zs0 = assignment_step(data₁, ms0)
-# 		l_ = sum(ls)
-# 		push!(pltsₖₘ2, p)
-# 	end
-# end;
+# ╔═╡ e9ca80e4-4b93-4c8e-9cc7-36b5077ac7ff
+md"""
 
-# ╔═╡ dd461997-cf3c-4124-8503-11f5b5a9e530
-aside((md"""$(@bind next3 Button("next")) 
-$(@bind init3 Button("init"))
-	"""))
+## Example
+"""
 
-# ╔═╡ d2365f95-9b61-41fa-83d8-9bf4a8b5ee92
+# ╔═╡ 461e94ea-0b29-4b60-b536-dd0bfd318070
+md"""
+
+
+Monte Carlo method essentially uses the *histogram* (on the right) to **replace** the true distribution
+
+
+
+"""
+
+# ╔═╡ 12f25671-850c-40c8-972e-5face10cf105
+md"""
+As an example, to compute the expectation of ``\theta``, the Monte Carlo estimator becomes 
+
+$\mathbb E[\theta] \approx \frac{1}{R} \sum_r \theta^{(r)}$
+
+"""
+
+# ╔═╡ ce7ea4e9-8286-49a6-b8b2-353ae7571088
 begin
-	init3
-	next_idx3 = [1];
+	approx_samples = 2000
+	dist = MixtureModel([Normal(2, sqrt(2)), Normal(9, sqrt(19))], [0.3, 0.7])
+	
+	Random.seed!(100)
+	x = rand(dist, approx_samples)
+	ids = (x .< 15) .& (x .> 0)
+	prob_mc=sum(ids)/approx_samples
 end;
 
-# ╔═╡ b5dc223b-c5b5-4eda-889e-c39171c44499
+# ╔═╡ 4ad30be3-b220-4e9e-9fcf-bd1d760a2c35
 let
-	next3
-	next_idx3[1] += 1
-end;
+    plt = Plots.plot(
+        dist;
+        xlabel=raw"$\theta$",
+        ylabel=raw"$p(\theta|\mathcal{D})$",
+        title="true posterior",
+        fill=true,
+        alpha=0.3,
+        xlims=(-10, 25),
+        label="",
+        components=false,
+    )
+    Plots.vline!(plt, [mean(dist)]; label="true mean", linewidth=3)
 
-# ╔═╡ a391d4a3-9fe3-4ccf-9a62-c2cb19ea8813
+    
+	plt2 = Plots.plot(
+        dist;
+        xlabel=raw"$\theta$",
+        fill=false,
+        alpha=1,
+		linewidth =3,
+        xlims=(-10, 25),
+        label="",
+        components=false,
+    )
+		
+		
+	histogram!(plt2, x, bins=110, xlims=(-10, 25), norm=true, label="", color=1, xlabel=raw"$\theta$", title="Monte Carlo Approx.")
+    Plots.vline!(plt2, [mean(x)]; label="MC mean", linewidth=3, color=2)
+
+    Plots.plot(plt, plt2)
+end
+
+# ╔═╡ 086123c6-2088-4f9c-bea3-cb05cdd515ec
+md"""
+
+
+## Example (cont.)
+Similarly, calculating probability, such as ``\mathbb P(0\leq \theta \leq 15)``, reduces to frequency counting: 
+
+$$
+\hat{\mathbb{P}}(0\leq \theta \leq 15) = \frac{\#\{0\leq \theta^{(r)}\leq 15\}}{2000} =0.905,$$  
+
+* count the proportion of samples that falls in the area of interest
+"""
+
+# ╔═╡ 795c5695-52a4-429e-8780-a57c9767d94d
+let
+	plt2 = Plots.plot(
+        dist;
+        xlabel=raw"$\theta$",
+        fill=false,
+        alpha=1,
+		linewidth =3,
+        xlims=(-10, 25),
+        label="",
+        components=false,
+		size=(300,450)
+    )
+		
+		
+	histogram!(plt2, x, bins = -10:0.3:25 , xlims=(-10, 25), norm=false, label="", color=1, xlabel=raw"$\theta$", title="Monte Carlo est.")
+
+	Plots.plot!(plt2, 0:0.5:15,
+        dist;
+        xlabel=raw"$\theta$",
+        fill=true,
+		color = :orange,
+    	alpha=0.5,
+		linewidth =3,
+        xlims=(-10, 25),
+        label=L"0 \leq θ \leq 15",
+        components=false,
+    )
+
+	histogram!(plt2, x[ids], bins = -10:0.3:25, xlims=(-10, 25), norm=false, label="", color=:orange,  xlabel=raw"$\theta$")
+
+end
+
+# ╔═╡ a1c1974a-bb8a-4934-b272-4ea0f39c748a
+md"""
+
+## Monte Carlo method -- more generally
+
+
+**More generally**, posterior **expectations**  such as
+
+$$\large \mathbb E[t(\theta)|\mathcal D] = \int t(\theta) p(\theta|\mathcal D) \mathrm{d}\theta$$ 
+
+* can also be approximated by its Monte Carlo estimation
+
+$$\large{\mathbb{E}}[t(\theta)|\mathcal D] \approx \frac{1}{R} \sum_{r} t(\theta^{(r)}),$$
+
+* which is the sample average evaluated at the drawn samples. 
+
+"""
+
+# ╔═╡ 194a18d2-e01a-4ff3-89ed-d0495072b4a4
+md"""
+## How to sample ? -- MCMC
+"""
+
+# ╔═╡ c88039d7-9ceb-496f-8d9a-363e4a2fb5ad
+md"""
+
+Bayesian inference problem's posterior can only be evaluated up to some unknown constant:
+
+$$p(\theta|\mathcal D) \propto p(\theta) p(\mathcal D|\theta),$$
+
+* where the scalar ``1/p(\mathcal D)`` involves a nasty integration
+
+##### The question we face now is _how to sample_
+
+> **Problem**: how to generate samples ``\{\theta^{(r)}\}_{r=1}^R`` from a un-normalised distribution:
+>
+> $$p(\theta|\mathcal D) \propto p(\theta)p(\mathcal D|\theta)?$$
+
+"""
+
+# ╔═╡ 01b9fcbb-9b96-44ce-bab4-ee3ca1a40c30
+md"""
+
+*Note.* *If we apply log on the posterior distribution, the log density becomes a sum of log prior and log-likelihood:
+$$\ln p(\theta|\mathcal D) = \ln p(\theta) + \ln p(\mathcal D|\theta),$$*
+"""
+
+# ╔═╡ 29bd15a0-8c28-4590-8d9f-b377d0406ece
+md"""
+
+## MCMC -- Basic idea
+
+##### *Markov Chain Monte Carlo* (MCMC) 
+\
+
+**Markov Chain**: 
+
+$p(\theta^{(r)}|\theta^{(1)}, \theta^{(2)}, \ldots, \theta^{(r-1)}) = p(\theta^{(r)}|\theta^{(r-1)})$
+  * samples are generated by a Markov Chain
+  * current sample depends on the previous sample
+
+**Monte Carlo**: 
+
+* estimation by the Markov chain samples as illustrated in the previous section
+"""
+
+# ╔═╡ b0c9fd77-bcac-475a-adbb-a22458b79b06
+md"""
+
+
+## Metropolis  sampling 
+
+
+**Metropolis** sampling is 
+* an MCMC algorithm and 
+* considered a [**top 10** algorithm of the 20th century](https://www.computer.org/csdl/magazine/cs/2000/01/c1022/13rRUxBJhBm)
+
+
+## Metropolis  sampling 
+
+What **Metropolis** algorithm does
+> $\theta^{(i)} \sim p(\theta|\mathcal{D})\;\; \text{for } i =1,2,\ldots$
+	
+!!! infor "MH requires"
+	* a symmetric proposal distribution ``q(\theta|\theta')`` (a conditional distribution)
+      * *symmetric:* ``q(\theta|\theta') = q(\theta'|\theta)``
+    * if asymmetric proposal is used: the algorithm is called **Metropolis-Hastings**
+
+
+"""
+
+# ╔═╡ 4803df98-1392-44bb-98d3-c832d4043086
+md"""
+## Metropolis algorithm
+
+Metropolis algorithm only involves two steps!
+
+*assume* the current sample: ``\theta_{\text{current}}``
+
+
+
+"""
+
+# ╔═╡ f59c929a-e610-4bbe-910b-a1f082a9fabe
+md"""
+
+----
+* **proposes** a candidate ``\theta_{\text{proposed}}`` according to a proposal distribution: 
+
+$$\theta_{\text{proposed}} \sim q(\theta|\theta_{\text{current}})$$
+* **reject/accept** the proposal proportional to ratio 
+  
+  $a =\frac{p(\theta_{\text{proposed}}|\mathcal D)}{p(\theta_{\text{current}}|\mathcal D)}$
+  * intuitively, if the proposed is *good*, *i.e.* ``a > 1`` or ``a \approx 1``
+    * move to ``\theta_{\text{proposed}}``, ``\theta_{\text{current}} = \theta_{\text{proposed}}``
+    * otherwise stay-put: ``\theta_{\text{current}} = \theta_{\text{current}}``
+  * technically, toss a coin with bias ``a`` to decide *accept* or *reject* (``a`` is capped at 1)
+* repeat the above two steps
+-----
+
+
+"""
+
+# ╔═╡ a22dbb21-fce0-4ecf-8810-f553297d447d
+md"""
+## Remarks
+
+The next state only depends on ``\theta_{\text{current}}`` but not before
+  * therefore: a **Markov chain**!
+
+**Key of the algorithm**: it **does not** need ``p(\mathcal{D})``
+
+$$\frac{p(\theta_{\text{proposed}}|\mathcal D)}{p(\theta_{\text{current}}|\mathcal D)} = \frac{\frac{p(\theta_{\text{proposed}})p(\mathcal D|\theta_{\text{proposed}})}{\cancel{p(\mathcal D)}}}{\frac{p(\theta_{\text{current}})p(\mathcal D|\theta_{\text{current}})}{\cancel{p(\mathcal D)}}} = \frac{p(\theta_{\text{proposed}})p(\mathcal D|\theta_{\text{proposed}})}{p(\theta_{\text{current}})p(\mathcal D|\theta_{\text{current}})} \triangleq \frac{p^\ast(\theta_{\text{proposed}})}{p^\ast(\theta_{\text{current}})}.$$
+
+* only need to evaluate the un-normalised posterior distribution ``p^\ast``.
+
+```math
+p^\ast(\theta) = p(\theta)p(\mathcal{D}|\theta)
+```
+
+* this is our forward generative probability
+
+## Metropolis sampling -- pseudo code
+
+The algorithm details are summarised below:
+
+**Input:** un-normalised target distribution
+
+```math
+p^\ast(\theta) = p(\theta)p(\mathcal{D}|\theta)
+```
+
+
+"""
+
+# ╔═╡ b203b068-930f-458b-a123-f0dac257ea2b
+md"""
+
+!!! infor "Metropolis algorithm"
+	0. Initialise ``\theta^{(0)}`` arbitrary
+	1. For ``t = 1,2,\ldots``:
+	   * sample a candidate from ``q``: 
+	   $$\theta' \sim q(\theta|\theta^{(t)})$$
+	   * evaluate ratio ``a``, where
+	   $$a = \text{min}\left \{\frac{p^\ast(\theta')}{p^\ast(\theta^{(t)}) }, 1\right \}$$
+	   * set
+	   $$\theta^{(t+1)} = \begin{cases} \theta' & \text{with probability }  a\\ \theta^{(t)} & \text{with probability } 1-a\end{cases}$$
+"""
+
+# ╔═╡ 159c2632-e820-4a0d-8729-c1907796e8aa
+md"""
+
+Finally, discard some initial samples as **burn-in**
+
+"""
+
+# ╔═╡ 07b85536-72bf-47d5-9596-24c54b5a73f5
+md"""
+
+## Question & Discussion
+
+!!! danger "Question: sample a biased 🎲 by Metropolis"
+	We want to obtain samples from a completely *biased* die that lands with threes (⚂) all the time. 
+
+	| ``x`` | 1 | 2 | 3 | 4 | 5 | 6 | 
+	| -----------| ---|---|---|--- | ---|---|
+	| ``p(x)``    | 0| 0| 1| 0| 0| 0 | 
+
+	Apply the Metropolis algorithm to generate samples from the die and use a fair die as the proposal 
+
+	| ``x`` | 1 | 2 | 3 | 4 | 5 | 6 | 
+	| -----------| ---|---|---|--- | ---|---|
+	| ``q(x)``    | 1/6| 1/6| 1/6| 1/6| 1/6| 1/6 | 
+	* Is the proposal symmetric?
+	* What would the MCMC chains look like? (assume ``\frac{0}{0} =1``)
+	* Will the chain ever converge to the target distribution? 
+	* And do we need to discard any as burn-in?    
+
+"""
+
+# ╔═╡ 35a49bf3-753b-4341-9d65-bff4b7883248
 # md"""
-# ##
 
-# For convenience, I have created a method `kmeansDemoGif` to produce gifs for us
-# (check the code in Appendix)
+# ## Example: a walk through of MH
 
-# `kmeansDemoGif(data, K, iterations; init_step="a" or "u", add_contour=true or false)`
+# Recall two seller problem's model
 
-# * 2-d input only
-# * produces three types of gifs (more example next)
+# ```math
+# p(\theta_A, \theta_B, N⁺_A, N⁺_B) = \underbrace{p(\theta_A, \theta_B)}_{\text{prior}} \underbrace{p(N⁺_A, N⁺_B|\theta_A, \theta_B)}_{\text{likelihood}}
+# ```
+
+# * ``\boldsymbol{\theta} =[\theta_A, \theta_B]`` together as a random variable (vector)
+# * prior is ``p(\theta_A, \theta_B) \propto 1`` for ``\theta \in [0,1]^2``
+# * likelihood is ``p(\mathcal{D}|\theta_A, \theta_B)=\binom{N_A}{N_A^+}\theta_A^{N_A^+}(1-\theta_A)^{N_A- N_A^+}\times \binom{N_B}{N_B^+}\theta_B^{N_B^+}(1-\theta_B)^{N_B- N_B^+}``
+
+
+
 # """
 
-# ╔═╡ d8e832e1-bc53-400d-a5a9-7cda2c5b8799
+# ╔═╡ a4b0ddf5-399b-415c-bf43-73acbd82c389
+# md"""
+
+
+# The objective is to find the posterior
+
+
+# ```math
+# p(\theta_A, \theta_B| N⁺_A, N⁺_B) = \frac{p(\theta_A, \theta_B)p(N⁺_A, N⁺_B|\theta_A, \theta_B)}{\underbrace{\int \int p(\theta_A, \theta_B)p(N⁺_A, N⁺_B|\theta_A, \theta_B)  \mathrm{d}\theta_A \mathrm{d}\theta_B}_{\text{can be nasty to compute!}}}
+# ```
+
+# * the nasty integration in general cannot be computed!
+
+
+# **BUT** the key thing to remember is the posterior can be evaluated *proportionally*
+
+# ```math
+# p(\theta_A, \theta_B| N⁺_A, N⁺_B) \propto p(\theta_A, \theta_B)p(N⁺_A, N⁺_B|\theta_A, \theta_B)
+# ```
+
+# """
+
+# ╔═╡ a164b185-6c0b-4022-a4b3-c286f14704d1
 md"""
 
-## *Implementation 
+## Metropolis sampling (walk-through)
+
+
+##### Objective: sample from the following distribution
 """
 
-# ╔═╡ a414e554-3a8c-472d-af82-07c2f0843627
-begin
-	function assignment_step(D, μs)
-		_, K = size(μs)
-		distances = hcat([sum((D .- μs[:,k]').^2, dims=2) for k in 1:K]...)
-		min_dis, zs_ = findmin(distances, dims=2)
-		# zs_ is a cartesian tuple; retrieve the min k for each obs.
-		zs = [c[2] for c in zs_][:]
-		return min_dis[:], zs
-	end
+# ╔═╡ 12965122-0ee0-4ca8-bcab-c3a93ab05f38
+md"
 
-	function update_step(D, zs, K)
-		_, d = size(D)
-		μs = zeros(d,K)
-		# update
-		for k in 1:K
-			μₖ = mean(D[zs.==k,:], dims=1)[:]
-			μs[:,k] = μₖ
-		end
-		return μs
-	end
+#### The contour plot of the target density
+"
+
+# ╔═╡ 58d6dce4-0fc1-4f8f-adae-0ab59c8032e3
+
+# md"""
+# ## What we have done last time
+
+
+# We sidesteped the integration via discretisation 
+
+
+
+# * ``(\theta_A, \theta_B) \in \{0, 0.01, 0.02, \ldots, 1\}\times \{0, 0.01, 0.02, \ldots, 1\}.`` 
+#   * it means the pair can take ``101^2`` possible combinations: ``(0.0, 0.0), (0.0, 0.01), (0.0, 0.02)`` and so on.
+
+
+
+# """
+
+# ╔═╡ 28ba62e5-e3af-4c83-9a9b-7f7ff688b339
+begin
+	dis_size = 101
+	θ₁s, θ₂s = range(0, 1 , dis_size), range(0, 1 , dis_size)
 end;
 
-# ╔═╡ 33cc44b4-bd32-4112-bf33-6807ae53818c
-function kmeans(D, K=3; tol= 1e-6, maxIters= 100, seed= 123)
-	Random.seed!(seed)
-	# initialise
-	n, d = size(D)
-	zs = rand(1:K, n)
-	μs = D[rand(1:n, K),:]'
-	loss = zeros(maxIters)
-	i = 1
-	while i <= maxIters
-		# assigment
-		min_dis, zs = assignment_step(D, μs)
-		# update
-		μs = update_step(D, zs, K)
+# ╔═╡ f1c6942c-3acb-4eda-a8f1-db603ff72ebf
+# let	
+# 	gr()
+# 	dis_size = 11
+# 	θ₁s, θ₂s = range(0, 1 , dis_size), range(0, 1 , dis_size)
+#  	plt = plot(xlim=[0,1], ylim=[0, 1], yticks=θ₂s, xticks=θ₁s, zlim = [0, 0.1], zaxis=false, framestyle=:origin, camera=(15,15), size=(800, 600), xlabel=L"\theta_A", ylabel=L"\theta_B", zlabel="", title="Prior by discretisation: "*L"P(\theta_A,\theta_B)")
+# 	for (i, θ₁) in enumerate(θ₁s)
+# 		for (j, θ₂) in enumerate(θ₁s)
+# 			quiver!([θ₂], [θ₁], [0], quiver=([0], [0], [1/dis_size^2]), lw=3, lc=:orange, alpha=0.9)
+# 		end
+# 	end
+# 	plt
+# end
+
+# ╔═╡ e4060d58-82d1-4551-ac40-f1cecb3ae9fc
+# let	
+# 	gr()
+# 	dis_size = 21
+# 	θ₁s, θ₂s = range(0, 1 , dis_size), range(0, 1 , dis_size)
+# 	ℓ_twos = [ℓ_two_coins(θᵢ, θⱼ; N₁=N₁, N₂=N₂, Nh₁=Nₕ₁, Nh₂=Nₕ₂, logLik=true) for θᵢ in θ₁s, θⱼ in θ₂s]
+# 	ℓ_twos_vc = exp.(ℓ_twos .- logsumexp(ℓ_twos))
+# 	ℓ_twos_vc = ℓ_twos_vc/maximum(ℓ_twos_vc)
+# 	cv=cgrad(:jet, rev = true)
+#  	plt = plot(xlim=[0,1], ylim=[0, 1], yticks=θ₂s[1:2:end], xticks=θ₁s[1:2:end],  zaxis=false, framestyle=:origin, camera=(30,15), size=(800, 600), zticks =false, xlabel=L"\theta_A", ylabel=L"\theta_B", zlabel="", title="Posterior by discretisation: " *L"P(\mathcal{D}|\theta_A,\theta_B)")
+# 	for (i, θ₁) in enumerate(θ₁s)
+# 		for (j, θ₂) in enumerate(θ₁s)
+# 			quiver!([θ₂], [θ₁], [0], quiver=([0], [0], [ℓ_twos_vc[j,i]]), lw=3,lc=cv[ℓ_twos_vc[j,i]],  alpha=0.9)
+# 		end
+# 	end
+# 	plt
+# end
+
+# ╔═╡ 03abb7ac-b8b2-41bf-b6da-21af9459d3a3
+function ℓ(θ, n, n⁺; logprob=false)
+	# logL = n⁺ * log(θ) + (n-n⁺) * log(1-θ)
+	# use xlogy(x, y) to deal with the boundary case 0*log(0) case gracefully, i.e. θ=0, n⁺ = 0
+	logL = xlogy(n⁺, θ) + xlogy(n-n⁺, 1-θ)
+	logprob ? logL : exp(logL)
+end;
+
+# ╔═╡ d193042c-9882-4633-8367-4698fcbfe9f8
+# md"""
+# ```math
+# P(\theta_A, \theta_B| N⁺_A, N⁺_B) \approx \frac{P(\theta_A, \theta_B)P(N⁺_A, N⁺_B|\theta_A, \theta_B)}{\underbrace{\sum_{\theta_A\in\{0, \ldots 1.0\}} \sum_{\theta_B\in\{0, \ldots 1.0\}} P(\theta_A, \theta_B)P(N⁺_A, N⁺_B|\theta_A, \theta_B)  }_{\text{can be nasty to compute if there are a lot!}}}
+# ```
+
+# !!! danger "problem"
+# 	**100** seller problem ? *e.g.* becomes impossible to calculate
+
+
+
+# """
+
+# ╔═╡ af87bea3-319d-48dc-80e9-e392b8d53e4e
+begin
+	N₁, N₂ = 10, 100
+	Nₕ₁, Nₕ₂ = 8, 79
+end;
+
+# ╔═╡ ddf45f75-ac6e-4f7e-ba22-a98d570b9fbd
+begin
+	plotly()
+	true_p(θ1, θ2) = pdf(Beta(1+Nₕ₁, 1+N₁-Nₕ₁), θ1) * pdf(Beta(1+Nₕ₂, 1+N₂-Nₕ₂), θ2)
+
+	plot(0:0.02:1, 0:0.02:1, (x,y) -> true_p(x,y), xlabel="θ1", ylabel="θ2", st=:surface, c=:jet, cbar=false)
+end
+
+# ╔═╡ 2006210d-96a5-410f-97e4-b2869aa23c25
+begin
+	gr()
+	plot(0:0.01:1, 0:0.01:1, (x,y) -> true_p(x,y), xlabel=L"\theta_1", ylabel=L"\theta_2", st=:contour, c=:jet, cbar=false, ratio=1, xlim=[0,1])
+end
+
+# ╔═╡ 07842aa1-8478-4095-af45-add87f354cce
+function ℓ_two_coins(θ₁, θ₂; N₁=10, N₂=100, Nh₁=8, Nh₂=79, logLik=false)
+	if (θ₁ >= 0 && θ₁ <= 1.0) && (θ₂ >= 0 && θ₂ <= 1.0) 
+		logℓ = ℓ(θ₁, N₁, Nh₁;  logprob=true) + ℓ(θ₂, N₂, Nh₂; logprob=true)
+	else
+		logℓ = -Inf
+	end
+	logLik ? logℓ : exp(logℓ)
+end;
+
+# ╔═╡ bb92615b-0217-4441-bbb5-2db27c04dfcd
+begin
+	ℓ_twos = [ℓ_two_coins(θᵢ, θⱼ; N₁=N₁, N₂=N₂, Nh₁=Nₕ₁, Nh₂=Nₕ₂, logLik=true) for θᵢ in θ₁s, θⱼ in θ₂s]
+end;
+
+# ╔═╡ 178420f2-b88b-4d33-a546-cde6d6fff6d0
+ps = exp.(ℓ_twos .- logsumexp(ℓ_twos));
+
+# ╔═╡ 6b36ae1f-e967-4870-9874-37cda8101e5e
+md"""
+
+## Metropolis algorithm - step by step
+
+
+##### Let's start with a _uniform proposal distribution_
+
+```math
+q(\boldsymbol \theta|\boldsymbol \theta^{(t)}) = \texttt{Uniform}(0,1) \times \texttt{Uniform}(0,1)
+
+```
+
+* ``\boldsymbol \theta =[\theta_1, \theta_2]``
+* independent proposal (does not depend on the current state ``\boldsymbol{\theta}^{(t)}``)
+* in Julia: `θ = rand(2)`
+
+"""
+
+# ╔═╡ 6d8123a7-9284-4a4f-9f7b-17eaf5afd4f2
+# the target distribution
+posterior(θ) = ℓ_two_coins(θ[1], θ[2]; N₁=N₁, N₂=N₂, Nh₁=Nₕ₁, Nh₂=Nₕ₂, logLik=false);
+
+# ╔═╡ ab99ce0c-d454-4469-9ddd-d0ca63577abd
+# initial guess
+θ₀ = [0.5, 0.5];
+
+# ╔═╡ d75176a7-9e78-4cc2-ad6d-6f9dc41266cf
+# make a proposal
+θₚᵣₒₚ = rand(2)
+
+# ╔═╡ 2757834e-468c-4b89-aba6-7313b70c171c
+# evaluate the proposal
+a = posterior(θₚᵣₒₚ) / posterior(θ₀)
+
+# ╔═╡ e9778f1a-f83c-4d49-8843-edacef1624fe
+# decide to accept it or not: proportional to a
+accept = rand() < a
+
+# ╔═╡ 03c56812-843b-404d-a516-0b5ed45b2fbb
+θₙₑₓₜ = accept ? θₚᵣₒₚ : θ₀
+
+# ╔═╡ 1c3755cf-7f70-47db-a3c0-c67f3bbe3421
+aside(tip(md"In real implementation, we evaluate log probabilities and take the difference instead:
+
+```math
+\ln a = \ln p^\ast(\theta_{\text{proposed}}) - \ln p^\ast(\theta_{\text{current}})
+```
+Then transform log ratio back ``a = \exp(\ln a)``;
+
+And remember the (log) target distribution is ``\ln p^\ast(\theta) =\ln p (\theta) + \ln p(\mathcal{D}|\theta)``
+"
+))
+
+# ╔═╡ f497726e-6189-4068-804b-f410d65abe3b
+md"""
+## The algorithm - step by step
+
+"""
+
+# ╔═╡ 1966f960-bb6c-44a8-bd8c-e206aa58e721
+@bind init_ms Button("MS restart")
+
+# ╔═╡ 8a853105-80cc-4326-b847-1bd01d95138d
+begin
+	gr()
+	init_ms
+	θ_current = [0.2, 0.2]
+	pθ_current = posterior(θ_current)
+	m_samples = []
+	m_plot2 =Plots.plot(θ₁s, θ₂s,  ps', st=:contour, xlabel=L"\theta_A", ylabel=L"\theta_B", ratio=1, xlim=[0,1], ylim=[0,1], colorbar=false, c=:thermal, framestyle=:origin, alpha=0.5, nlevels=8, legend=:outerright)
+	scatter!([θ_current[1]],[θ_current[2]], markersize= 5, mc=:orange, markershape=:xcross,  markerstrokewidth =5, label="initial")
+	scatter!([θ_current[1]],[θ_current[2]], markersize= 3.5, mc=:green, markeralpha=0.8,  label="current")
+	uniform_step_samples = []
+end;
+
+# ╔═╡ 207ff041-82bb-4fe0-b9bf-90ea2165d57c
+@bind go Button("MS step")
+
+# ╔═╡ 517727d4-b271-4bb5-9b9e-9900146f8128
+let
+	go
+	if !isempty(uniform_step_samples)
+		θₚ_step = rand(2)
+		a_step = posterior(θₚ_step) / posterior(θ_current)
+		if rand() < a_step
+			scatter!(m_plot2, [θₚ_step[1]],[θₚ_step[2]], markersize= 3.5, mc=:green, markeralpha=0.8, label="")
+			plot!(m_plot2, [θ_current[1], θₚ_step[1]], [θ_current[2],θₚ_step[2]], st=:path, lc=:green, la=0.5, label=false, title="")
+			θ_current .= θₚ_step
+			# pθ_current = pθₚ
+		else
+			scatter!(m_plot2, [θₚ_step[1]],[θₚ_step[2]], markersize= 3, mc=:red, markeralpha=0.3, label="")
+			plot!(m_plot2, [θ_current[1], θₚ_step[1]], [θ_current[2], θₚ_step[2]], st=:path, lc=:red, linestyle=:dot, la=0.1, label=false, title="")
+		end
+
+	else
+
+	end
+	push!(uniform_step_samples, θ_current)
+	m_plot2
+end
+
+# ╔═╡ 4dfb3123-0872-436a-8db4-772c500e6b6d
+function metropolis_sampler_two_sellers(ℓπ, mc=500; dim=2, proposal = :uniform, x0=[0.5, 0.5], σs = [0.01, 0.01])
+	samples = zeros(dim, mc)
+	proposed = zeros(dim, mc-1)
+	acceptance = Array{Bool, 1}(undef, mc-1)
+	fill!(acceptance, false)
+	samples[:, 1] = x0 # store the initial for presentation purpose!
+	ℓx0 = ℓπ(x0) 
+	accepted = 0
+	for i in 2:mc
+		if proposal == :uniform
+			xstar = rand(dim)
+		else
+			xstar = x0 + σs .* randn(dim)
+		end	
+		proposed[:, i-1] = xstar
+		ℓxstar = ℓπ(xstar)
+		r = exp(ℓxstar - ℓx0) 
+		# if accepted
+		if rand() < r
+			x0 = xstar
+			ℓx0 = ℓxstar
+			accepted += 1
+			acceptance[i-1] = true
+		end
+		@inbounds samples[:, i] = x0
+	end
+	accpt_rate = accepted / (mc-1)
+	return samples, proposed, acceptance, accpt_rate
+end
+
+# ╔═╡ 83b02029-9001-465b-a048-90b41d7ab065
+begin
+	ℓπ(θ) = ℓ_two_coins(θ[1], θ[2]; N₁=N₁, N₂=N₂, Nh₁=Nₕ₁, Nh₂=Nₕ₂, logLik=true)
+end
+
+# ╔═╡ e7dd3d77-1d62-4a6e-987a-1e06267bd793
+md"""
+## Demonstration
+
+"""
+
+# ╔═╡ a1c64a2e-8ae1-41bd-8661-b0c782f97080
+spls, _, acc, accr = metropolis_sampler_two_sellers(ℓπ, 20000);
+
+# ╔═╡ 85e25392-4216-43c2-a065-c56ba4d06b57
+# discard the first 1000 as burn-in 
+naive_chain = Chains(spls[:, 1000:1:end]', [L"θ_1", L"θ_2"]);
+
+# ╔═╡ a074f9da-e2dd-4e29-a6d0-2939fe244746
+md"""
+
+A lot of rejections (acceptance rate less than 0.05!)
+* once rejected, the current value is used again and again until a new state accepted
+* the chain is very "**sticky**"
+
+
+"""
+
+# ╔═╡ f162477e-0463-49d3-8acf-e06cefd7553a
+plot(naive_chain[1:500, :, :])
+
+# ╔═╡ 4f4fbde5-dbe4-4269-971a-56adf3cc0923
+md"""
+
+## Demonstration (conti.)
+"""
+
+# ╔═╡ a484bb4d-0dd9-4177-a123-ea2a54c3aa3c
+corner(naive_chain, ms=3, xlim=[0,1], ylim=[0,1],  dpi=100, size=(400,400))
+
+# ╔═╡ d9d113fb-8930-47e8-872e-0aec83c20468
+md"""
+
+##
+
+Nevertheless, **not ideal** but it **kinda works**
+* there are remedies, say thinning the chain or run multiple chains in parallel
+* but sampling efficiency can be improved!
+
+
+"""
+
+# ╔═╡ 87461e6b-9759-4a8c-b10f-d56caa8cc576
+let
+	density(naive_chain[:,1,:], lw=1.5, label="MCMC " *L"P(\theta_1|\mathcal{D})", legend=:topleft)
+	density!(naive_chain[:,2,:], lw=1.5, label="MCMC " *L"P(\theta_2|\mathcal{D})")
+	
+	plot!(Beta(Nₕ₁+1, N₁ - Nₕ₁+1), lw=2, lc=1, ls=:dash, label="True "*L"P(\theta_1|\mathcal{D})")
+	plot!(Beta(Nₕ₂+1, N₂ - Nₕ₂+1), lw=2, lc=2, ls=:dash, label="True "*L"P(\theta_2|\mathcal{D})")
+end
+
+# ╔═╡ 1b8b92ca-b604-4b80-8a68-c3b3e9e69433
+# plot(naive_chain)
+
+# ╔═╡ e92c05b7-4282-417e-99d9-30809bebe9fb
+md"""
+
+## Improvement -- better proposal
+
+
+We can try an alternative proposal distributions, *e.g.* conditional Gaussian
+
+
+```math
+\large
+q(\boldsymbol \theta|\boldsymbol \theta^{(t)}) = \mathcal{N}\left (\begin{bmatrix}\theta_1\\ \theta_2 \end{bmatrix}; \begin{bmatrix}\theta_1^{(t)}\\ \theta_2^{(t)} \end{bmatrix}, \begin{bmatrix}\sigma^2_1 & 0 \\
+0 & \sigma^2_2\end{bmatrix}\right ) 
+```
+* Gaussian proposals depends on the current location ``\boldsymbol \theta^{(t)} =[\theta_1^{(t)}, \theta_2^{(t)}]``
+* with fixed variances ``\sigma^2_1, \sigma^2_2``
+  * smaller ``\sigma_{1}^2, \sigma^2_2`` means the proposed will be closer to ``\boldsymbol \theta_{\text{current}}``
+"""
+
+# ╔═╡ b047ac1e-8283-47db-b0ae-54635b523e4b
+md"""
+## Demonstration
+"""
+
+# ╔═╡ 40492daa-594d-43cb-b6f7-5749c6771d06
+md"""
+
+Note the the proposed are all very close to the current state!
+* rather than emerging everywhere within the unit box (when uniform proposal is used)
+* more **systematic exploration**
+
+* as a rule of thumb, acceptance rate should be between 0.2 to 0.6
+"""
+
+# ╔═╡ 47a4d597-b719-47d2-b66f-66e96acda02b
+md"Starting location:"
+
+# ╔═╡ 899104d2-a2c0-4d10-a178-d5edda7cb6b4
+md"The proposals' standard deviation, *i.e.* ``\sqrt{\sigma^2}``"
+
+# ╔═╡ eb6f9708-cf48-4189-9b2d-251eabd8f536
+σa, σb = 0.1, 0.1
+
+# ╔═╡ 5cb14b9c-7681-4f7d-a0c1-19730511f9de
+@bind init_ms_gaussian Button("MS with Gaussian proposal restart")
+
+# ╔═╡ 50cd5cb4-2a35-4a41-966e-0280537cfd21
+begin
+	init_ms_gaussian
+	θ_init_gaussian = [0.2, 0.2]
+end
+
+# ╔═╡ 2e6e5618-7316-4b1c-a2be-7eed76913287
+begin
+	init_ms_gaussian
+	θ_current_gaussian = θ_init_gaussian
+	pθ_current_gaussian = posterior(θ_current_gaussian)
+	# m_samples_gaussian = []
+	m_plot2_gaussian = Plots.plot(θ₁s, θ₂s,  ps', st=:contour, xlabel=L"\theta_A", ylabel=L"\theta_B", ratio=1, xlim=[0,1], ylim=[0,1], colorbar=false, c=:thermal, framestyle=:origin, alpha=0.5, nlevels=8, legend=:outerright)
+	scatter!([θ_current_gaussian[1]],[θ_current_gaussian[2]], markersize= 5, mc=:orange, markershape=:xcross,  markerstrokewidth =5, label="initial")
+	scatter!([θ_current_gaussian[1]],[θ_current_gaussian[2]], markersize= 3.5, mc=:green, markeralpha=0.8,  label="current")
+	ms_gaussian_samples = []
+end;
+
+# ╔═╡ d1967e69-b4cb-4fcc-816b-81bbe3e5a1e0
+@bind go_gaussian Button("MS step with Gaussian proposal")
+
+# ╔═╡ bc832ff2-6930-4903-b5eb-41e01deac3f7
+let
+	go_gaussian
+	if !isempty(ms_gaussian_samples)
+		θₚ_gaussian = θ_current_gaussian + [σa * randn(), σb * randn()]
+		a_g_step = posterior(θₚ_gaussian) / posterior(θ_current_gaussian)
+		if rand() < a_g_step
+			scatter!(m_plot2_gaussian, [θₚ_gaussian[1]],[θₚ_gaussian[2]], markersize= 3.5, mc=:green, markeralpha=0.8, label="")
+			plot!(m_plot2_gaussian, [θ_current_gaussian[1], θₚ_gaussian[1]], [θ_current_gaussian[2],θₚ_gaussian[2]], st=:path, lc=:green, la=0.5, label=false, title="")
+			θ_current_gaussian .= θₚ_gaussian
+		else
+			scatter!(m_plot2_gaussian, [θₚ_gaussian[1]],[θₚ_gaussian[2]], markersize= 3, mc=:red, markeralpha=0.3, label="")
+			plot!(m_plot2_gaussian, [θ_current_gaussian[1], θₚ_gaussian[1]], [θ_current_gaussian[2], θₚ_gaussian[2]], st=:path, lc=:red, linestyle=:dot, la=0.1, label=false, title="")
+		end
+	else
 		
-		loss[i] = sum(min_dis)
-
-		if i > 1 && abs(loss[i]-loss[i-1]) < tol
-			i = i + 1
-			break;
-		end
-		i = i + 1
 	end
-	return loss[1:i-1], zs, μs
-end;
-
-# ╔═╡ 00d85bc5-c320-41dc-8a85-4ad409b058a8
-loss_km₁, zs_km₁, μs_km₁ = kmeans(data₁, K₁);
-
-# ╔═╡ ceaedbd8-6c88-407b-84f6-aedc0a59a22d
-plot(loss_km₁, label="loss", xlab="Iterations", ylab="Loss", title="Loss trajectory of K-means", framestyle=:box)
-
-# ╔═╡ 8c803aa8-de06-4194-bb55-67af083cfd74
-md"""
-
-## Recap: distance metrics
-"""
-
-# ╔═╡ bba94ae7-a6a8-4958-bcf5-9380864a9147
-md"""
-
-**Distance metric**: a distance between $\mathbf{x}$ and $\boldsymbol\mu$ is:
-
-$\Large d_{\boldsymbol{\Sigma}}^2 = {(\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol\Sigma^{-1}(\mathbf{x}-\boldsymbol{\mu})}$
-
-"""
-
-# ╔═╡ 4dc678ce-8f35-44c7-b58c-628345350b49
-md"""
-
-**Euclidean distance** is an example
-\
-\
-
-
-$$\large\begin{align}d^2(\mathbf{x}, \boldsymbol{\mu}) =\sum_{j=1}^d (x_j - \mu_{j})^2
-&= \underbrace{(\mathbf{x} - \boldsymbol\mu)^\top}_{\text{row vector}} \underbrace{(\mathbf{x} - \boldsymbol\mu)}_{\text{column vector}}\\ 
-&= \boxed{(\mathbf{x} - \boldsymbol\mu)^\top  \mathbf{I}^{-1}  (\mathbf{x} - \boldsymbol\mu)}\end{align}$$
-
-* *i.e.* ``\boldsymbol{\Sigma} =\mathbf{I}``
-
-"""
-
-# ╔═╡ 9f18a392-8edb-4f4e-a468-6d1d735d05bf
-md"""
-
-## Examples of distance metrics
-"""
-
-# ╔═╡ 40d1d8ec-3875-49c8-9425-f5cb6765603b
-md"""
-
-**Distance metric**: a distance between $\mathbf{x}$ and $\boldsymbol\mu$ is:
-
-$\Large d_{\boldsymbol{\Sigma}}^2 = {(\mathbf{x} - \boldsymbol{\mu})^\top \boldsymbol\Sigma^{-1}(\mathbf{x}-\boldsymbol{\mu})}$
-
-"""
-
-# ╔═╡ 542b0f6f-befa-4dfe-acb7-b7aa6ab9f56c
-md"""
-
-## Decision boundary of K-means
-
-K-means imposes linear **decision boundaries**
-
-$$\large\mathbf{x} \in \mathbb{R}^d \;\; \text{s.t.}\; \|\mathbf{x} - \boldsymbol{\mu}_i\|^2 = \|\mathbf{x} - \boldsymbol{\mu}_j\|^2$$
-
-* the boundary: $\mathbf{x}\in \mathbb{R}^d$ with equal distances to $\boldsymbol\mu_i$ and $\boldsymbol\mu_j$
-
-"""
-
-# ╔═╡ 05de404f-d2d7-4feb-ba70-a25d8eba71d4
-md"""
-
-## Limitations of K-means
-
-
-K-means is very similar LDA
-* *i.e.* ``\boldsymbol\Sigma_k =\mathbf{I}``
-* they share the same limitations
-
-## Limitations of K-means
-
-
-K-means is very similar LDA
-* *i.e.* ``\boldsymbol\Sigma_k =\mathbf{I}``
-* they share the same limitations
-
-How do you think K-means would fare on **this dataset** ?
-
-* Euclidean distance (circular distance contour) do not make sense for cluster 3
-* ellipse seems better
-"""
-
-# ╔═╡ b44fce15-1056-4f42-9ec7-7a70092c355b
-md"""
-
-## K-means result
-"""
-
-# ╔═╡ adb47976-1d3c-42d9-941c-8a791866eb97
-md"""
-
-## K-means result
-
-
-
-**K-means** fails miserably
-
-
-* it fails at discovering the hidden data structure 
-"""
-
-# ╔═╡ 5f9ad998-c410-4358-925b-66e5d3b2f9e9
-begin
-	Random.seed!(123)
-	K₂ = 3
-	trueμs₂ = zeros(2,K₂)
-	trueΣs₂ = zeros(2,2,K₂)
-	trueμs₂[:,1], trueΣs₂[:,:,1] = [-2.0, 0.0], 0.5 * Matrix(1.0I, 2,2)
-	trueμs₂[:,2], trueΣs₂[:,:,2] = [2.0, 0.0], 0.5 * Matrix(1.0I, 2,2)
-	trueμs₂[:,3], trueΣs₂[:,:,3] = [0., 0],  Matrix([0.5 0; 0 2])
-	trueπs₂ = [0.2, 0.2, 0.6]
-	truemvns₂ = [MvNormal(trueμs₂[:,k], trueΣs₂[:,:,k]) for k in 1:K₂]
-	n₂= 500
-	truezs₂ = rand(Categorical(trueπs₂), n₂)
-	data₂= vcat([rand(truemvns₂[z])' for z in truezs₂]...)
-	# data₂, truezs₂ = sampleMixGaussian(n₂, truemvns₂, trueπs₂)
-end;
-
-# ╔═╡ c8cb2535-7b65-4d86-9405-71880fdb906e
-_, zskm₂, ms₂ = kmeans(data₂, K₂; seed= 442);
-
-# ╔═╡ ca7f12d8-f823-448b-ab1f-0e28c85a3f7f
-md"""
-
-## Limitations of K-means (cont.)
-
-
-"""
-
-# ╔═╡ 8d2778fd-edfe-4a02-92f9-2b9a67f2a2c0
-md"""
-
-## K-means results
-
-"""
-
-# ╔═╡ 8107c1d9-58c4-41f0-8870-bfd7084e42b5
-md"""
-
-K-means fails again (and even worse for this case)
-
-
-* K-means in general **cannot** handle overlapping dataset
-"""
-
-# ╔═╡ ecb07f7e-e742-4948-b190-c3e37eadc29e
-md"""
-
-## More more dataset: no ground truth 
-"""
-
-# ╔═╡ 449564e9-426f-4242-856d-080f227af450
-begin
-
-	Random.seed!(123)
-	nobs = 1200
-	ts = rand(nobs) * 2 .- 1 
-
-	ys = @. 0.45 * sin(π * ts * 4.5) - 0.5 * ts + randn() * 0.05
-	data₄ = [ys ts]
-end;
-
-# ╔═╡ b087739a-c892-4c94-92ba-dbba390095f4
-begin
-	plot(ys, ts, st=:scatter, ratio =1, label="data", xlabel=L"x", ylabel=L"y", title="Dataset without ground truth", xlim =[-1.2, 1.2], markersize =4, alpha=0.5)
+	push!(ms_gaussian_samples, θ_current_gaussian)
+	m_plot2_gaussian
 end
 
-# ╔═╡ 9412db91-c5d8-4836-bdd0-38f37da1f51b
-_, zskm₄, ms₄ = kmeans(data₄, 9; seed= 222);
-
-# ╔═╡ d9eaf592-1522-4f7e-a7db-cf503a152eb9
-md"""
-
-## 
-
-
-### Question: can we find non-trivial structures from data unsupervisedly?
-
-#### _Yes!_ EM algorithm
-"""
-
-# ╔═╡ aabdfd01-c9b8-4c45-83c3-29881581e6e3
-# begin
-# 	Random.seed!(4321)
-# 	K₄ = 2
-# 	trueπs₄ = [0.6, 0.4]
-# 	trueμs₄ = [[-2, -2] [0.5, 0.5] ]
-# 	trueΣs₄ = zeros(2, 2, K₄)
-# 	trueΣs₄[:,:, 1] = [1 0.9; 0.9 1]
-# 	trueΣs₄[:,:, 2] = [0.5 0.; 0. 0.5]
-# 	truemvns₄ = [MvNormal(trueμs₄[:,k], trueΣs₄[:,:,k]) for k in 1:K₄]
-# 	data₄, truezs₄ = sampleMixGaussian(100, truemvns₄, trueπs₄)
-# 	xs₄ = (minimum(data₄[:,1])-1):0.1: (maximum(data₄[:,1])+1)
-# 	ys₄ = (minimum(data₄[:,2])-1):0.1: (maximum(data₄[:,2])+1)
-
-# 	dataset4 = data_set(data₄, truezs₄, truemvns₄, trueπs₄)
-# end;
-
-# ╔═╡ bbd25bdf-e82d-4f65-bfad-7d8e8e9cca18
-struct data_set
-	X
-	labels
-	mvns
-	πs
-end
-
-# ╔═╡ 4cc1f89c-6e1d-4457-9e84-fd5bdd0b575a
-Σs = [Matrix(1.0I, 2,2), [2 0; 0 0.5],  [.5 0; 0 2] , [1 0.9; 0.9 1], [1 -0.9; -0.9 1]];
-
-# ╔═╡ ba06623e-a9e6-4f39-8c4d-d8f86c765a8c
-plts_mvns=let
-	Random.seed!(123)
-	nobs= 250
-	plts = []
-
-	for Σ in Σs
-		mvn = MvNormal(zeros(2), Σ)
-		# data = rand(mvn, nobs)
-	  	# scatter(data[1,:], data[2,:])
-		plt = plot(-3:0.1:3, -3:0.1:3, (x, y) -> pdf(mvn, [x,y]), st=:contour, c=:jet, clabels=false, ratio=1, lw=2, levels=5, colorbar=false, framestyle=:origin)
-
-		scatter!([0], [0], markershape=:star, color=:red, label=L"\mu")
-		# plot!(-3:0.1:3, -3:0.1:3, (x, y) -> pdf(mvn, [x,y]), st=:contour, c=:jet, ratio=1, lw=3, levels=5, colorbar=false, framestyle=:origin)
-		# scatter!(data[1,:], data[2,:], c=1, alpha=0.5, ms=2, label="")
-		push!(plts, plt)
-	end
-
-	# color=:turbo, clabels=true,
-	plts
+# ╔═╡ 30d9c1ca-e2b9-4e0a-8c32-908ed26cf13c
+begin
+	Random.seed!(123)	
+	spls_gaussian, _, _, _ = metropolis_sampler_two_sellers(ℓπ, 20000; proposal = :gaussian, x0 = [0.5, 0.5], σs = [0.08, 0.05])
 end;
 
-# ╔═╡ c4c51b3c-c0d3-44d7-b5e8-1a65c3e737cc
-ThreeColumn(
+# ╔═╡ bb5440bd-b931-420d-91b1-16e54d00de4e
+gaussian_chain = Chains(spls_gaussian[:, 100:5:end]', [L"\theta_1", L"\theta_2"]);
+
+# ╔═╡ 77865cbd-8ebd-440d-83fd-26f2f91fa76e
+plot(gaussian_chain)
+
+# ╔═╡ 78f331f8-2607-4ed3-8fac-6ded7b575251
+let
+	# density(gaussian_chain[:,1,:], label="seller A", title="Gaussian proposal")
+	# density!(gaussian_chain[:,2,:], label="seller B")
+
+	density(gaussian_chain[:,1,:], lw=2, label="MCMC with Gaussian proposal " *L"P(\theta_A|\mathcal{D})", legend=:topleft)
+	density!(gaussian_chain[:,2,:], lw=2, label="MCMC with Gaussian proposal " *L"P(\theta_A|\mathcal{D})")
+	
+	plot!(Beta(Nₕ₁+1, N₁ - Nₕ₁+1), lw=1.5, lc=1, ls=:dash, label="Exact "*L"P(\theta_A|\mathcal{D})")
+	plot!(Beta(Nₕ₂+1, N₂ - Nₕ₂+1), lw=1.5, lc=2, ls=:dash, label="Exact "*L"P(\theta_B|\mathcal{D})")
+end
+
+# ╔═╡ c65841ca-bf38-48fe-a2b4-0f6e9b5fd874
+# let
+# 	gr()
+# 	scatter([gaussian_chain[1:5:end,1,:]], gaussian_chain[1:5:end,2,:], xlim=[0,1], ylim=[0,1],  label="", ratio=1, alpha=0.3, markersize=3)
+# 	plot!((x) -> x, lw=1, lc=:gray, label="")
+# 	equalline = Shape([(0., 0.0), (1,1), (1, 0)])
+# 	plot!(equalline, fillcolor = plot_color(:gray, 0.2), label=L"\theta_A>\theta_B", legend=:bottomright)
+# end
+
+# ╔═╡ bf130cdd-773c-4737-9868-1516311221d9
 md"""
 
-$$\mathbf \Sigma=$$
-$(latexify_md(Σs[1]))
 
-$(plot(plts_mvns[1], size=(220,220)))
-	
+## Metropolis Hastings
 
+An extension of Metropolis sampling
 
-"""	,
+* asymmetric proposal distribution can be used
+
+!!! infor "Metropolis-Hastings algorithm"
+	0. Initialise ``\theta^{(0)}`` arbitrary
+	1. For ``r = 1,2,\ldots``:
+	   * sample a candidate value from ``q``: 
+	   $$\theta' \sim q(\theta|\theta^{(r)})$$
+	   * evaluate ``a``, where
+	   $$a = \text{min}\left \{\frac{p^\ast(\theta')q(\theta^{(t)}|\theta')}{p^\ast(\theta^{(t)}) q(\theta'|\theta^{(t)})}, 1\right \}$$
+	   * set
+	   $$\theta^{(t+1)} = \begin{cases} \theta' & \text{with probability }  a\\ \theta^{(t)} & \text{with probability } 1-a\end{cases}$$
+"""
+
+# ╔═╡ ea2f9db8-e93e-48c2-aa50-95310972502b
 md"""
 
-$$\mathbf \Sigma=$$
-$(latexify_md(Σs[2]))
 
-$(plot(plts_mvns[2], size=(220,220)))
-	
+*Remark*: when the proposal distribution is symmetric, i.e.
+
+$$q(\theta^{(t)}|\theta')= q(\theta'|\theta^{(t)}),$$ the acceptance probablity reduces to
+
+$$a = \text{min}\left \{\frac{p^\ast(\theta')}{p^\ast(\theta^{(t)}) }, 1\right \}$$ 
 
 
+* the algorithm is called **Metropolis** algorthm
 
 """
-	,
 
-
+# ╔═╡ da7a35af-1f07-40a4-8257-a078545e23e6
 md"""
-
-$$\mathbf \Sigma=$$
-$(latexify_md(Σs[4]))
-
-
-$(plot(plts_mvns[4], size=(220,220)))
-	
-
-
-"""
-)
-
-# ╔═╡ a0465ae8-c843-4fc0-abaf-0497ada26652
-md"""
-
 ## Appendix
 
-Utility functions
 """
 
-# ╔═╡ dafd1a68-715b-4f06-a4f2-287c123761f8
+# ╔═╡ df9a7d0c-ad9f-4829-8239-f8cc652771e7
 begin
-	function sampleMixGaussian(n, mvns, πs)
-		d = size(mvns[1].Σ)[1]
-		samples = zeros(n, d)
-		# sample from the multinoulli distribution of cⁱ
-		cs = rand(Categorical(πs), n)
-		for i in 1:n
-			samples[i,:] = rand(mvns[cs[i]])
-		end
-		return samples, cs
+
+function produce_anim(ℓπ, chain, proposed, acpt, rate; mc = 200, xlim=[-4, 4], ylim = [-4, 4], title="Metropolis demonstration; ", with_accpt_rate=true)
+	if with_accpt_rate
+		title = title * "acceptance rate=$(rate)"
 	end
+	plt_ = plot(range(xlim[1], xlim[2], length= 100), range(ylim[1], ylim[2], length= 100), (x, y)-> exp(ℓπ([x,y])), legend = :none, st=:contour, linewidth=0.5, la=0.5, levels=5, title=title, framestyle=:semi, ratio =1)
+
+	anim = @animate for i  in 1:mc
+		scatter!(plt_, (chain[1, i], chain[2, i]),
+			 label=false, mc=:green, ma=0.5)
+		if !acpt[i]
+			scatter!(plt_, (proposed[1, i], proposed[2, i]), label=false, mc =:red, ma=0.4)
+			plot!([chain[1, i], proposed[1, i]], [chain[2, i], proposed[2, i]], st=:path, lc=:red, linestyle=:dot, la=0.5, label=false)
+		end
+		plot!(plt_, chain[1, i:i+1], chain[2, i:i+1], st=:path, lc=:green, la=0.5, label=false)
+	end
+	
+	return anim
 end
 
-# ╔═╡ e0cfcb9b-794b-4731-abf7-5435f67ced42
+end
+
+# ╔═╡ cd0ab47e-4b0f-4240-93ae-81dad54209f3
 begin
-	Random.seed!(123)
-	K₃ = 3
-	trueπs₃ = [0.25, 0.5, 0.25]
-	trueμs₃ = [[1, 1] [0.0, 0] [-1, -1]]
-	trueΣs₃ = zeros(2,2,K₃)
-	trueΣs₃ .= [1 -0.9; -0.9 1]
-	trueΣs₃[:,:,2] = [1 0.9; 0.9 1]
-	truemvns₃ = [MvNormal(trueμs₃[:,k], trueΣs₃[:,:,k]) for k in 1:K₃]
-	n₃ = 200* K₃
-	data₃, truezs₃ = sampleMixGaussian(200, truemvns₃, trueπs₃)
-	data₃test, truezs₃test = sampleMixGaussian(100, truemvns₃, trueπs₃)
-	xs₃ = (minimum(data₃[:,1])-1):0.1: (maximum(data₃[:,1])+1)
-	ys₃ = (minimum(data₃[:,2])-1):0.1: (maximum(data₃[:,2])+1)
-	# dataset3
-	dataset3 = data_set(data₃, truezs₃, truemvns₃, trueπs₃)
+
+function demo_mh_gif(ℓπ; proposal =:gaussian, σs = [0.01, 0.01], mc = 200, x₀= [0.5, 0.5], xlim=[0, 1], ylim = [0, 1])
+	Random.seed!(100)
+	chain, proposed, acpt, rate = metropolis_sampler_two_sellers(ℓπ, mc+1; proposal =proposal, x0 = x₀, σs = σs)
+	anim = produce_anim(ℓπ, chain, proposed, acpt, rate; mc = mc, xlim=xlim, ylim = ylim)
+	return anim
+end
+
+	
 end;
 
-# ╔═╡ c7fd532d-d72a-439a-9e71-e85392c66f8c
-_, zskm₃, ms₃ = kmeans(data₃, K₃) ;
+# ╔═╡ 11280ac3-7289-4677-8a88-45130ce2a4d0
+anim_ms_uniform = demo_mh_gif(ℓπ; proposal =:uniform,  mc = 200, x₀= [0.2, 0.2]);
 
-# ╔═╡ 76859d4c-f3e2-4576-b4d6-b637e9c99877
-function QDA_fit(data, labels)
-	n, d = size(data)
-	# sse = zeros(d, d)
-	K = length(unique(labels))
-	μs = zeros(d, K)
-	Σs = zeros(d,d,K)
-	ns = zeros(Int, K)
-	for k in (unique(labels)|>sort)
-		ns[k] = sum(labels .==k)
-		datak = data[labels .== k, :]
-		μs[:, k] = μk = mean(datak, dims=1)[:]
-		error = (datak .- μk')
-		Σs[:,:,k] = error'*error/ns[k]
-	end
-	μs, Σs, ns/n
-end
+# ╔═╡ 95768d9e-e81a-417f-8b1b-846e9fd6e5e3
+gif(anim_ms_uniform, fps=10)
 
-# ╔═╡ 620789b7-59bc-4e17-bcfb-728a329eed0f
-qdform(x, S) = dot(x, S, x)
+# ╔═╡ 793de098-feb6-4b1f-bd01-a20c0bbe3813
+ms_gaussian = demo_mh_gif(ℓπ; proposal =:gaussian, σs = [0.08, 0.05], mc = 200, x₀= [0.2, 0.2]);
 
-# ╔═╡ 8d0c6fdc-4717-4203-b933-4b37fe60d512
-function logLikMixGuassian(x, mvns, πs, logLik=true) 
-	l = logsumexp(log.(πs) .+ [logpdf(mvn, x) for mvn in mvns])
-	logLik ? l : exp(l)
-end
-
-# ╔═╡ d66e373d-8443-4810-9332-305d9781a21a
-md"""
-
-Functions used to plot and produce the gifs
-
-"""
-
-# ╔═╡ acfb80f0-f4d0-4870-b401-6e26c1c99e45
-function plot_clusters(D, zs, K, loss=nothing, iter=nothing,  framestyle=:origin; title_string=nothing, alpha=0.5)
-	if isnothing(title_string)
-		title_string = ""
-		if !isnothing(iter)
-			title_string ="Iteration: "*string(iter)*";"
-		end
-		if !isnothing(loss)
-			title_string *= " L = "*string(round(loss; digits=2))
-		end
-	end
-	plt = plot(title=title_string, ratio=1, framestyle=framestyle)
-	for k in 1:K
-		scatter!(D[zs .==k,1], D[zs .==k, 2], label="cluster "*string(k), ms=3, alpha=alpha)
-	end
-	return plt
-end
-
-# ╔═╡ f2b7b63a-fd54-4f80-af28-f255d186f6f9
-begin
-	gr()
-	anim1 = Animation() 
-	pltsₖₘ = [plt_demo]
-	for iter in 1:5
-		ls, initzs = assignment_step(data₁, ms)
-	    p = plot_clusters(data₁, initzs, K₁, sum(ls), iter; title_string="Assignment step; Iteration = "*L"%$(iter)")
-		for k in 1:K₁
-			ctr = ms[:, k]
-			scatter!([ms[1,k]], [ms[2,k]], markershape = :star4, markerstrokewidth =3, markersize = 10, c= k, labels= "μ"*string(k))
-			plot!(-6:0.1:6, -5:0.1:5, (x,y) -> sum(([x, y] - ms[:, k]).^2), st=:contour, c=k, colorbar = false, levels=[5], lw=2)
-
-			
-			for x in eachrow(data₁[initzs.==k, :])
-				plot!([x[1], ctr[1]],  [x[2], ctr[2]], lc=k, arrow=Plots.Arrow(:close, :both, 1,1),  lw=0.1, st=:path, label="")
-			end
-		end
-		push!(pltsₖₘ, p)
-		frame(anim1, p)
-		p = plot_clusters(data₁, initzs, K₁, sum(ls), iter; title_string="Update step; Iteration = "*L"%$(iter)")
-		ms = update_step(data₁, initzs, K₁)
-		for k in 1:K₁
-			scatter!([ms[1,k]], [ms[2,k]], markershape = :star4, markerstrokewidth =3, markersize = 10, c= k, labels= "μ"*string(k))
-			plot!(-6:0.1:6, -5:0.1:5, (x,y) -> sum(([x, y] - ms[:, k]).^2), st=:contour, c=k, colorbar = false, levels=[5], lw=2)
-		end
-		push!(pltsₖₘ, p)
-		frame(anim1, p)
-	end
-end;
-
-# ╔═╡ 188b9f9d-78e3-4e78-8eae-795a9b012cab
-begin
-	next2
-	pltsₖₘ[min(next_idx2[1]+1, length(pltsₖₘ))]
-end
-
-# ╔═╡ bd670cde-bcbe-4104-8114-34f761f7f850
-gif(anim1, fps=2)
-
-# ╔═╡ a2b02ca9-6edc-48bf-b5e5-746d986d8252
-plts_km_alt, anim_km_alt =let
-	gr()
-	pltsₖₘ2 = []
-	zs0 = rand(1:K₁, size(data₁)[1])
-	anim2 = Animation()
-	l_ = Inf
-	p = plot_clusters(data₁, zs0, K₁, l_, 0)
-	push!(pltsₖₘ2, p)
-	frame(anim2, p)
-	for iter in 1:6
-		ms0 = update_step(data₁, zs0, K₁)
-		p = plot_clusters(data₁, zs0, K₁, l_, iter; title_string="Update step; Iteration = "*L"%$(iter)")
-		for k in 1:K₁
-			scatter!([ms0[1,k]], [ms0[2,k]], markershape = :star4, markersize = 10, c=k, markerstrokewidth =3, color=k, labels= "μ"*string(k))
-			plot!(-6:0.1:6, -5:0.1:5, (x,y) -> sum(([x, y] - ms0[:, k]).^2), st=:contour, c=k, colorbar = false, levels=[5], lw=2)
-		end
-		push!(pltsₖₘ2, p)
-		frame(anim2, p)
-		
-		ls, zs0 = assignment_step(data₁, ms0)
-		p = plot_clusters(data₁, zs0, K₁, l_, iter; title_string="Assignment step; Iteration = "*L"%$(iter)")
-		for k in 1:K₁
-			ctr = ms0[:, k]
-			scatter!([ms0[1,k]], [ms0[2,k]], markershape = :star4, markerstrokewidth =3, markersize = 10, c= k, labels= "μ"*string(k))
-			plot!(-6:0.1:6, -5:0.1:5, (x,y) -> sum(([x, y] - ms0[:, k]).^2), st=:contour, c=k, colorbar = false, levels=[5], lw=2)
-			for x in eachrow(data₁[zs0.==k, :])
-				plot!([x[1], ctr[1]],  [x[2], ctr[2]], lc=k, arrow=Plots.Arrow(:close, :both, 1,1),  lw=0.1, st=:path, label="")
-			end
-		end
-		push!(pltsₖₘ2, p)
-		frame(anim2, p)
-	end
-
-	pltsₖₘ2, anim2
-end;
-
-# ╔═╡ 20e84d48-0f5f-403e-a8aa-1cbd11cd3b04
-begin
-	next3
-	plts_km_alt[min(next_idx3[1], length(plts_km_alt))]
-end
-
-# ╔═╡ 8d86466e-93c5-4263-b436-6fe684eeccd8
-gif(anim_km_alt, fps = 1)
-
-# ╔═╡ e091ce93-9526-4c7f-9f14-7634419bfe57
-# plot clustering results: scatter plot + Gaussian contours
-function plot_clustering_rst(data, K, zs, mvns, πs= 1/K .* ones(K); title="", add_gaussian_contours= false, add_contours=true)
-	xs = (minimum(data[:,1])-0.5):0.1: (maximum(data[:,1])+0.5)
-	ys = (minimum(data[:,2])-0.5):0.1: (maximum(data[:,2])+0.5)
-	_, dim = size(data)
-	# if center parameters are given rather than an array of MvNormals
-	if mvns isa Matrix{Float64}
-		mvns = [MvNormal(mvns[:,k], Matrix(1.0I, dim, dim)) for k in 1:K]
-		πs = 1/K .* ones(K)
-	end
-	if ndims(zs) >1
-		zs = [c[2] for c in findmax(zs, dims=2)[2]][:]
-	end
-	p = plot_clusters(data, zs, K)
-	for k in 1:K 
-		if add_gaussian_contours
-			plot!(xs, ys, (x,y)-> pdf(mvns[k], [x,y]), levels=5,  st=:contour, colorbar = false, ratio=1, color=:jet, linewidth=2) 
-		elseif add_contours
-			plot!(xs, ys, (x,y)-> qdform([x,y]-mvns[k].μ, inv(mvns[k].Σ)), levels=[2.0],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=3) 
-		end
-		
-		scatter!([mvns[k].μ[1]], [mvns[k].μ[2]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=3)
-	end
-	title!(p, title)
-	return p
-end
-
-# ╔═╡ 9612d7c1-3c86-45bc-806a-a53bbf869d87
-begin
-	gr()
-	plt2_= plot_clustering_rst(data₂,  K₂, truezs₂, truemvns₂, trueπs₂)
-	title!(plt2_, "Ground truth dataset", titlefontsize=8)
-	plot!(plt2_, legendfontsize=5)
-	plt2_
-end;
-
-# ╔═╡ eb273a3a-60d6-439e-bb63-6af8130b4ec0
-plot(plt2_,  title="Ground truth data", titlefontsize=15, legendfontsize=8)
-
-# ╔═╡ caf21a20-8dd8-4a31-8463-96d3869d3ee9
-TwoColumn(plot(plt2_, size=(350,350), titlefontsize=10, legendfontsize=6), let
-	gr()
-	plt=plot_clustering_rst(data₂, K₂, zskm₂, ms₂; title= "K-means result for dataset 2")
-
-	plot(plt, size=(350,350), titlefontsize=10, legendfontsize=6)
-end)
-
-# ╔═╡ 9cbc7ef6-788c-4dfd-a98d-2a9409eb5127
-begin
-	gr()
-	plt₂_ =plot_clustering_rst(data₂, K₂, truezs₂,  truemvns₂, trueπs₂)
-	title!(plt₂_, "Ground truth for dataset")
-end;
-
-# ╔═╡ 6569c4e1-5d62-42ad-94c0-927dd6b6f504
-TwoColumn(md"""
-\
-\
-
-**How about this dataset ?**
-
-
-* rotated ellipsoid shaped distances
-* **_overlapping_** data
-""", begin
-	gr()
-	plt₃_= plot_clustering_rst(data₃,  K₃, truezs₃, truemvns₃, trueπs₃)
-	title!(plt₃_, "Overlapping dataset")
-	plot(plt₃_, size=(300,300), titlefontsize=10)
-end)
-
-# ╔═╡ f6b06459-0608-4981-bdb4-8f54d0cadfe1
-TwoColumn(plot(plt₃_, titlefontsize=10, legendfontsize=6, size=(350,350)), let
-	gr()
-	plt=plot_clustering_rst(data₃, K₃, zskm₃, ms₃; title= "K-means result for dataset 2")
-
-	plot(plt, titlefontsize=10, legendfontsize=6, size=(350,350))
-end)
-
-# ╔═╡ f0fb238f-fff6-49bb-9b6e-9881e4a36593
-let
-
-plt = plot_clustering_rst(data₄, 9, zskm₄, ms₄; add_contours=false, title= "K-means result for dataset 4")
-end
-
-# ╔═╡ d44526f4-3051-47ee-8b63-f5e694c2e609
-function e_step(data, mvns, πs)
-	K = length(mvns)
-	# logLiks: a n by K matrix of P(dᵢ|μₖ, Σₖ)
-	logLiks = hcat([logpdf(mvns[k], data') for k in 1:K]...)
-	# broadcast log(P(zᵢ=k)) to each row 
-	logPost = log.(πs') .+ logLiks
-	# apply log∑exp to each row to find the log of the normalising constant of p(zᵢ|…)
-	logsums = logsumexp(logPost, dims=2)
-	# normalise in log space then transform back to find the responsibility matrix
-	ws = exp.(logPost .- logsums)
-	# return the responsibility matrix and the log-likelihood
-	return ws, sum(logsums)
-end
-
-# ╔═╡ 7b47cda6-d772-468c-a8f3-75e3d77369d8
-begin
-# decision boundary function of input [x,y] 
-function decisionBdry(x,y, mvns, πs)
-	z, _ = e_step([x,y]', mvns, πs)
-	findmax(z[:])
-end
-
-end
-
-# ╔═╡ 5a8cdbe7-6abe-4f07-8bcc-89dd71fc35f7
-function kmeansDemoGif(data, K, iters = 10; init_step="a", add_contour=false, seed=123)
-	Random.seed!(seed)
-	# only support 2-d
-	anims = [Animation() for i in 1:3]
-	dim =2 
-	# initialise by random assignment
-	if init_step == "a"
-		zs = rand(1:K, size(data)[1])
-		l = Inf
-	# initialise by randomly setting the centers 
-	else
-		ridx = sample(1:size(data)[1], K)
-		# ms = reshape(repeat(mean(data, dims=1)', K), (dim,K))
-		# ms .+= randn(dim,K)
-		ms = data[ridx, :]'
-		ls, zs = assignment_step(data, ms)
-		l = sum(ls)
-	end
-	# xs = (minimum(data[:,1])-0.1):0.1:(maximum(data[:,1])+0.1)
-	xs = range(minimum(data[:,1])-0.1, maximum(data[:,1])+0.1, 100)
-	# ys = (minimum(data[:,2])-0.1):0.1:(maximum(data[:,2])+0.1)
-	ys = range(minimum(data[:,2])-0.1, maximum(data[:,2])+0.1, 100)
-
-	# cs = cgrad(:lighttest, K+1, categorical = true)
-	ps = 1/K .* ones(K)
-	for iter in 1:iters
-		ms = update_step(data, zs, K)
-		# animation 1: classification evolution
-		p1 = plot_clusters(data, zs, K, l, iter)
-		# if add_contour
-			for k in 1:K 
-				if add_contour
-				plot!(xs, ys, (x,y)-> sum((ms[:, k] - [x,y]).^2), levels=[5],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=3)  
-				end
-				scatter!([ms[1,k]], [ms[2,k]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=2)
-			end
-		# end
-		frame(anims[1], p1)
-		# animation 2: decision boundary
-		mvns = [MvNormal(ms[:,k], Matrix(1.0I, dim, dim)) for k in 1:K]
-		p2 = plot(xs, ys, (x,y) -> decisionBdry(x,y, mvns, ps)[2],  leg=:none, title="Iteration: "*string(iter)*"; L="*string(round(l; digits=2)), ratio=1, framestyle=:origin, c=1:K, alpha=0.5, st=:heatmap)
-		for k in 1:K
-			scatter!(data[zs .==k, 1], data[zs .==k, 2], c= k, ms=3, alpha=0.5)
-			scatter!([ms[1,k]], [ms[2,k]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=2)
-			# plot!(xs, ys, (x,y)-> sum((ms[:, k] - [x,y]).^2), levels=[1.5],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=3)  
-		end
-		frame(anims[2], p2)
-
-		# animation 3: contour evolution
-		# animation 3: contour plot
-		# p3 = plot_clusters(data, zs, K, l, iter)
-		p3 = plot(xs, ys, (x,y) -> logLikMixGuassian([x,y], mvns, ps), st=:contour, fill=true, colorbar=false, ratio=1, title="Iteration: "*string(iter)*"; L="*string(round(l; digits=2)))
-		# for k in 1:K
-		# 	scatter!(data[zs .==k, 1], data[zs .==k, 2], c= cs[k], label="")
-		# end
-		frame(anims[3], p3)
-		
-		ls,zs = assignment_step(data, ms)
-		l = sum(ls)
-	end
-
-	return anims
-end
-
-# ╔═╡ a0ebfea7-bbe5-4798-8db3-163381bf67c2
-begin
-	gr()
-	kmAnim₁ = kmeansDemoGif(data₁, K₁, 10; init_step="a", add_contour=true);
-end;
-
-# ╔═╡ ab0c4765-e9a0-4ba3-8a21-e81b214ab060
-TwoColumn(gif(kmAnim₁[1], fps=1), gif(kmAnim₁[2], fps=1))
-
-# ╔═╡ 533efc1a-fd99-4a5d-9ef3-4ff7ce483f24
-begin
-	gr()
-	kmAnim3 = kmeansDemoGif(data₂, K₂, 22; init_step="a", add_contour=true)
-end;
-
-# ╔═╡ c46949ad-46c8-4bcb-9e83-1eb646b4ea2a
-gif(kmAnim3[2], fps=5)
-
-# ╔═╡ f847fb00-3ccb-4137-a5b4-62567fa51498
-begin
-	gr()
-	kmAnim₄ = kmeansDemoGif(data₄, 9, 25; init_step="u", add_contour=false, seed=234);
-end;
-
-# ╔═╡ 04f81aff-903c-40fa-9acd-9e867ede8a9b
-TwoColumn(gif(kmAnim₄[1], fps=5), gif(kmAnim₄[2], fps=5))
-
-# ╔═╡ ad943140-9510-463e-b57c-4956ed2cd5d5
-begin
-	gr()
-	kmAnim₃ = kmeansDemoGif(data₃, K₃, 10; init_step="a", add_contour=true)
-end;
-
-# ╔═╡ 27755688-f647-48e5-a939-bb0fa70c95d8
-function m_step(data, ws)
-	_, d = size(data)
-	K = size(ws)[2]
-	ns = sum(ws, dims=1)
-	πs = ns ./ sum(ns)
-	# weighted sums ∑ wᵢₖ xᵢ where wᵢₖ = P(zᵢ=k|\cdots)
-	ss = data' * ws
-	# the weighted ML for μₖ = ∑ wᵢₖ xᵢ/ ∑ wᵢₖ
-	μs = ss ./ ns
-	Σs = zeros(d, d, K)
-	for k in 1:K
-		error = (data .- μs[:,k]')
-		# weighted sum of squared error
-		# use Symmetric to remove floating number numerical error
-		Σs[:,:,k] =  Symmetric((error' * (ws[:,k] .* error))/ns[k])
-	end
-	# this is optional: you can just return μs and Σs
-	mvns = [MvNormal(μs[:,k], Σs[:,:,k]) for k in 1:K]
-	return mvns, πs[:]
-end
-
-# ╔═╡ 8d06ce32-2c8d-4317-8c38-108ec0e7fe23
-function em_mix_gaussian(data, K=3; maxIters= 100, tol= 1e-4, init_step="e", seed=123)
-	Random.seed!(seed)
-	# initialisation
-	n,d = size(data)
-	if init_step == "e"
-		zᵢ = rand(1:K, n)
-		μs = zeros(d, K)
-		[μs[:,k] = mean(data[zᵢ .== k,:], dims=1)[:] for k in 1:K] 
-	elseif init_step == "m"
-		μs = data[rand(1:n, K), :]'
-	else
-		μs = randn(d,K)
-		μs .+= mean(data, dims=1)[:] 
-	end
-	Σs = zeros(d,d,K)
-	Σs .= Matrix(1.0I, d,d)
-	mvns = [MvNormal(μs[:,k], Σs[:,:,k]) for k in 1:K]
-	πs = 1/K .* ones(K)
-	zs = zeros(n,K)
-	logLiks = Array{Float64,1}()
-	i = 1
-	for i in 1:maxIters
-		# E-step
-		zs, logLik = e_step(data, mvns, πs)
-		# M-step
-		mvns, πs = m_step(data, zs)
-		push!(logLiks, logLik)
-		# be nice, let it run at least three iters
-		if i>2 && abs(logLiks[end] - logLiks[end-1])< tol
-			break;
-		end
-	end
-	return logLiks, mvns, πs, zs
-end
-
-# ╔═╡ c46e0b36-c3fd-4b7f-8f31-25c3315bb10c
-# plot type: cl: classification; db: decision boundary; ct: contour
-function mixGaussiansDemoGif(data, K, iters = 10; init_step="e", add_contour=false, seed=123)
-	Random.seed!(seed)
-	# only support 2-d
-	dim = 2 
-	anims = [Animation() for i in 1:3]
-	if init_step == "e"
-		zs_ = rand(1:K, size(data)[1])
-		zs = Matrix(I,K,K)[zs_,:]
-		l = Inf
-	else
-		ms = reshape(repeat(mean(data, dims=1)', K), (dim,K))
-		ms .+= randn(dim,K)
-		mvns = [MvNormal(ms[:,k], Matrix(1.0I,dim,dim)) for k in 1:K]
-		zs, l = e_step(data, mvns, 1/K .* ones(K))
-		zs_ = [c[2] for c in findmax(zs, dims=2)[2]][:]
-	end
-	xs = (minimum(data[:,1])-0.1):0.1:(maximum(data[:,1])+0.1)
-	ys = (minimum(data[:,2])-0.1):0.1:(maximum(data[:,2])+0.1)
-	# cs = cgrad(:lighttest, K+1, categorical = true)
-
-	for iter in 1:iters
-		# M step
-		mvns, ps  = m_step(data, zs)
-		# animation 1: classification evolution 
-		p1 = plot_clusters(data, zs_, K, l, iter)
-		if add_contour
-			for k in 1:K 
-				plot!(xs, ys, (x,y)-> qdform([x,y]-mvns[k].μ, inv(mvns[k].Σ)), levels=[2.0],  st=:contour, colorbar = false, ratio=1, color=k, linewidth=3) 
-				scatter!([mvns[k].μ[1]], [mvns[k].μ[2]], color = k, label = "", markersize = 10, markershape=:star4, markerstrokewidth=2)
-			end
-		end
-		frame(anims[1], p1)
-		# animation 2: decision boundary evolution 
-		p2 = heatmap(xs, ys, (x,y) -> decisionBdry(x,y, mvns, ps)[2], c=1:K, leg=:none, title="Iteration: "*string(iter)*"; L="*string(round(l; digits=2)), ratio=1, framestyle=:origin)
-		for k in 1:K
-			scatter!(data[zs_ .==k, 1], data[zs_ .==k, 2], c= k)
-		end
-		frame(anims[2], p2)
-
-		# animation 3: contour plot
-		# p3 = plot_clusters(data, zs_, K, l, iter)
-		p3 = plot(xs, ys, (x,y) -> logLikMixGuassian([x,y], mvns, ps), st=:contour, fill=true, colorbar=false, title="Iteration: "*string(iter)*"; L="*string(round(l; digits=2)), ratio=1, framestyle=:origin)
-		# for k in 1:K
-		# 	scatter!(data[zs_ .==k, 1], data[zs_ .==k, 2], c= cs[k], label="")
-		# end
-		frame(anims[3], p3)
-		# E step
-		zs, l = e_step(data, mvns, ps)
-		zs_ = [c[2] for c in findmax(zs, dims=2)[2]][:]
-	end
-	return anims
-end
+# ╔═╡ d1df764c-38f9-43e6-bb64-e31415456d28
+gif(ms_gaussian, fps=10)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-LogExpFunctions = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+StatsFuns = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
-Clustering = "~0.15.4"
 Distributions = "~0.25.100"
-HypertextLiteral = "~0.9.4"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.16.1"
-LogExpFunctions = "~0.3.26"
-Plots = "~1.38.17"
+MCMCChains = "~6.0.3"
+Plots = "~1.39.0"
 PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.52"
-StatsBase = "~0.34.0"
+StatsFuns = "~1.3.0"
 StatsPlots = "~0.15.6"
 """
 
@@ -1302,7 +1057,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.4"
 manifest_format = "2.0"
-project_hash = "14d6b30cc4457409f52221963f394b8ee3122732"
+project_hash = "3faad047839828f5fae289f72780cc508812029b"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1315,11 +1070,22 @@ weakdeps = ["ChainRulesCore", "Test"]
     AbstractFFTsChainRulesCoreExt = "ChainRulesCore"
     AbstractFFTsTestExt = "Test"
 
+[[deps.AbstractMCMC]]
+deps = ["BangBang", "ConsoleProgressMonitor", "Distributed", "LogDensityProblems", "Logging", "LoggingExtras", "ProgressLogging", "Random", "StatsBase", "TerminalLoggers", "Transducers"]
+git-tree-sha1 = "87e63dcb990029346b091b170252f3c416568afc"
+uuid = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
+version = "4.4.2"
+
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
 git-tree-sha1 = "91bd53c39b9cbfb5ef4b015e8b582d344532bd0a"
 uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.2.0"
+
+[[deps.AbstractTrees]]
+git-tree-sha1 = "faa260e4cb5aba097a73fab382dd4b5819d8ec8c"
+uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
+version = "0.4.4"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra", "Requires"]
@@ -1330,6 +1096,11 @@ weakdeps = ["StaticArrays"]
 
     [deps.Adapt.extensions]
     AdaptStaticArraysExt = "StaticArrays"
+
+[[deps.ArgCheck]]
+git-tree-sha1 = "a3a402a35a2f7e0b87828ccabbd5ebfbebe356b4"
+uuid = "dce04be8-c92d-5529-be00-80e4d2c0e197"
+version = "2.3.0"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -1356,8 +1127,39 @@ git-tree-sha1 = "66771c8d21c8ff5e3a93379480a2307ac36863f7"
 uuid = "13072b0f-2c55-5437-9ae7-d433b7a33950"
 version = "1.0.1"
 
+[[deps.AxisArrays]]
+deps = ["Dates", "IntervalSets", "IterTools", "RangeArrays"]
+git-tree-sha1 = "16351be62963a67ac4083f748fdb3cca58bfd52f"
+uuid = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
+version = "0.4.7"
+
+[[deps.BangBang]]
+deps = ["Compat", "ConstructionBase", "InitialValues", "LinearAlgebra", "Requires", "Setfield", "Tables"]
+git-tree-sha1 = "e28912ce94077686443433c2800104b061a827ed"
+uuid = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
+version = "0.3.39"
+
+    [deps.BangBang.extensions]
+    BangBangChainRulesCoreExt = "ChainRulesCore"
+    BangBangDataFramesExt = "DataFrames"
+    BangBangStaticArraysExt = "StaticArrays"
+    BangBangStructArraysExt = "StructArrays"
+    BangBangTypedTablesExt = "TypedTables"
+
+    [deps.BangBang.weakdeps]
+    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+    DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+    StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
+    TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
+
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[deps.Baselet]]
+git-tree-sha1 = "aebf55e6d7795e02ca500a689d326ac979aaf89e"
+uuid = "9718e550-a3fa-408a-8086-8db961cd8217"
+version = "0.1.1"
 
 [[deps.BitFlags]]
 git-tree-sha1 = "43b1a4a8f797c1cddadf60499a8a077d4af2cd2d"
@@ -1449,16 +1251,49 @@ deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "1.0.5+0"
 
+[[deps.CompositionsBase]]
+git-tree-sha1 = "802bb88cd69dfd1509f6670416bd4434015693ad"
+uuid = "a33af91c-f02d-484b-be07-31d278c5ca2b"
+version = "0.1.2"
+
+    [deps.CompositionsBase.extensions]
+    CompositionsBaseInverseFunctionsExt = "InverseFunctions"
+
+    [deps.CompositionsBase.weakdeps]
+    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
+
 [[deps.ConcurrentUtilities]]
 deps = ["Serialization", "Sockets"]
 git-tree-sha1 = "5372dbbf8f0bdb8c700db5367132925c0771ef7e"
 uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
 version = "2.2.1"
 
+[[deps.ConsoleProgressMonitor]]
+deps = ["Logging", "ProgressMeter"]
+git-tree-sha1 = "3ab7b2136722890b9af903859afcf457fa3059e8"
+uuid = "88cd18e8-d9cc-4ea6-8889-5259c0d15c8b"
+version = "0.1.2"
+
+[[deps.ConstructionBase]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "c53fc348ca4d40d7b371e71fd52251839080cbc9"
+uuid = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
+version = "1.5.4"
+weakdeps = ["IntervalSets", "StaticArrays"]
+
+    [deps.ConstructionBase.extensions]
+    ConstructionBaseIntervalSetsExt = "IntervalSets"
+    ConstructionBaseStaticArraysExt = "StaticArrays"
+
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.6.2"
+
+[[deps.Crayons]]
+git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
+uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
+version = "4.1.1"
 
 [[deps.DataAPI]]
 git-tree-sha1 = "8da84edb865b0b5b0100c0666a9bc9a0b71c553c"
@@ -1479,6 +1314,11 @@ version = "1.0.0"
 [[deps.Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
+
+[[deps.DefineSingletons]]
+git-tree-sha1 = "0fba8b706d0178b4dc7fd44a96a92382c9065c2c"
+uuid = "244e2a9f-e319-4986-a169-4d1fe445cd52"
+version = "0.1.2"
 
 [[deps.DelimitedFiles]]
 deps = ["Mmap"]
@@ -1617,6 +1457,10 @@ git-tree-sha1 = "aa31987c2ba8704e23c6c8ba8a4f769d5d7e4f91"
 uuid = "559328eb-81f9-559d-9380-de523a88c83c"
 version = "1.0.10+0"
 
+[[deps.Future]]
+deps = ["Random"]
+uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
+
 [[deps.GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
 git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
@@ -1642,10 +1486,10 @@ uuid = "78b55507-aeef-58d4-861c-77aaff3498b1"
 version = "0.21.0+0"
 
 [[deps.Glib_jll]]
-deps = ["Artifacts", "Gettext_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE2_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "d3b3624125c1474292d0d8ed0f65554ac37ddb23"
+deps = ["Artifacts", "Gettext_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE2_jll", "Zlib_jll"]
+git-tree-sha1 = "e94c92c7bf4819685eb80186d51c43e71d4afa17"
 uuid = "7746bdde-850d-59dc-9ae8-88ece973131d"
-version = "2.74.0+2"
+version = "2.76.5+0"
 
 [[deps.Graphite2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1660,9 +1504,9 @@ version = "1.0.2"
 
 [[deps.HTTP]]
 deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "ExceptionUnwrapping", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
-git-tree-sha1 = "cb56ccdd481c0dd7f975ad2b3b62d9eda088f7e2"
+git-tree-sha1 = "19e974eced1768fb46fd6020171f2cec06b1edb5"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "1.9.14"
+version = "1.9.15"
 
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
@@ -1694,6 +1538,11 @@ git-tree-sha1 = "d75853a0bdbfb1ac815478bacd89cd27b550ace6"
 uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
 version = "0.2.3"
 
+[[deps.InitialValues]]
+git-tree-sha1 = "4da0f88e9a39111c2fa3add390ab15f3a44f3ca3"
+uuid = "22cec73e-a1b8-11e9-2c92-598750a2cf9c"
+version = "0.3.1"
+
 [[deps.IntelOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "ad37c091f7d7daf900963171600d7c1c5c3ede32"
@@ -1710,10 +1559,25 @@ git-tree-sha1 = "721ec2cf720536ad005cb38f50dbba7b02419a15"
 uuid = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 version = "0.14.7"
 
+[[deps.IntervalSets]]
+deps = ["Dates", "Random"]
+git-tree-sha1 = "8e59ea773deee525c99a8018409f64f19fb719e6"
+uuid = "8197267c-284f-5f27-9208-e0e47529a953"
+version = "0.7.7"
+weakdeps = ["Statistics"]
+
+    [deps.IntervalSets.extensions]
+    IntervalSetsStatisticsExt = "Statistics"
+
 [[deps.IrrationalConstants]]
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
 uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
 version = "0.2.2"
+
+[[deps.IterTools]]
+git-tree-sha1 = "4ced6667f9974fc5c5943fa5e2ef1ca43ea9e450"
+uuid = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
+version = "1.8.0"
 
 [[deps.IteratorInterfaceExtensions]]
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
@@ -1803,6 +1667,12 @@ version = "0.16.1"
 deps = ["Artifacts", "Pkg"]
 uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 
+[[deps.LeftChildRightSiblingTrees]]
+deps = ["AbstractTrees"]
+git-tree-sha1 = "fb6803dafae4a5d62ea5cab204b1e657d9737e7f"
+uuid = "1d6d02ad-be62-4b6b-8a6d-2f90e265016e"
+version = "0.2.0"
+
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
@@ -1850,10 +1720,10 @@ uuid = "7add5ba3-2f88-524e-9cd5-f83b8a55f7b8"
 version = "1.42.0+0"
 
 [[deps.Libiconv_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "c7cb1f5d892775ba13767a87c7ada0b980ea0a71"
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "f9557a255370125b405568f9767d6d195822a175"
 uuid = "94ce4f54-9a6c-5748-9c1c-f9c7231a4531"
-version = "1.16.1+2"
+version = "1.17.0+0"
 
 [[deps.Libmount_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1877,6 +1747,12 @@ version = "2.36.0+0"
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
+[[deps.LogDensityProblems]]
+deps = ["ArgCheck", "DocStringExtensions", "Random"]
+git-tree-sha1 = "f9a11237204bc137617194d79d813069838fcf61"
+uuid = "6fdf6af0-433a-55f7-b3ed-c6c6e0b8df7c"
+version = "2.1.1"
+
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
 git-tree-sha1 = "7d6dd4e9212aebaeed356de34ccf262a3cd415aa"
@@ -1898,15 +1774,27 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.LoggingExtras]]
 deps = ["Dates", "Logging"]
-git-tree-sha1 = "a03c77519ab45eb9a34d3cfe2ca223d79c064323"
+git-tree-sha1 = "0d097476b6c381ab7906460ef1ef1638fbce1d91"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
-version = "1.0.1"
+version = "1.0.2"
 
 [[deps.LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
 git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
 uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
 version = "2.3.0"
+
+[[deps.MCMCChains]]
+deps = ["AbstractMCMC", "AxisArrays", "Dates", "Distributions", "Formatting", "IteratorInterfaceExtensions", "KernelDensity", "LinearAlgebra", "MCMCDiagnosticTools", "MLJModelInterface", "NaturalSort", "OrderedCollections", "PrettyTables", "Random", "RecipesBase", "Statistics", "StatsBase", "StatsFuns", "TableTraits", "Tables"]
+git-tree-sha1 = "8778ea7283a0bf0d7e507a0235adfff38071493b"
+uuid = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
+version = "6.0.3"
+
+[[deps.MCMCDiagnosticTools]]
+deps = ["AbstractFFTs", "DataAPI", "DataStructures", "Distributions", "LinearAlgebra", "MLJModelInterface", "Random", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Tables"]
+git-tree-sha1 = "3e6db72c2ab9cadfa3278ff388473a01fc0cfb9d"
+uuid = "be115224-59cd-429b-ad48-344e309966f0"
+version = "0.3.5"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
@@ -1918,6 +1806,12 @@ deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl",
 git-tree-sha1 = "eb006abbd7041c28e0d16260e50a24f8f9104913"
 uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
 version = "2023.2.0+0"
+
+[[deps.MLJModelInterface]]
+deps = ["Random", "ScientificTypesBase", "StatisticalTraits"]
+git-tree-sha1 = "03ae109be87f460fe3c96b8a0dbbf9c7bf840bd5"
+uuid = "e80e1ace-859a-464e-9ed9-23947d8ae3ea"
+version = "1.9.2"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
@@ -1945,6 +1839,12 @@ git-tree-sha1 = "c13304c81eec1ed3af7fc20e75fb6b26092a1102"
 uuid = "442fdcdd-2543-5da2-b0f3-8c86c306513e"
 version = "0.3.2"
 
+[[deps.MicroCollections]]
+deps = ["BangBang", "InitialValues", "Setfield"]
+git-tree-sha1 = "629afd7d10dbc6935ec59b32daeb33bc4460a42e"
+uuid = "128add7d-3638-4c79-886c-908ea0c25c34"
+version = "0.1.4"
+
 [[deps.Missings]]
 deps = ["DataAPI"]
 git-tree-sha1 = "f66bdc5de519e8f8ae43bdc598782d35a25b1272"
@@ -1969,6 +1869,11 @@ deps = ["OpenLibm_jll"]
 git-tree-sha1 = "0877504529a3e5c3343c6f8b4c0381e57e4387e4"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.0.2"
+
+[[deps.NaturalSort]]
+git-tree-sha1 = "eda490d06b9f7c00752ee81cfa451efe55521e21"
+uuid = "c020b1a1-e9b0-503a-9c33-f039bfc54a85"
+version = "1.0.0"
 
 [[deps.NearestNeighbors]]
 deps = ["Distances", "StaticArrays"]
@@ -2083,9 +1988,9 @@ version = "1.3.5"
 
 [[deps.Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "UnitfulLatexify", "Unzip"]
-git-tree-sha1 = "9f8675a55b37a70aa23177ec110f6e3f4dd68466"
+git-tree-sha1 = "ccee59c6e48e6f2edf8a5b64dc817b6729f99eb5"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.38.17"
+version = "1.39.0"
 
     [deps.Plots.extensions]
     FileIOExt = "FileIO"
@@ -2137,9 +2042,27 @@ git-tree-sha1 = "7eb1686b4f04b82f96ed7a4ea5890a4f0c7a09f1"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.4.0"
 
+[[deps.PrettyTables]]
+deps = ["Crayons", "LaTeXStrings", "Markdown", "Printf", "Reexport", "StringManipulation", "Tables"]
+git-tree-sha1 = "ee094908d720185ddbdc58dbe0c1cbe35453ec7a"
+uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
+version = "2.2.7"
+
 [[deps.Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[[deps.ProgressLogging]]
+deps = ["Logging", "SHA", "UUIDs"]
+git-tree-sha1 = "80d919dee55b9c50e8d9e2da5eeafff3fe58b539"
+uuid = "33c8b6b6-d38a-422a-b730-caa89a2f386c"
+version = "0.1.4"
+
+[[deps.ProgressMeter]]
+deps = ["Distributed", "Printf"]
+git-tree-sha1 = "ae36206463b2395804f2787ffe172f44452b538d"
+uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
+version = "1.8.0"
 
 [[deps.Qt6Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
@@ -2160,6 +2083,11 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 [[deps.Random]]
 deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[[deps.RangeArrays]]
+git-tree-sha1 = "b9039e93773ddcfc828f12aadf7115b4b4d225f5"
+uuid = "b3c3ace0-ae52-54e7-9d0b-2c1406fd6b9d"
+version = "0.3.2"
 
 [[deps.Ratios]]
 deps = ["Requires"]
@@ -2222,6 +2150,11 @@ version = "0.4.0+0"
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 version = "0.7.0"
 
+[[deps.ScientificTypesBase]]
+git-tree-sha1 = "a8e18eb383b5ecf1b5e6fc237eb39255044fd92b"
+uuid = "30f210dd-8aff-4c5f-94ba-8e64358c1161"
+version = "3.0.0"
+
 [[deps.Scratch]]
 deps = ["Dates"]
 git-tree-sha1 = "30449ee12237627992a99d5e30ae63e4d78cd24a"
@@ -2236,6 +2169,12 @@ version = "1.4.0"
 
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+
+[[deps.Setfield]]
+deps = ["ConstructionBase", "Future", "MacroTools", "StaticArraysCore"]
+git-tree-sha1 = "e2cc6d8c88613c05e1defb55170bf5ff211fbeac"
+uuid = "efcf1570-3423-57d1-acb7-fd33fddbac46"
+version = "1.1.1"
 
 [[deps.SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
@@ -2275,11 +2214,17 @@ weakdeps = ["ChainRulesCore"]
     [deps.SpecialFunctions.extensions]
     SpecialFunctionsChainRulesCoreExt = "ChainRulesCore"
 
+[[deps.SplittablesBase]]
+deps = ["Setfield", "Test"]
+git-tree-sha1 = "e08a62abc517eb79667d0a29dc08a3b589516bb5"
+uuid = "171d559e-b47b-412a-8079-5efa626c420e"
+version = "0.1.15"
+
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "StaticArraysCore"]
-git-tree-sha1 = "9cabadf6e7cd2349b6cf49f1915ad2028d65e881"
+git-tree-sha1 = "51621cca8651d9e334a659443a74ce50a3b6dfab"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.6.2"
+version = "1.6.3"
 weakdeps = ["Statistics"]
 
     [deps.StaticArrays.extensions]
@@ -2290,6 +2235,12 @@ git-tree-sha1 = "36b3d696ce6366023a0ea192b4cd442268995a0d"
 uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 version = "1.4.2"
 
+[[deps.StatisticalTraits]]
+deps = ["ScientificTypesBase"]
+git-tree-sha1 = "30b9236691858e13f167ce829490a68e1a597782"
+uuid = "64bff920-2084-43da-a3e6-9bb72801c0c9"
+version = "3.2.0"
+
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
@@ -2297,9 +2248,9 @@ version = "1.9.0"
 
 [[deps.StatsAPI]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "45a7769a04a3cf80da1c1c7c60caf932e6f4c9f7"
+git-tree-sha1 = "1ff449ad350c9c4cbc756624d6f8a8c3ef56d3ed"
 uuid = "82ae8749-77ed-4fe6-ae5f-f523153014b0"
-version = "1.6.0"
+version = "1.7.0"
 
 [[deps.StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
@@ -2326,6 +2277,12 @@ deps = ["AbstractFFTs", "Clustering", "DataStructures", "Distributions", "Interp
 git-tree-sha1 = "9115a29e6c2cf66cf213ccc17ffd61e27e743b24"
 uuid = "f3b207a7-027a-5e70-b257-86293d7955fd"
 version = "0.15.6"
+
+[[deps.StringManipulation]]
+deps = ["PrecompileTools"]
+git-tree-sha1 = "a04cabe79c5f01f4d723cc6704070ada0b9d46d5"
+uuid = "892a3eda-7b42-436c-8928-eab12a02cf0e"
+version = "0.3.4"
 
 [[deps.SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
@@ -2370,6 +2327,12 @@ git-tree-sha1 = "1feb45f88d133a655e001435632f019a9a1bcdb6"
 uuid = "62fd8b95-f654-4bbd-a8a5-9c27f68ccd50"
 version = "0.1.1"
 
+[[deps.TerminalLoggers]]
+deps = ["LeftChildRightSiblingTrees", "Logging", "Markdown", "Printf", "ProgressLogging", "UUIDs"]
+git-tree-sha1 = "f133fab380933d042f6796eda4e130272ba520ca"
+uuid = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
+version = "0.1.7"
+
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
@@ -2379,6 +2342,26 @@ deps = ["Random", "Test"]
 git-tree-sha1 = "9a6ae7ed916312b41236fcef7e0af564ef934769"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 version = "0.9.13"
+
+[[deps.Transducers]]
+deps = ["Adapt", "ArgCheck", "BangBang", "Baselet", "CompositionsBase", "ConstructionBase", "DefineSingletons", "Distributed", "InitialValues", "Logging", "Markdown", "MicroCollections", "Requires", "Setfield", "SplittablesBase", "Tables"]
+git-tree-sha1 = "53bd5978b182fa7c57577bdb452c35e5b4fb73a5"
+uuid = "28d57a85-8fef-5791-bfe6-a80928e7c999"
+version = "0.4.78"
+
+    [deps.Transducers.extensions]
+    TransducersBlockArraysExt = "BlockArrays"
+    TransducersDataFramesExt = "DataFrames"
+    TransducersLazyArraysExt = "LazyArrays"
+    TransducersOnlineStatsBaseExt = "OnlineStatsBase"
+    TransducersReferenceablesExt = "Referenceables"
+
+    [deps.Transducers.weakdeps]
+    BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
+    DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+    LazyArrays = "5078a376-72f3-5289-bfd5-ec5146d43c02"
+    OnlineStatsBase = "925886fa-5bf2-5e8e-b522-a9147a512338"
+    Referenceables = "42d2dcc6-99eb-4e98-b66c-637b7d73030e"
 
 [[deps.Tricks]]
 git-tree-sha1 = "aadb748be58b492045b4f56166b5188aa63ce549"
@@ -2453,10 +2436,10 @@ uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
 version = "0.5.5"
 
 [[deps.XML2_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "93c41695bc1c08c46c5899f4fe06d6ead504bb73"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Zlib_jll"]
+git-tree-sha1 = "04a51d15436a572301b5abbb9d099713327e9fc4"
 uuid = "02c8fc9c-b97f-50b9-bbe4-9be30ff0a78a"
-version = "2.10.3+0"
+version = "2.10.4+0"
 
 [[deps.XSLT_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libgcrypt_jll", "Libgpg_error_jll", "Libiconv_jll", "Pkg", "XML2_jll", "Zlib_jll"]
@@ -2678,110 +2661,97 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
-# ╟─120a282a-91c1-11ec-346f-25d56e50d38c
-# ╟─06d45497-b465-4370-8411-9651e33e70e6
-# ╟─48bf8355-1bfe-41a1-97fc-5e2d0470a6c3
-# ╟─646dd3d8-6092-4435-aee9-01fa6a281bdc
-# ╟─6f051fad-2c4b-4a9e-9361-e9b62ba189c5
-# ╟─be9bcfcb-7ec7-4851-bd3f-24d4c29462fe
-# ╟─e61193e8-3f91-455b-9e33-101de4cfd4a3
-# ╟─234a8b66-d84a-4f6f-aad2-60db238c1850
-# ╟─203b859f-f6ea-4ff8-be1b-dc68a44c10d1
-# ╟─edf96a48-1e6d-4866-85ba-7e1afd19ca61
-# ╟─76d4b64b-471f-4688-9da2-f896d9d0d05c
-# ╟─e136edb5-3e98-4355-83e2-55761eb8b15c
-# ╟─f8b54f24-c144-4ac5-8083-706436a368e9
-# ╟─abd46485-03c9-4077-8ace-34f9b897bb04
-# ╟─3ea57a8e-8d15-4f41-acfb-e3bd1d65e585
-# ╟─08c17e06-b9f4-40de-acb1-5481fa53e5e8
-# ╟─cc38bdc2-4c1b-4a08-b8e6-1504a11924a5
-# ╟─77f0d45a-c658-4143-ad14-3a3a20ce2b4b
-# ╟─eb1c7d49-fffc-44ab-9d1b-026d7a39fc15
-# ╟─0ee59618-d28c-4929-bb7c-cd590068c7b7
-# ╟─4c2cf2db-0042-4074-a740-c6458c552ebe
-# ╟─c63b4e0d-9f64-4248-ac7b-75ceeedddf0c
-# ╟─38e89872-c1ff-4d50-ab99-1ed063f5118b
-# ╟─2831de52-9f49-494e-8b2b-4cee810cee06
-# ╟─7c9b404e-ef6c-4ed1-910e-2f409e579309
-# ╟─434f1bf9-b6d2-4029-9ffa-36241c6ce23f
-# ╟─b81503f3-1caf-498a-8dc9-639ea5a5d569
-# ╟─63ce270b-c5ed-45c2-ae96-2146d0487b87
-# ╟─99a717ee-1b29-42c3-9ef7-80201e715e79
-# ╟─188b9f9d-78e3-4e78-8eae-795a9b012cab
-# ╟─f6bb31fd-d30c-4e59-86bb-ebac1163609f
-# ╟─29b0734a-41d4-43e0-938a-3ced8e70b85b
-# ╟─f2b7b63a-fd54-4f80-af28-f255d186f6f9
-# ╟─61fb0322-07f6-4e59-a5d3-dfdd7399d558
-# ╟─bd670cde-bcbe-4104-8114-34f761f7f850
-# ╟─e1ccac4e-1cba-43d2-b0e0-e8c650a79d9a
-# ╟─ceaedbd8-6c88-407b-84f6-aedc0a59a22d
-# ╟─00d85bc5-c320-41dc-8a85-4ad409b058a8
-# ╟─8efbba52-7a34-4c17-bca9-52a417f69d56
-# ╟─3873ef48-34c1-479a-b6f8-2cd05bcdc8bb
-# ╟─a2b02ca9-6edc-48bf-b5e5-746d986d8252
-# ╟─5276ff0e-bc4f-4b24-b98c-8f9e7c0d018d
-# ╟─dd461997-cf3c-4124-8503-11f5b5a9e530
-# ╟─20e84d48-0f5f-403e-a8aa-1cbd11cd3b04
-# ╟─d2365f95-9b61-41fa-83d8-9bf4a8b5ee92
-# ╟─b5dc223b-c5b5-4eda-889e-c39171c44499
-# ╟─8d86466e-93c5-4263-b436-6fe684eeccd8
-# ╟─a391d4a3-9fe3-4ccf-9a62-c2cb19ea8813
-# ╟─a0ebfea7-bbe5-4798-8db3-163381bf67c2
-# ╟─d8e832e1-bc53-400d-a5a9-7cda2c5b8799
-# ╠═a414e554-3a8c-472d-af82-07c2f0843627
-# ╠═33cc44b4-bd32-4112-bf33-6807ae53818c
-# ╟─8c803aa8-de06-4194-bb55-67af083cfd74
-# ╟─bba94ae7-a6a8-4958-bcf5-9380864a9147
-# ╟─4dc678ce-8f35-44c7-b58c-628345350b49
-# ╟─9f18a392-8edb-4f4e-a468-6d1d735d05bf
-# ╟─40d1d8ec-3875-49c8-9425-f5cb6765603b
-# ╟─c4c51b3c-c0d3-44d7-b5e8-1a65c3e737cc
-# ╟─ba06623e-a9e6-4f39-8c4d-d8f86c765a8c
-# ╟─542b0f6f-befa-4dfe-acb7-b7aa6ab9f56c
-# ╟─ab0c4765-e9a0-4ba3-8a21-e81b214ab060
-# ╟─05de404f-d2d7-4feb-ba70-a25d8eba71d4
-# ╟─eb273a3a-60d6-439e-bb63-6af8130b4ec0
-# ╟─b44fce15-1056-4f42-9ec7-7a70092c355b
-# ╟─533efc1a-fd99-4a5d-9ef3-4ff7ce483f24
-# ╟─c46949ad-46c8-4bcb-9e83-1eb646b4ea2a
-# ╟─adb47976-1d3c-42d9-941c-8a791866eb97
-# ╟─c8cb2535-7b65-4d86-9405-71880fdb906e
-# ╟─caf21a20-8dd8-4a31-8463-96d3869d3ee9
-# ╟─5f9ad998-c410-4358-925b-66e5d3b2f9e9
-# ╟─9612d7c1-3c86-45bc-806a-a53bbf869d87
-# ╟─9cbc7ef6-788c-4dfd-a98d-2a9409eb5127
-# ╟─ca7f12d8-f823-448b-ab1f-0e28c85a3f7f
-# ╟─6569c4e1-5d62-42ad-94c0-927dd6b6f504
-# ╟─8d2778fd-edfe-4a02-92f9-2b9a67f2a2c0
-# ╟─8107c1d9-58c4-41f0-8870-bfd7084e42b5
-# ╟─f6b06459-0608-4981-bdb4-8f54d0cadfe1
-# ╟─ecb07f7e-e742-4948-b190-c3e37eadc29e
-# ╟─b087739a-c892-4c94-92ba-dbba390095f4
-# ╟─449564e9-426f-4242-856d-080f227af450
-# ╟─f847fb00-3ccb-4137-a5b4-62567fa51498
-# ╟─04f81aff-903c-40fa-9acd-9e867ede8a9b
-# ╟─9412db91-c5d8-4836-bdd0-38f37da1f51b
-# ╟─f0fb238f-fff6-49bb-9b6e-9881e4a36593
-# ╟─d9eaf592-1522-4f7e-a7db-cf503a152eb9
-# ╟─ad943140-9510-463e-b57c-4956ed2cd5d5
-# ╟─c7fd532d-d72a-439a-9e71-e85392c66f8c
-# ╟─e0cfcb9b-794b-4731-abf7-5435f67ced42
-# ╟─aabdfd01-c9b8-4c45-83c3-29881581e6e3
-# ╟─bbd25bdf-e82d-4f65-bfad-7d8e8e9cca18
-# ╟─4cc1f89c-6e1d-4457-9e84-fd5bdd0b575a
-# ╟─a0465ae8-c843-4fc0-abaf-0497ada26652
-# ╟─dafd1a68-715b-4f06-a4f2-287c123761f8
-# ╠═76859d4c-f3e2-4576-b4d6-b637e9c99877
-# ╠═620789b7-59bc-4e17-bcfb-728a329eed0f
-# ╠═7b47cda6-d772-468c-a8f3-75e3d77369d8
-# ╠═8d0c6fdc-4717-4203-b933-4b37fe60d512
-# ╠═8d06ce32-2c8d-4317-8c38-108ec0e7fe23
-# ╟─d66e373d-8443-4810-9332-305d9781a21a
-# ╠═acfb80f0-f4d0-4870-b401-6e26c1c99e45
-# ╠═e091ce93-9526-4c7f-9f14-7634419bfe57
-# ╠═5a8cdbe7-6abe-4f07-8bcc-89dd71fc35f7
-# ╠═c46e0b36-c3fd-4b7f-8f31-25c3315bb10c
-# ╠═d44526f4-3051-47ee-8b63-f5e694c2e609
-# ╠═27755688-f647-48e5-a939-bb0fa70c95d8
+# ╟─dbdb0950-4a33-11ed-39a0-6b2ea3d774e6
+# ╟─89f53893-93f1-49d3-b643-2aee7e6f4610
+# ╟─b5e1f496-02e1-4352-9912-ff7bf4ea622c
+# ╟─d1b809fb-e381-49ac-bfa4-77c12f3ccf17
+# ╟─83eb182e-8fed-4827-b56c-756273f847a7
+# ╟─2f5f8005-fda3-4a07-9c39-969ca4417f2c
+# ╟─0688cb0f-422a-413f-87d6-aaecc04f1914
+# ╟─e9ca80e4-4b93-4c8e-9cc7-36b5077ac7ff
+# ╟─461e94ea-0b29-4b60-b536-dd0bfd318070
+# ╟─4ad30be3-b220-4e9e-9fcf-bd1d760a2c35
+# ╟─12f25671-850c-40c8-972e-5face10cf105
+# ╟─ce7ea4e9-8286-49a6-b8b2-353ae7571088
+# ╟─086123c6-2088-4f9c-bea3-cb05cdd515ec
+# ╟─795c5695-52a4-429e-8780-a57c9767d94d
+# ╟─a1c1974a-bb8a-4934-b272-4ea0f39c748a
+# ╟─194a18d2-e01a-4ff3-89ed-d0495072b4a4
+# ╟─c88039d7-9ceb-496f-8d9a-363e4a2fb5ad
+# ╟─01b9fcbb-9b96-44ce-bab4-ee3ca1a40c30
+# ╟─29bd15a0-8c28-4590-8d9f-b377d0406ece
+# ╟─b0c9fd77-bcac-475a-adbb-a22458b79b06
+# ╟─4803df98-1392-44bb-98d3-c832d4043086
+# ╟─f59c929a-e610-4bbe-910b-a1f082a9fabe
+# ╟─a22dbb21-fce0-4ecf-8810-f553297d447d
+# ╟─b203b068-930f-458b-a123-f0dac257ea2b
+# ╟─159c2632-e820-4a0d-8729-c1907796e8aa
+# ╟─07b85536-72bf-47d5-9596-24c54b5a73f5
+# ╟─35a49bf3-753b-4341-9d65-bff4b7883248
+# ╟─a4b0ddf5-399b-415c-bf43-73acbd82c389
+# ╟─a164b185-6c0b-4022-a4b3-c286f14704d1
+# ╟─ddf45f75-ac6e-4f7e-ba22-a98d570b9fbd
+# ╟─12965122-0ee0-4ca8-bcab-c3a93ab05f38
+# ╟─2006210d-96a5-410f-97e4-b2869aa23c25
+# ╟─58d6dce4-0fc1-4f8f-adae-0ab59c8032e3
+# ╟─28ba62e5-e3af-4c83-9a9b-7f7ff688b339
+# ╟─f1c6942c-3acb-4eda-a8f1-db603ff72ebf
+# ╟─e4060d58-82d1-4551-ac40-f1cecb3ae9fc
+# ╟─03abb7ac-b8b2-41bf-b6da-21af9459d3a3
+# ╟─d193042c-9882-4633-8367-4698fcbfe9f8
+# ╟─af87bea3-319d-48dc-80e9-e392b8d53e4e
+# ╟─07842aa1-8478-4095-af45-add87f354cce
+# ╟─bb92615b-0217-4441-bbb5-2db27c04dfcd
+# ╟─178420f2-b88b-4d33-a546-cde6d6fff6d0
+# ╟─6b36ae1f-e967-4870-9874-37cda8101e5e
+# ╟─6d8123a7-9284-4a4f-9f7b-17eaf5afd4f2
+# ╠═ab99ce0c-d454-4469-9ddd-d0ca63577abd
+# ╠═d75176a7-9e78-4cc2-ad6d-6f9dc41266cf
+# ╠═2757834e-468c-4b89-aba6-7313b70c171c
+# ╠═e9778f1a-f83c-4d49-8843-edacef1624fe
+# ╠═03c56812-843b-404d-a516-0b5ed45b2fbb
+# ╟─1c3755cf-7f70-47db-a3c0-c67f3bbe3421
+# ╟─f497726e-6189-4068-804b-f410d65abe3b
+# ╟─8a853105-80cc-4326-b847-1bd01d95138d
+# ╟─1966f960-bb6c-44a8-bd8c-e206aa58e721
+# ╟─207ff041-82bb-4fe0-b9bf-90ea2165d57c
+# ╟─517727d4-b271-4bb5-9b9e-9900146f8128
+# ╟─4dfb3123-0872-436a-8db4-772c500e6b6d
+# ╟─83b02029-9001-465b-a048-90b41d7ab065
+# ╟─e7dd3d77-1d62-4a6e-987a-1e06267bd793
+# ╟─11280ac3-7289-4677-8a88-45130ce2a4d0
+# ╟─95768d9e-e81a-417f-8b1b-846e9fd6e5e3
+# ╟─a1c64a2e-8ae1-41bd-8661-b0c782f97080
+# ╟─85e25392-4216-43c2-a065-c56ba4d06b57
+# ╟─a074f9da-e2dd-4e29-a6d0-2939fe244746
+# ╟─f162477e-0463-49d3-8acf-e06cefd7553a
+# ╟─4f4fbde5-dbe4-4269-971a-56adf3cc0923
+# ╟─a484bb4d-0dd9-4177-a123-ea2a54c3aa3c
+# ╟─d9d113fb-8930-47e8-872e-0aec83c20468
+# ╟─87461e6b-9759-4a8c-b10f-d56caa8cc576
+# ╟─1b8b92ca-b604-4b80-8a68-c3b3e9e69433
+# ╟─e92c05b7-4282-417e-99d9-30809bebe9fb
+# ╟─b047ac1e-8283-47db-b0ae-54635b523e4b
+# ╟─2e6e5618-7316-4b1c-a2be-7eed76913287
+# ╟─40492daa-594d-43cb-b6f7-5749c6771d06
+# ╟─47a4d597-b719-47d2-b66f-66e96acda02b
+# ╟─50cd5cb4-2a35-4a41-966e-0280537cfd21
+# ╟─899104d2-a2c0-4d10-a178-d5edda7cb6b4
+# ╟─eb6f9708-cf48-4189-9b2d-251eabd8f536
+# ╟─5cb14b9c-7681-4f7d-a0c1-19730511f9de
+# ╟─d1967e69-b4cb-4fcc-816b-81bbe3e5a1e0
+# ╟─bc832ff2-6930-4903-b5eb-41e01deac3f7
+# ╟─793de098-feb6-4b1f-bd01-a20c0bbe3813
+# ╟─d1df764c-38f9-43e6-bb64-e31415456d28
+# ╟─30d9c1ca-e2b9-4e0a-8c32-908ed26cf13c
+# ╟─bb5440bd-b931-420d-91b1-16e54d00de4e
+# ╟─77865cbd-8ebd-440d-83fd-26f2f91fa76e
+# ╟─78f331f8-2607-4ed3-8fac-6ded7b575251
+# ╟─c65841ca-bf38-48fe-a2b4-0f6e9b5fd874
+# ╟─bf130cdd-773c-4737-9868-1516311221d9
+# ╟─ea2f9db8-e93e-48c2-aa50-95310972502b
+# ╟─da7a35af-1f07-40a4-8257-a078545e23e6
+# ╠═cd0ab47e-4b0f-4240-93ae-81dad54209f3
+# ╠═df9a7d0c-ad9f-4829-8239-f8cc652771e7
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

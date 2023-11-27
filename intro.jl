@@ -611,6 +611,9 @@ md"""
 # 	df_house[!, :target] = MLDatasets.BostonHousing.targets()[:]
 # end;
 
+# ╔═╡ 0611edf0-afdc-4de1-9f57-f6b6831aad73
+ENV["DATADEPS_ALWAYS_ACCEPT"] = true;
+
 # ╔═╡ 140d836d-0700-4ecb-b9e0-e44bbd860008
 begin
 	X_housing = (BostonHousing().features |> Matrix)'
@@ -645,14 +648,12 @@ quadratic_fit
 # ╔═╡ 5114eac5-16c9-40c1-afa4-3cbadd4cb331
 first(df_house, 5)
 
-# ╔═╡ 0611edf0-afdc-4de1-9f57-f6b6831aad73
-ENV["DATADEPS_ALWAYS_ACCEPT"] = true;
-
-# ╔═╡ 9c10b320-8b53-410c-a68c-3bb2fd85a19c
-mnist_train_X, mnist_train_ys = MLDatasets.MNIST(split=:train)[:];
-
-# ╔═╡ 0a5fd7bb-f86f-4913-8ce4-9c1806599e28
-mnist_idx_by_digits = [findall(mnist_train_ys .== d) for d in 0:9];
+# ╔═╡ e00afc2d-a32a-4580-aaf7-b7e8b9a8a533
+begin
+	mnist_train_X, mnist_train_ys = MLDatasets.MNIST(split=:train)[:];
+	mnist_test_X, mnist_test_ys = MLDatasets.MNIST(split=:test)[:];
+	mnist_idx_by_digits = [findall(mnist_train_ys .== d) for d in 0:9];
+end;
 
 # ╔═╡ 980b2d38-f325-4e31-af11-58e45fc579e1
 md"""
@@ -730,12 +731,6 @@ of which we do not know the label ``y' \in \{0,1,\ldots, 9\}``.
 
 * ``\mathcal{D}_{\text{test}}``: *test dataset*,  dataset not in the training set 
 """
-
-# ╔═╡ de752a2b-ae9b-44f1-9c42-a04a5ade4996
-# mnist_test_X, mnist_test_ys = MLDatasets.MNIST.testdata();
-
-# ╔═╡ f62dedad-7af5-45d0-ab77-4084793da510
-mnist_test_X, mnist_test_ys = MLDatasets.MNIST(split=:test)[:];
 
 # ╔═╡ c171bcd6-90ea-4280-b938-610d0a697aea
 md"""
@@ -1588,6 +1583,12 @@ deps = ["Calculus", "NaNMath", "SpecialFunctions"]
 git-tree-sha1 = "5837a837389fccf076445fce071c8ddaea35a566"
 uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
 version = "0.6.8"
+
+[[deps.EpollShim_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "8e9441ee83492030ace98f9789a654a6d0b1f643"
+uuid = "2702e6a9-849d-5ed8-8c21-79e8b8f9ee43"
+version = "0.0.20230411+0"
 
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
@@ -3257,7 +3258,7 @@ uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
 version = "0.21.64"
 
 [[deps.Wayland_jll]]
-deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
+deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "ed8d92d9774b077c53e1da50fd81a36af3744c1c"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
 version = "1.21.0+0"
@@ -3591,17 +3592,14 @@ version = "1.4.1+0"
 # ╟─725c1f4f-dab7-4182-8fd9-61f23c5eed4a
 # ╟─d2589ed7-ff73-4bb3-a18c-5a9a163fb113
 # ╟─01845236-4b22-4846-9bb9-2b9d1d178556
-# ╟─140d836d-0700-4ecb-b9e0-e44bbd860008
 # ╟─0611edf0-afdc-4de1-9f57-f6b6831aad73
-# ╟─9c10b320-8b53-410c-a68c-3bb2fd85a19c
-# ╟─0a5fd7bb-f86f-4913-8ce4-9c1806599e28
+# ╟─140d836d-0700-4ecb-b9e0-e44bbd860008
+# ╟─e00afc2d-a32a-4580-aaf7-b7e8b9a8a533
 # ╟─980b2d38-f325-4e31-af11-58e45fc579e1
 # ╟─735d0786-cd42-4a82-8ebb-68093b527ffd
 # ╟─beae9e20-ec1c-4c5d-b307-8ff14ec1c0bf
-# ╠═32dbde72-7bce-4103-af2d-4339a0b4c1cf
+# ╟─32dbde72-7bce-4103-af2d-4339a0b4c1cf
 # ╟─1a040ed2-138d-47b7-afe0-b783e9f74db9
-# ╟─de752a2b-ae9b-44f1-9c42-a04a5ade4996
-# ╟─f62dedad-7af5-45d0-ab77-4084793da510
 # ╟─c171bcd6-90ea-4280-b938-610d0a697aea
 # ╟─c4eb29e1-f2fd-42b3-adf8-7767d6a80f89
 # ╟─c05ba8f3-8a03-416b-bde8-c31d353070c9

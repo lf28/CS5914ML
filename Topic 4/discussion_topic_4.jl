@@ -6,13 +6,13 @@ using InteractiveUtils
 
 # ╔═╡ 9f90a18b-114f-4039-9aaf-f52c77205a49
 begin
-	# using LinearAlgebra
+	using LinearAlgebra
 	using PlutoUI
 	using PlutoTeachingTools
 	using LaTeXStrings
 	using Latexify
-	# using Random
-	# using Statistics
+	using Random
+	using Statistics
 	using HypertextLiteral
 	using Plots; default(fontfamily="Computer Modern", framestyle=:box) # LaTex-style
 	
@@ -20,6 +20,27 @@ end
 
 # ╔═╡ 3e2e1ea8-3a7d-462f-ac38-43a087907a14
 TableOfContents()
+
+# ╔═╡ 52dcd4b9-9ef7-4128-a81d-d7e454cae9d6
+figure_url = "https://leo.host.cs.st-andrews.ac.uk/figs/";
+
+# ╔═╡ 19ebad08-8461-46fc-90bf-fcb1fa30d833
+function show_img(path_to_file; center=true, h = 400, w = nothing)
+	if center
+		if isnothing(w)
+			@htl """<center><img src= $(figure_url * path_to_file) height = '$(h)' /></center>"""
+		else
+			@htl """<center><img src= $(figure_url * path_to_file) width = '$(w)' /></center>"""
+		end
+
+	else
+		if isnothing(w)
+			@htl """<img src= $(figure_url * path_to_file) height = '$(h)' />"""
+		else
+			@htl """<img src= $(figure_url * path_to_file) width = '$(w)' />"""
+		end
+	end
+end;
 
 # ╔═╡ 7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 ChooseDisplayMode()
@@ -30,8 +51,7 @@ md"""
 # CS5914 Machine Learning Algorithms
 
 
-#### Softmax regression: gradient derivation
-
+#### Topic 4: discussion questions
 \
 
 $(Resource("https://www.st-andrews.ac.uk/assets/university/brand/logos/standard-vertical-black.png", :width=>130, :align=>"right"))
@@ -44,341 +64,71 @@ Lei Fang(@lf28 $(Resource("https://raw.githubusercontent.com/edent/SuperTinyIcon
 
 """
 
-# ╔═╡ f1b3460a-525f-4dcb-88c0-dfb016f4cc1a
+# ╔═╡ b4a2d8f1-931f-4117-8bb9-bef95a20c81e
 md"""
 
+## Question 1 
 
-# Softmax regression: gradient derivation*
+#### (Ex 3.12 from _Elements of Statistical Learning_)
+
+
+ Show that the ridge regression estimates can be obtained by ordinary least squares regression on an augmented data set. We augment the centered matrix $\mathbf{X}$ with $p$ additional rows $\sqrt{λ}\mathbf{I}$, and augment $\mathbf{y}$ with $p$ zeros. In light of this, give an alternative implementation of the learning algorithm for ridge regression.
+
+Note that by introducing artificial data having response value zero, the fitting procedure is forced to shrink the coefficients toward zero. 
 """
 
-# ╔═╡ d9d59d83-57cf-4c04-8a00-939c55bc5844
+# ╔═╡ 48ed6905-128b-4691-a633-d3bba195a7d1
 md"""
 
-## Gradient of softmax regression
+## Question 2
 
-In this section, we are going to derive the **gradient** for _softmax regression_
+#### (`Lasso` with gradient descent)
 
-```math
-\large
-\nabla L^{(i)}(\mathbf{W})  = -  {(\mathbf{y}^{(i)} - \hat{\mathbf{y}}^{(i)})} \cdot (\mathbf{x}^{(i)})^\top
-```
-* ``\mathbf{y}``: one-hot vector
-* ``\hat{\mathbf{y}}``: softmax output vector
 
-* note the gradient dimension is ``C\times m`` which is of the same dimension of ``\mathbf{W}``
+Implement a gradient based learning algorithm for `Lasso` regression. The data is given below:
 
-```math
--\boxed{(\mathbf{y}^{(i)} - \hat{\mathbf{y}}^{(i)})}_{C\times 1} \cdot \boxed{(\mathbf{x}^{(i)})^\top}_{1\times m}
-```
+* design matrix is `XX`, and 
+* target is `y`. 
 
+The dataset has 100 training observations and 100 features. However, only the first feature is used to generate $y$. The true weight parameter is 
+
+$\mathbf{w}_{true} = [1, 0, \ldots].$
+
+You may assume the bias is zero, *i.e.* $b=0$,  for this question.
+
+
+###### 1. what is the loss function for lasso regression ?
+
+###### 2. give and implement the gradient for the `lasso` loss
+
+
+###### 3. apply gradient descent to learn the parameter (try different hyperparaters, such as $\ln\lambda = -8, -6, -4, -2, 0$); compare with `ridge` regression, what do you observe?
+
+
+!!! note "Hint"
+	To deal with sub-gradient descent properly, you may need to do the following 
+	1. use a diminishing learning rate, *e.g.* $\gamma_t = \frac{\gamma}{t}$
+       * it can be shown that the algorithm will converge
+	2. sub-gradient descent is not necessary a descent algorithm, keep track of the best model so far and return it (known as the `pocket` algorithm)
+
+	3. if any weight switches signs during the learning process, set the weight to zero directly
+
+	4. or soft-thresholding, set a small constant *e.g.* $\epsilon = 10^{-5}$, if any weight drops below $\epsilon$, set it to zero directly
+
+	You can do either 3 or 4 (or both).
 """
 
-# ╔═╡ 99e62f1e-4401-4e57-9706-6a534bf0d32e
-md"""
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only, (``i`` index is omit here for cleaner presentation)
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}
-\end{align}$$
-
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}\\
-&=-\sum_{j=1}^C  {y}_j \left \{\ln e^{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln\frac{a}{b} =\ln a-\ln b$} 
-\end{align}$$
-
-
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}\\
-&=-\sum_{j=1}^C  {y}_j \left \{\ln e^{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln\frac{a}{b} =\ln a-\ln b$} \\
-&=-\sum_{j=1}^C  {y}_j \left \{{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln a^b =b\ln a$} 
-\end{align}$$
-
-
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}\\
-&=-\sum_{j=1}^C  {y}_j \left \{\ln e^{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln\frac{a}{b} =\ln a-\ln b$} \\
-&=-\sum_{j=1}^C  {y}_j \left \{{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln a^b =b\ln a$} \\
-&= -\sum_{j=1}^C  {y}_j z_j + \underbrace{\sum_{j=1}^C  {y}_j}_{=1} \cdot \ln \sum_{k=1}^C e^{z_k}\tag{distribution law}
-\end{align}$$
-
-
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}\\
-&=-\sum_{j=1}^C  {y}_j \left \{\ln e^{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln\frac{a}{b} =\ln a-\ln b$} \\
-&=-\sum_{j=1}^C  {y}_j \left \{{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln a^b =b\ln a$} \\
-&= -\sum_{j=1}^C  {y}_j z_j + \underbrace{\sum_{j=1}^C  {y}_j}_{=1} \cdot \ln \sum_{k=1}^C e^{z_k}\tag{distribution law}\\
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-
-
-
-
-"""
-
-# ╔═╡ 457eeca6-b53b-4a55-b854-dc18c63405d4
-md"""
-
-
-
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&=- \sum_{j=1}^C  {y}_j \ln \hat{{y}}_j\\
-&= - \sum_{j=1}^C  {y}_j \ln \frac{e^{z_j}}{\sum_{k=1}^C e^{z_k}}\tag{sub-in $\hat{y}_j$}\\
-&=-\sum_{j=1}^C  {y}_j \left \{\ln e^{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln\frac{a}{b} =\ln a-\ln b$} \\
-&=-\sum_{j=1}^C  {y}_j \left \{{z_j}-\ln \sum_{k=1}^C e^{z_k}\right \}\tag{$\ln a^b =b\ln a$} \\
-&= -\sum_{j=1}^C  {y}_j z_j + \underbrace{\sum_{j=1}^C  {y}_j}_{=1} \cdot \ln \sum_{k=1}^C e^{z_k}\tag{distribution law}\\
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-The partial derivative *w.r.t* ``z_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial z_c} = - y_c + \frac{e^{z_c}}{\sum_k e^{z_k}} = - (y_c - \hat{y}_c);
-```
-
-"""
-
-# ╔═╡ 21a7065a-b2bc-4999-bdc1-f64436b7302e
-md"""
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-The partial derivative *w.r.t* ``z_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial z_c} = - y_c + \frac{e^{z_c}}{\sum_k e^{z_k}} = - (y_c - \hat{y}_c);
-```
-
-therefore, the gradient *w.r.t* ``\mathbf{z}`` is
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{z}}  = \left [\frac{\partial L^{(i)}}{\partial {z}_1}, \frac{\partial L^{(i)}}{\partial {z}_2}, \ldots, \frac{\partial L^{(i)}}{\partial {z}_C } \right ]^\top= - (\mathbf{y} - \hat{\mathbf{y}})
-```
-"""
-
-# ╔═╡ aec48a4c-89a3-46ce-a47f-a96f370edef3
-md"""
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-The partial derivative *w.r.t* ``z_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial z_c} = - y_c + \frac{e^{z_c}}{\sum_k e^{z_k}} = - (y_c - \hat{y}_c);
-```
-
-therefore, the gradient *w.r.t* ``\mathbf{z}`` is
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{z}}  = \left [\frac{\partial L^{(i)}}{\partial {z}_1}, \frac{\partial L^{(i)}}{\partial {z}_2}, \ldots, \frac{\partial L^{(i)}}{\partial {z}_C } \right ]^\top= - (\mathbf{y} - \hat{\mathbf{y}})
-```
-
-According to **multi-variate chain rule**, the gradient *w.r.t* ``\mathbf{w}_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{w}_c}  = \sum_{j=1}^C \frac{\partial L^{(i)}}{\partial z_j} \frac{\partial z_j}{\partial \mathbf{w}_c}
-```
-
-
-"""
-
-# ╔═╡ 29d42ace-2fce-4472-8c93-bd291be25e91
-md"""
-
-## Aside: ``\frac{\partial z_j}{\partial \mathbf{w}}``
-
-
-Note that 
-
-```math
-\large
-\mathbf{z}_{C\times 1} = \mathbf{W}_{C\times m}\mathbf{x}_{m \times 1} +\mathbf{b}_{C\times 1}
-```
-
-
-which is:
-
-
-```math
-\large
-\begin{bmatrix}z_1 \\ z_2 \\ \vdots\\ z_C \end{bmatrix} = \begin{bmatrix} \rule[.5ex]{2.5ex}{0.5pt} & \mathbf{w}_1^\top &\rule[.5ex]{2.5ex}{0.5pt}\\ \rule[.5ex]{2.5ex}{0.5pt} & \mathbf{w}_2^\top&\rule[.5ex]{2.5ex}{0.5pt}\\ &\vdots &\\ \rule[.5ex]{2.5ex}{0.5pt} & \mathbf{w}_C^\top &\rule[.5ex]{2.5ex}{0.5pt}\end{bmatrix}\begin{bmatrix}\vert \\ \mathbf{x} \\ \vert \end{bmatrix} +\begin{bmatrix}b_1 \\ b_2 \\ \vdots \\b_C \end{bmatrix} ,
-```
-
-therefore, 
-
-```math 
-\large z_j = \mathbf{w}_j^\top\mathbf{x} +b_j
-```
-
-which implies for ``z_j`` and ``\mathbf{w}_j``:
-
-```math
-\frac{\partial z_j}{\partial \mathbf{w}_j} =\mathbf{x}; \;\;\text{or for row vector  }\mathbf{w}^\top: \frac{\partial z_j}{\partial \mathbf{w}_j^\top} =\mathbf{x}^\top
-```
-
-for ``i\neq j``
-
-```math
-\frac{\partial z_j}{\partial \mathbf{w}_{i}} =\mathbf{0}; \;\;\text{or for row vector  }\mathbf{w}_i^\top: \frac{\partial z_j}{\partial \mathbf{w}_j^\top} =\mathbf{0}^\top
-```
-
-"""
-
-# ╔═╡ 0c00a9a8-f903-4646-8a0d-a197993d89a3
-md"""
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-The partial derivative *w.r.t* ``z_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial z_c} = - y_c + \frac{e^{z_c}}{\sum_k e^{z_k}} = - (y_c - \hat{y}_c);
-```
-
-therefore, the gradient *w.r.t* ``\mathbf{z}`` is
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{z}}  = \left [\frac{\partial L^{(i)}}{\partial {z}_1}, \frac{\partial L^{(i)}}{\partial {z}_2}, \ldots, \frac{\partial L^{(i)}}{\partial {z}_C } \right ]^\top= - (\mathbf{y} - \hat{\mathbf{y}})
-```
-
-According to multi-variate chain rule, the gradient w.r.t ``\mathbf{w}_c`` is
-
-```math
-\begin{align}
-\frac{\partial L^{(i)}}{\partial \mathbf{w}_c^\top}  &= \sum_{j=1}^C \frac{\partial L^{(i)}}{\partial z_j} \frac{\partial z_j}{\partial \mathbf{w}_c^\top}\\
-&= - (y_1 - \hat{y}_1)\cdot \mathbf{0}^\top  \ldots - (y_c - \hat{y}_c)\cdot \mathbf{x}^\top  - (y_C - \hat{y}_C)\cdot \mathbf{0}^\top\\
-&=- (y_c - \hat{y}_c)\cdot \mathbf{x}^\top
-
-\end{align}
-```
-
-
-"""
-
-# ╔═╡ 477d1ddb-4488-4ad9-9329-24713001de2c
-aside(tip(md"""
-
-```math
-\frac{\partial z_j}{\partial \mathbf{w}_i^\top} =\begin{cases}\mathbf{x}^\top & j=i\\
-\mathbf{0}^\top & j\neq i
-\end{cases}
-```
-"""))
-
-# ╔═╡ 54ee84d1-c856-4404-86d2-c8170c430359
-md"""
-## Gradient derivation
-
-
-Again, consider ``i``-th observation only,
-
-$$\begin{align}
-L^{(i)}(\mathbf{y}; \hat{\mathbf{y}}) 
-&= -\sum_{j=1}^C  {y}_j z_j +  \ln \sum_{k=1}^C e^{z_k}
-\end{align}$$
-
-The partial derivative *w.r.t* ``z_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial z_c} = - y_c + \frac{e^{z_c}}{\sum_k e^{z_k}} = - (y_c - \hat{y}_c);
-```
-
-therefore, the gradient *w.r.t* ``\mathbf{z}`` is
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{z}}  = \left [\frac{\partial L^{(i)}}{\partial {z}_1}, \frac{\partial L^{(i)}}{\partial {z}_2}, \ldots, \frac{\partial L^{(i)}}{\partial {z}_C } \right ]^\top= - (\mathbf{y} - \hat{\mathbf{y}})
-```
-
-According to multi-variate chain rule, the gradient w.r.t ``\mathbf{w}_c`` is
-
-```math
-\frac{\partial L^{(i)}}{\partial \mathbf{w}_c^\top}  = \sum_{j=1}^C \frac{\partial L^{(i)}}{\partial z_j} \frac{\partial z_j}{\partial \mathbf{w}_c}=- (y_c - \hat{y}_c)\cdot \mathbf{x}^\top
-```
-
-
-Finally, the gradient w.r.t ``\mathbf{W}`` is
-
-```math
-\large
-\frac{\partial L^{(i)}}{\partial \mathbf{W}}  = \begin{bmatrix}\frac{\partial L^{(i)}}{\partial \mathbf{w}_1^\top} \\ \frac{\partial L^{(i)}}{\partial \mathbf{w}_2^\top}\\ \vdots \\ \frac{\partial L^{(i)}}{\partial \mathbf{w}_C^\top}\end{bmatrix} = \begin{bmatrix}- (y_1 - \hat{y}_1)\\ - (y_2 - \hat{y}_2)\\ \vdots \\- (y_C - \hat{y}_C)\end{bmatrix}\cdot [\rule[.5ex]{2.5ex}{0.5pt} \,\, \mathbf{x}^\top \rule[.5ex]{2.5ex}{0.5pt}]
-```
-"""
-
-# ╔═╡ 2d470200-a598-4645-ba01-8814f2af189d
-md"""
-
-Note that gradient for ``\mathbf{b}`` can be readily obtained by augmenting the input with a dummy ``1``:
-
-```math
-\frac{\partial L^{(i)}}{\partial \tilde{\mathbf{ W}}}  = \begin{bmatrix}[\frac{\partial L^{(i)}}{\partial b_1} & \frac{\partial L^{(i)}}{\partial  \mathbf{w}_1^\top}] \\ [\frac{\partial L^{(i)}}{\partial b_2} & \frac{\partial L^{(i)}}{\partial \mathbf{w}_2^\top}]\\ \vdots \\ [\frac{\partial L^{(i)}}{\partial b_C} & \frac{\partial L^{(i)}}{\partial  \mathbf{w}_C^\top}]\end{bmatrix} = \begin{bmatrix}- (y_1 - \hat{y}_1)\\ - (y_2 - \hat{y}_2)\\ \vdots \\- (y_C - \hat{y}_C)\end{bmatrix}\cdot [1, \;\;\rule[.5ex]{2.5ex}{0.5pt} \,\, \mathbf{x}^\top \rule[.5ex]{2.5ex}{0.5pt}]
-```
-
-Therefore ,
-```math
-\frac{\partial L^{(i)}}{\partial {\mathbf{b}}}  = \begin{bmatrix}\frac{\partial L^{(i)}}{\partial b_1}\\ \frac{\partial L^{(i)}}{\partial b_2} \\ \vdots \\ \frac{\partial L^{(i)}}{\partial b_C} \end{bmatrix} = \begin{bmatrix}- (y_1 - \hat{y}_1)\\ - (y_2 - \hat{y}_2)\\ \vdots \\- (y_C - \hat{y}_C)\end{bmatrix}\cdot 1 = - (\mathbf{y} -\hat{\mathbf{y}})
-```
-"""
+# ╔═╡ 19d7d2cb-8dbb-446f-83fb-28cb9aab48da
+begin
+	Random.seed!(123)
+	dim = 1
+	N = 100
+	X = randn(N, dim)
+	truew = ones(dim) * 1.0
+	y = X * truew + randn(N) * 0.2
+	XX = [X randn(N, N-1)]
+	XX, y
+end
 
 # ╔═╡ 0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 md"""
@@ -387,32 +137,32 @@ md"""
 """
 
 # ╔═╡ 8687dbd1-4857-40e4-b9cb-af469b8563e2
-# function perp_square(origin, vx, vy; δ=0.1) 
-# 	x = δ * vx/sqrt(norm(vx))
-# 	y = δ * vy/sqrt(norm(vy))
-# 	xyunit = origin+ x + y
-# 	xunit = origin + x
-# 	yunit = origin +y
-# 	Shape([origin[1], xunit[1], xyunit[1], yunit[1]], [origin[2], xunit[2], xyunit[2], yunit[2]])
-# end
+function perp_square(origin, vx, vy; δ=0.1) 
+	x = δ * vx/sqrt(norm(vx))
+	y = δ * vy/sqrt(norm(vy))
+	xyunit = origin+ x + y
+	xunit = origin + x
+	yunit = origin +y
+	Shape([origin[1], xunit[1], xyunit[1], yunit[1]], [origin[2], xunit[2], xyunit[2], yunit[2]])
+end
 
 # ╔═╡ fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
-# # as: arrow head size 0-1 (fraction of arrow length)
-# # la: arrow alpha transparency 0-1
-# function arrow3d!(x, y, z,  u, v, w; as=0.1, lc=:black, la=1, lw=0.4, scale=:identity)
-#     (as < 0) && (nv0 = -maximum(norm.(eachrow([u v w]))))
-#     for (x,y,z, u,v,w) in zip(x,y,z, u,v,w)
-#         nv = sqrt(u^2 + v^2 + w^2)
-#         v1, v2 = -[u,v,w]/nv, nullspace(adjoint([u,v,w]))[:,1]
-#         v4 = (3*v1 + v2)/3.1623  # sqrt(10) to get unit vector
-#         v5 = v4 - 2*(v4'*v2)*v2
-#         (as < 0) && (nv = nv0) 
-#         v4, v5 = -as*nv*v4, -as*nv*v5
-#         plot!([x,x+u], [y,y+v], [z,z+w], lc=lc, la=la, lw=lw, scale=scale, label=false)
-#         plot!([x+u,x+u-v5[1]], [y+v,y+v-v5[2]], [z+w,z+w-v5[3]], lc=lc, la=la, lw=lw, label=false)
-#         plot!([x+u,x+u-v4[1]], [y+v,y+v-v4[2]], [z+w,z+w-v4[3]], lc=lc, la=la, lw=lw, label=false)
-#     end
-# end
+# as: arrow head size 0-1 (fraction of arrow length)
+# la: arrow alpha transparency 0-1
+function arrow3d!(x, y, z,  u, v, w; as=0.1, lc=:black, la=1, lw=0.4, scale=:identity)
+    (as < 0) && (nv0 = -maximum(norm.(eachrow([u v w]))))
+    for (x,y,z, u,v,w) in zip(x,y,z, u,v,w)
+        nv = sqrt(u^2 + v^2 + w^2)
+        v1, v2 = -[u,v,w]/nv, nullspace(adjoint([u,v,w]))[:,1]
+        v4 = (3*v1 + v2)/3.1623  # sqrt(10) to get unit vector
+        v5 = v4 - 2*(v4'*v2)*v2
+        (as < 0) && (nv = nv0) 
+        v4, v5 = -as*nv*v4, -as*nv*v5
+        plot!([x,x+u], [y,y+v], [z,z+w], lc=lc, la=la, lw=lw, scale=scale, label=false)
+        plot!([x+u,x+u-v5[1]], [y+v,y+v-v5[2]], [z+w,z+w-v5[3]], lc=lc, la=la, lw=lw, label=false)
+        plot!([x+u,x+u-v4[1]], [y+v,y+v-v4[2]], [z+w,z+w-v4[3]], lc=lc, la=la, lw=lw, label=false)
+    end
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -420,17 +170,20 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
-HypertextLiteral = "~0.9.5"
-LaTeXStrings = "~1.3.1"
+HypertextLiteral = "~0.9.4"
+LaTeXStrings = "~1.3.0"
 Latexify = "~0.16.1"
-Plots = "~1.39.0"
+Plots = "~1.38.17"
 PlutoTeachingTools = "~0.2.13"
-PlutoUI = "~0.7.54"
+PlutoUI = "~0.7.52"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -439,13 +192,13 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.4"
 manifest_format = "2.0"
-project_hash = "3de9e69372b946a1590d20512b29c49c228b9cb5"
+project_hash = "7c8199b4707fa1e8d9b74a403049ff826b5eea10"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
-git-tree-sha1 = "793501dcd3fa7ce8d375a2c878dca2296232686e"
+git-tree-sha1 = "91bd53c39b9cbfb5ef4b015e8b582d344532bd0a"
 uuid = "6e696c72-6542-2067-7265-42206c756150"
-version = "1.2.2"
+version = "1.2.0"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -458,9 +211,9 @@ uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[deps.BitFlags]]
-git-tree-sha1 = "2dc09997850d68179b69dafb58ae806167a32b1b"
+git-tree-sha1 = "43b1a4a8f797c1cddadf60499a8a077d4af2cd2d"
 uuid = "d1d4a3ce-64b1-5f1a-9ba4-7e7e69966f35"
-version = "0.1.8"
+version = "0.1.7"
 
 [[deps.Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -476,21 +229,21 @@ version = "1.16.1+1"
 
 [[deps.CodeTracking]]
 deps = ["InteractiveUtils", "UUIDs"]
-git-tree-sha1 = "c0216e792f518b39b22212127d4a84dc31e4e386"
+git-tree-sha1 = "a1296f0fe01a4c3f9bf0dc2934efbf4416f5db31"
 uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
-version = "1.3.5"
+version = "1.3.4"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
-git-tree-sha1 = "cd67fc487743b2f0fd4380d4cbd3a24660d0eec8"
+git-tree-sha1 = "02aa26a4cf76381be7f66e020a3eddeb27b0a092"
 uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
-version = "0.7.3"
+version = "0.7.2"
 
 [[deps.ColorSchemes]]
 deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "PrecompileTools", "Random"]
-git-tree-sha1 = "67c1f244b991cad9b0aa4b7540fb758c2488b129"
+git-tree-sha1 = "d9a8f86737b665e15a9641ecbac64deef9ce6724"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.24.0"
+version = "3.23.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -518,9 +271,9 @@ version = "0.12.10"
 
 [[deps.Compat]]
 deps = ["UUIDs"]
-git-tree-sha1 = "8a62af3e248a8c4bad6b32cbbe663ae02275e32c"
+git-tree-sha1 = "e460f044ca8b99be31d35fe54fc33a5c33dd8ed7"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "4.10.0"
+version = "4.9.0"
 weakdeps = ["Dates", "LinearAlgebra"]
 
     [deps.Compat.extensions]
@@ -533,9 +286,9 @@ version = "1.0.5+0"
 
 [[deps.ConcurrentUtilities]]
 deps = ["Serialization", "Sockets"]
-git-tree-sha1 = "8cfa272e8bdedfa88b6aefbbca7c19f1befac519"
+git-tree-sha1 = "5372dbbf8f0bdb8c700db5367132925c0771ef7e"
 uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
-version = "2.3.0"
+version = "2.2.1"
 
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
@@ -603,10 +356,10 @@ uuid = "c87230d0-a227-11e9-1b43-d7ebe4e7570a"
 version = "0.4.1"
 
 [[deps.FFMPEG_jll]]
-deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers", "LAME_jll", "Libdl", "Ogg_jll", "OpenSSL_jll", "Opus_jll", "PCRE2_jll", "Zlib_jll", "libaom_jll", "libass_jll", "libfdk_aac_jll", "libvorbis_jll", "x264_jll", "x265_jll"]
-git-tree-sha1 = "466d45dc38e15794ec7d5d63ec03d776a9aff36e"
+deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers", "LAME_jll", "Libdl", "Ogg_jll", "OpenSSL_jll", "Opus_jll", "PCRE2_jll", "Pkg", "Zlib_jll", "libaom_jll", "libass_jll", "libfdk_aac_jll", "libvorbis_jll", "x264_jll", "x265_jll"]
+git-tree-sha1 = "74faea50c1d007c85837327f6775bea60b5492dd"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
-version = "4.4.4+1"
+version = "4.4.2+2"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
@@ -649,15 +402,15 @@ version = "3.3.8+0"
 
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
-git-tree-sha1 = "27442171f28c952804dede8ff72828a96f2bfc1f"
+git-tree-sha1 = "d73afa4a2bb9de56077242d98cf763074ab9a970"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.72.10"
+version = "0.72.9"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "FreeType2_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt6Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "025d171a2847f616becc0f84c8dc62fe18f0f6dd"
+git-tree-sha1 = "1596bab77f4f073a14c62424283e7ebff3072eca"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.72.10+0"
+version = "0.72.9+1"
 
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
@@ -666,10 +419,10 @@ uuid = "78b55507-aeef-58d4-861c-77aaff3498b1"
 version = "0.21.0+0"
 
 [[deps.Glib_jll]]
-deps = ["Artifacts", "Gettext_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE2_jll", "Zlib_jll"]
-git-tree-sha1 = "e94c92c7bf4819685eb80186d51c43e71d4afa17"
+deps = ["Artifacts", "Gettext_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE2_jll", "Pkg", "Zlib_jll"]
+git-tree-sha1 = "d3b3624125c1474292d0d8ed0f65554ac37ddb23"
 uuid = "7746bdde-850d-59dc-9ae8-88ece973131d"
-version = "2.76.5+0"
+version = "2.74.0+2"
 
 [[deps.Graphite2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -684,9 +437,9 @@ version = "1.0.2"
 
 [[deps.HTTP]]
 deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "ExceptionUnwrapping", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
-git-tree-sha1 = "5eab648309e2e060198b45820af1a37182de3cce"
+git-tree-sha1 = "cb56ccdd481c0dd7f975ad2b3b62d9eda088f7e2"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "1.10.0"
+version = "1.9.14"
 
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
@@ -702,9 +455,9 @@ version = "0.0.4"
 
 [[deps.HypertextLiteral]]
 deps = ["Tricks"]
-git-tree-sha1 = "7134810b1afce04bbc1045ca1985fbe81ce17653"
+git-tree-sha1 = "c47c5fa4c5308f27ccaac35504858d8914e102f9"
 uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
-version = "0.9.5"
+version = "0.9.4"
 
 [[deps.IOCapture]]
 deps = ["Logging", "Random"]
@@ -723,9 +476,9 @@ version = "0.2.2"
 
 [[deps.JLFzf]]
 deps = ["Pipe", "REPL", "Random", "fzf_jll"]
-git-tree-sha1 = "9fb0b890adab1c0a4a475d4210d51f228bfc250d"
+git-tree-sha1 = "f377670cda23b6b7c1c0b3893e37451c5c1a2185"
 uuid = "1019f520-868f-41f5-a6de-eb00f4b6a39c"
-version = "0.1.6"
+version = "0.1.5"
 
 [[deps.JLLWrappers]]
 deps = ["Artifacts", "Preferences"]
@@ -747,9 +500,9 @@ version = "2.1.91+0"
 
 [[deps.JuliaInterpreter]]
 deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
-git-tree-sha1 = "0592b1810613d1c95eeebcd22dc11fba186c2a57"
+git-tree-sha1 = "e8ab063deed72e14666f9d8af17bd5f9eab04392"
 uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
-version = "0.9.26"
+version = "0.9.24"
 
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -776,9 +529,9 @@ uuid = "dd4b983a-f0e5-5f8d-a1b7-129d4a5fb1ac"
 version = "2.10.1+0"
 
 [[deps.LaTeXStrings]]
-git-tree-sha1 = "50901ebc375ed41dbf8058da26f9de442febbbec"
+git-tree-sha1 = "f2355693d6778a178ade15952b7ac47a4ff97996"
 uuid = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
-version = "1.3.1"
+version = "1.3.0"
 
 [[deps.Latexify]]
 deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "OrderedCollections", "Printf", "Requires"]
@@ -841,10 +594,10 @@ uuid = "7add5ba3-2f88-524e-9cd5-f83b8a55f7b8"
 version = "1.42.0+0"
 
 [[deps.Libiconv_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "f9557a255370125b405568f9767d6d195822a175"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "c7cb1f5d892775ba13767a87c7ada0b980ea0a71"
 uuid = "94ce4f54-9a6c-5748-9c1c-f9c7231a4531"
-version = "1.17.0+0"
+version = "1.16.1+2"
 
 [[deps.Libmount_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -870,9 +623,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "7d6dd4e9212aebaeed356de34ccf262a3cd415aa"
+git-tree-sha1 = "5ab83e1679320064c29e8973034357655743d22d"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.26"
+version = "0.3.25"
 
     [deps.LogExpFunctions.extensions]
     LogExpFunctionsChainRulesCoreExt = "ChainRulesCore"
@@ -889,9 +642,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.LoggingExtras]]
 deps = ["Dates", "Logging"]
-git-tree-sha1 = "c1dd6d7978c12545b4179fb6153b9250c96b0075"
+git-tree-sha1 = "cedb76b37bc5a6c702ade66be44f831fa23c681e"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
-version = "1.0.3"
+version = "1.0.0"
 
 [[deps.LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
@@ -906,19 +659,19 @@ version = "0.1.4"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
-git-tree-sha1 = "9ee1618cbf5240e6d4e0371d6f24065083f60c48"
+git-tree-sha1 = "42324d08725e200c23d4dfb549e0d5d89dede2d2"
 uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
-version = "0.5.11"
+version = "0.5.10"
 
 [[deps.Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[deps.MbedTLS]]
-deps = ["Dates", "MbedTLS_jll", "MozillaCACerts_jll", "NetworkOptions", "Random", "Sockets"]
-git-tree-sha1 = "c067a280ddc25f196b5e7df3877c6b226d390aaf"
+deps = ["Dates", "MbedTLS_jll", "MozillaCACerts_jll", "Random", "Sockets"]
+git-tree-sha1 = "03a9b9718f5682ecb107ac9f7308991db4ce395b"
 uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
-version = "1.1.9"
+version = "1.1.7"
 
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -977,9 +730,9 @@ version = "1.4.1"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "cc6e1927ac521b659af340e0ca45828a3ffc748f"
+git-tree-sha1 = "bbb5c2115d63c2f1451cb70e5ef75e8fe4707019"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "3.0.12+0"
+version = "1.1.22+0"
 
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -988,9 +741,9 @@ uuid = "91d4177d-7536-5919-b921-800302f37372"
 version = "1.3.2+0"
 
 [[deps.OrderedCollections]]
-git-tree-sha1 = "dfdf5519f235516220579f949664f1bf44e741c5"
+git-tree-sha1 = "2e73fe17cac3c62ad1aebe70d44c963c3cfdc3e3"
 uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
-version = "1.6.3"
+version = "1.6.2"
 
 [[deps.PCRE2_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -999,9 +752,9 @@ version = "10.42.0+0"
 
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools", "UUIDs"]
-git-tree-sha1 = "a935806434c9d4c506ba941871b327b96d41f2bf"
+git-tree-sha1 = "716e24b21538abc91f6205fd1d8363f39b442851"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.8.0"
+version = "2.7.2"
 
 [[deps.Pipe]]
 git-tree-sha1 = "6842804e7867b115ca9de748a0cf6b364523c16d"
@@ -1033,9 +786,9 @@ version = "1.3.5"
 
 [[deps.Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "UnitfulLatexify", "Unzip"]
-git-tree-sha1 = "ccee59c6e48e6f2edf8a5b64dc817b6729f99eb5"
+git-tree-sha1 = "9f8675a55b37a70aa23177ec110f6e3f4dd68466"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.39.0"
+version = "1.38.17"
 
     [deps.Plots.extensions]
     FileIOExt = "FileIO"
@@ -1071,31 +824,31 @@ version = "0.2.13"
 
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
-git-tree-sha1 = "bd7c69c7f7173097e7b5e1be07cee2b8b7447f51"
+git-tree-sha1 = "e47cd150dbe0443c3a3651bc5b9cbd5576ab75b7"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.54"
+version = "0.7.52"
 
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
-git-tree-sha1 = "03b4c25b43cb84cee5c90aa9b5ea0a78fd848d2f"
+git-tree-sha1 = "9673d39decc5feece56ef3940e5dafba15ba0f81"
 uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
-version = "1.2.0"
+version = "1.1.2"
 
 [[deps.Preferences]]
 deps = ["TOML"]
-git-tree-sha1 = "00805cd429dcb4870060ff49ef443486c262e38e"
+git-tree-sha1 = "7eb1686b4f04b82f96ed7a4ea5890a4f0c7a09f1"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
-version = "1.4.1"
+version = "1.4.0"
 
 [[deps.Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[deps.Qt6Base_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Vulkan_Loader_jll", "Xorg_libSM_jll", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_cursor_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "libinput_jll", "xkbcommon_jll"]
-git-tree-sha1 = "37b7bb7aabf9a085e0044307e1717436117f2b3b"
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
+git-tree-sha1 = "364898e8f13f7eaaceec55fd3d08680498c0aa6e"
 uuid = "c0090381-4147-56d7-9ebc-da0b1113ec56"
-version = "6.5.3+1"
+version = "6.4.2+3"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -1124,9 +877,9 @@ version = "1.2.2"
 
 [[deps.RelocatableFolders]]
 deps = ["SHA", "Scratch"]
-git-tree-sha1 = "ffdaf70d81cf6ff22c2b6e733c900c3321cab864"
+git-tree-sha1 = "90bc7a7c96410424509e4263e277e43250c05691"
 uuid = "05181044-ff0b-4ac5-8273-598c1e38db00"
-version = "1.0.1"
+version = "1.0.0"
 
 [[deps.Requires]]
 deps = ["UUIDs"]
@@ -1136,9 +889,9 @@ version = "1.3.0"
 
 [[deps.Revise]]
 deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
-git-tree-sha1 = "a38e7d70267283888bc83911626961f0b8d5966f"
+git-tree-sha1 = "1e597b93700fa4045d7189afa7c004e0584ea548"
 uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
-version = "3.5.9"
+version = "3.5.3"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1146,9 +899,9 @@ version = "0.7.0"
 
 [[deps.Scratch]]
 deps = ["Dates"]
-git-tree-sha1 = "3bac05bc7e74a75fd9cba4295cde4045d9fe2386"
+git-tree-sha1 = "30449ee12237627992a99d5e30ae63e4d78cd24a"
 uuid = "6c6a2e73-6563-6170-7368-637461726353"
-version = "1.2.1"
+version = "1.2.0"
 
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
@@ -1169,9 +922,9 @@ uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 
 [[deps.SortingAlgorithms]]
 deps = ["DataStructures"]
-git-tree-sha1 = "5165dfb9fd131cf0c6957a3a7605dede376e7b63"
+git-tree-sha1 = "c60ec5c62180f27efea3ba2908480f8055e17cee"
 uuid = "a2af1166-a08f-5f64-846c-94a0d3cef48c"
-version = "1.2.0"
+version = "1.1.1"
 
 [[deps.SparseArrays]]
 deps = ["Libdl", "LinearAlgebra", "Random", "Serialization", "SuiteSparse_jll"]
@@ -1184,15 +937,15 @@ version = "1.9.0"
 
 [[deps.StatsAPI]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "1ff449ad350c9c4cbc756624d6f8a8c3ef56d3ed"
+git-tree-sha1 = "45a7769a04a3cf80da1c1c7c60caf932e6f4c9f7"
 uuid = "82ae8749-77ed-4fe6-ae5f-f523153014b0"
-version = "1.7.0"
+version = "1.6.0"
 
 [[deps.StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "1d77abd07f617c4868c33d4f5b9e1dbb2643c9cf"
+git-tree-sha1 = "75ebe04c5bed70b91614d684259b661c9e6274a4"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.34.2"
+version = "0.34.0"
 
 [[deps.SuiteSparse_jll]]
 deps = ["Artifacts", "Libdl", "Pkg", "libblastrampoline_jll"]
@@ -1220,23 +973,20 @@ deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[deps.TranscodingStreams]]
-git-tree-sha1 = "1fbeaaca45801b4ba17c251dd8603ef24801dd84"
+deps = ["Random", "Test"]
+git-tree-sha1 = "9a6ae7ed916312b41236fcef7e0af564ef934769"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.10.2"
-weakdeps = ["Random", "Test"]
-
-    [deps.TranscodingStreams.extensions]
-    TestExt = ["Test", "Random"]
+version = "0.9.13"
 
 [[deps.Tricks]]
-git-tree-sha1 = "eae1bb484cd63b36999ee58be2de6c178105112f"
+git-tree-sha1 = "aadb748be58b492045b4f56166b5188aa63ce549"
 uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
-version = "0.1.8"
+version = "0.1.7"
 
 [[deps.URIs]]
-git-tree-sha1 = "67db6cc7b3821e19ebe75791a9dd19c9b1188f2b"
+git-tree-sha1 = "b7a5e99f24892b6824a954199a45e9ffcc1c70f0"
 uuid = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
-version = "1.5.1"
+version = "1.5.0"
 
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
@@ -1253,9 +1003,9 @@ version = "0.4.1"
 
 [[deps.Unitful]]
 deps = ["Dates", "LinearAlgebra", "Random"]
-git-tree-sha1 = "242982d62ff0d1671e9029b52743062739255c7e"
+git-tree-sha1 = "607c142139151faa591b5e80d8055a15e487095b"
 uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
-version = "1.18.0"
+version = "1.16.3"
 
     [deps.Unitful.extensions]
     ConstructionBaseUnitfulExt = "ConstructionBase"
@@ -1276,17 +1026,11 @@ git-tree-sha1 = "ca0969166a028236229f63514992fc073799bb78"
 uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
 version = "0.2.0"
 
-[[deps.Vulkan_Loader_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Wayland_jll", "Xorg_libX11_jll", "Xorg_libXrandr_jll", "xkbcommon_jll"]
-git-tree-sha1 = "2f0486047a07670caad3a81a075d2e518acc5c59"
-uuid = "a44049a8-05dd-5a78-86c9-5fde0876e88c"
-version = "1.3.243+0"
-
 [[deps.Wayland_jll]]
 deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
-git-tree-sha1 = "7558e29847e99bc3f04d6569e82d0f5c54460703"
+git-tree-sha1 = "ed8d92d9774b077c53e1da50fd81a36af3744c1c"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
-version = "1.21.0+1"
+version = "1.21.0+0"
 
 [[deps.Wayland_protocols_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1295,10 +1039,10 @@ uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
 version = "1.25.0+0"
 
 [[deps.XML2_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Zlib_jll"]
-git-tree-sha1 = "da69178aacc095066bad1f69d2f59a60a1dd8ad1"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
+git-tree-sha1 = "93c41695bc1c08c46c5899f4fe06d6ead504bb73"
 uuid = "02c8fc9c-b97f-50b9-bbe4-9be30ff0a78a"
-version = "2.12.0+0"
+version = "2.10.3+0"
 
 [[deps.XSLT_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libgcrypt_jll", "Libgpg_error_jll", "Libiconv_jll", "Pkg", "XML2_jll", "Zlib_jll"]
@@ -1308,21 +1052,9 @@ version = "1.1.34+0"
 
 [[deps.XZ_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "522b8414d40c4cbbab8dee346ac3a09f9768f25d"
+git-tree-sha1 = "cf2c7de82431ca6f39250d2fc4aacd0daa1675c0"
 uuid = "ffd25f8a-64ca-5728-b0f7-c24cf3aae800"
-version = "5.4.5+0"
-
-[[deps.Xorg_libICE_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "e5becd4411063bdcac16be8b66fc2f9f6f1e8fe5"
-uuid = "f67eecfb-183a-506d-b269-f58e52b52d7c"
-version = "1.0.10+1"
-
-[[deps.Xorg_libSM_jll]]
-deps = ["Libdl", "Pkg", "Xorg_libICE_jll"]
-git-tree-sha1 = "4a9d9e4c180e1e8119b5ffc224a7b59d3a7f7e18"
-uuid = "c834827a-8449-5923-a945-d239c165b7dd"
-version = "1.2.3+0"
+version = "5.4.4+0"
 
 [[deps.Xorg_libX11_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libxcb_jll", "Xorg_xtrans_jll"]
@@ -1402,12 +1134,6 @@ git-tree-sha1 = "730eeca102434283c50ccf7d1ecdadf521a765a4"
 uuid = "cc61e674-0454-545c-8b26-ed2c68acab7a"
 version = "1.1.2+0"
 
-[[deps.Xorg_xcb_util_cursor_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_jll", "Xorg_xcb_util_renderutil_jll"]
-git-tree-sha1 = "04341cb870f29dcd5e39055f895c39d016e18ccd"
-uuid = "e920d4aa-a673-5f3a-b3d7-f755a4d47c43"
-version = "0.1.4+0"
-
 [[deps.Xorg_xcb_util_image_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_xcb_util_jll"]
 git-tree-sha1 = "0fab0a40349ba1cba2c1da699243396ff8e94b97"
@@ -1467,23 +1193,11 @@ git-tree-sha1 = "49ce682769cd5de6c72dcf1b94ed7790cd08974c"
 uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
 version = "1.5.5+0"
 
-[[deps.eudev_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "gperf_jll"]
-git-tree-sha1 = "431b678a28ebb559d224c0b6b6d01afce87c51ba"
-uuid = "35ca27e7-8b34-5b7f-bca9-bdc33f59eb06"
-version = "3.2.9+0"
-
 [[deps.fzf_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "47cf33e62e138b920039e8ff9f9841aafe1b733e"
+git-tree-sha1 = "868e669ccb12ba16eaf50cb2957ee2ff61261c56"
 uuid = "214eeab7-80f7-51ab-84ad-2988db7cef09"
-version = "0.35.1+0"
-
-[[deps.gperf_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "3516a5630f741c9eecb3720b1ec9d8edc3ecc033"
-uuid = "1a1c6b14-54f6-533d-8383-74cd7377aa70"
-version = "3.1.1+0"
+version = "0.29.0+0"
 
 [[deps.libaom_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1502,23 +1216,11 @@ deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
 version = "5.8.0+0"
 
-[[deps.libevdev_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "141fe65dc3efabb0b1d5ba74e91f6ad26f84cc22"
-uuid = "2db6ffa8-e38f-5e21-84af-90c45d0032cc"
-version = "1.11.0+0"
-
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "daacc84a041563f965be61859a36e17c4e4fcd55"
 uuid = "f638f0a6-7fb0-5443-88ba-1cc74229b280"
 version = "2.0.2+0"
-
-[[deps.libinput_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "eudev_jll", "libevdev_jll", "mtdev_jll"]
-git-tree-sha1 = "ad50e5b90f222cfe78aa3d5183a20a12de1322ce"
-uuid = "36db933b-70db-51c0-b978-0f229ee0e533"
-version = "1.18.0+0"
 
 [[deps.libpng_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll"]
@@ -1531,12 +1233,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Ogg_jll", "Pkg"]
 git-tree-sha1 = "b910cb81ef3fe6e78bf6acee440bda86fd6ae00c"
 uuid = "f27f6e37-5d2b-51aa-960f-b287f2bc3b7a"
 version = "1.3.7+1"
-
-[[deps.mtdev_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "814e154bdb7be91d78b6802843f76b6ece642f11"
-uuid = "009596ad-96f7-51b1-9f1b-5ce2d5e8a71e"
-version = "1.1.6+0"
 
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1562,27 +1258,21 @@ version = "3.5.0+0"
 
 [[deps.xkbcommon_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Wayland_jll", "Wayland_protocols_jll", "Xorg_libxcb_jll", "Xorg_xkeyboard_config_jll"]
-git-tree-sha1 = "9c304562909ab2bab0262639bd4f444d7bc2be37"
+git-tree-sha1 = "9ebfc140cc56e8c2156a15ceac2f0302e327ac0a"
 uuid = "d8fb68d0-12a3-5cfd-a85a-d49703b185fd"
-version = "1.4.1+1"
+version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
 # ╟─9f90a18b-114f-4039-9aaf-f52c77205a49
 # ╟─3e2e1ea8-3a7d-462f-ac38-43a087907a14
+# ╟─52dcd4b9-9ef7-4128-a81d-d7e454cae9d6
+# ╟─19ebad08-8461-46fc-90bf-fcb1fa30d833
 # ╟─7bbf37e1-27fd-4871-bc1d-c9c3ecaac076
 # ╟─bc96a33d-9011-41ec-a19e-d472cbaafb70
-# ╟─f1b3460a-525f-4dcb-88c0-dfb016f4cc1a
-# ╟─d9d59d83-57cf-4c04-8a00-939c55bc5844
-# ╟─99e62f1e-4401-4e57-9706-6a534bf0d32e
-# ╟─457eeca6-b53b-4a55-b854-dc18c63405d4
-# ╟─21a7065a-b2bc-4999-bdc1-f64436b7302e
-# ╟─aec48a4c-89a3-46ce-a47f-a96f370edef3
-# ╟─29d42ace-2fce-4472-8c93-bd291be25e91
-# ╟─0c00a9a8-f903-4646-8a0d-a197993d89a3
-# ╟─477d1ddb-4488-4ad9-9329-24713001de2c
-# ╟─54ee84d1-c856-4404-86d2-c8170c430359
-# ╟─2d470200-a598-4645-ba01-8814f2af189d
+# ╟─b4a2d8f1-931f-4117-8bb9-bef95a20c81e
+# ╟─48ed6905-128b-4691-a633-d3bba195a7d1
+# ╠═19d7d2cb-8dbb-446f-83fb-28cb9aab48da
 # ╟─0734ddb1-a9a0-4fe1-b5ee-9a839a33d1dc
 # ╟─8687dbd1-4857-40e4-b9cb-af469b8563e2
 # ╟─fab7a0dd-3a9e-463e-a66b-432a6b2d8a1b
